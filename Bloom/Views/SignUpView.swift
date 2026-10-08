@@ -5,12 +5,7 @@ import SwiftUI
 struct SignUpView: View {
     @Environment(\.dismiss) private var dismiss
 
-    private enum Method: String, CaseIterable {
-        case phone = "Phone"
-        case email = "Email"
-    }
-
-    @State private var method: Method = .phone
+    @State private var method: AuthMethod = .phone
     @State private var username = ""
     @State private var phoneNumber = ""
     @State private var email = ""
@@ -22,10 +17,7 @@ struct SignUpView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("Method", selection: $method) {
-                    ForEach(Method.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                AuthMethodPicker(method: $method)
 
                 Section("Username") {
                     TextField("Username", text: $username)
@@ -47,9 +39,7 @@ struct SignUpView: View {
                     }
                 }
 
-                if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).font(.footnote)
-                }
+                FormErrorText(message: errorMessage)
             }
             .navigationTitle("Sign Up")
             .toolbar {
@@ -68,22 +58,14 @@ struct SignUpView: View {
     }
 
     private func submit() {
-        isSubmitting = true
-        errorMessage = nil
-
-        Task {
-            do {
-                switch method {
-                case .phone:
-                    verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
-                case .email:
-                    try await AuthService.shared.signUpWithEmail(email: email, password: password)
-                    try await AuthService.shared.createUserProfile(username: username, email: email, phoneNumber: nil)
-                }
-            } catch {
-                errorMessage = error.localizedDescription
+        performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
+            switch method {
+            case .phone:
+                verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
+            case .email:
+                try await AuthService.shared.signUpWithEmail(email: email, password: password)
+                try await AuthService.shared.createUserProfile(username: username, phoneNumber: nil)
             }
-            isSubmitting = false
         }
     }
 }

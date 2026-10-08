@@ -17,10 +17,10 @@ struct Friendship: Codable, Identifiable {
     var createdAt: Date
 }
 
-/// Handles finding a friend, by username or by matching phone contacts,
-/// and the request-then-accept flow that follows. Once a request is
-/// accepted, SharingService is what actually moves a note between the two
-/// accounts; this service only manages who is connected to whom.
+// Handles finding a friend, by username or by matching phone contacts,
+// and the request-then-accept flow that follows. Once a request is
+// accepted, SharingService is what actually moves a note between the two
+// accounts; this service only manages who is connected to whom.
 @MainActor
 final class FriendService: ObservableObject {
     static let shared = FriendService()
@@ -31,6 +31,16 @@ final class FriendService: ObservableObject {
     @Published var pendingRequesterNames: [String: String] = [:]
 
     private var listenersStarted = false
+    private var incomingRequestsListener: ListenerRegistration?
+    private var sentAcceptedListener: ListenerRegistration?
+    private var receivedAcceptedListener: ListenerRegistration?
+
+    // The two halves of `friends`, kept separate since they come from
+    // two differently-filtered listeners (security rules don't allow a
+    // single query across both directions) and are recombined whenever
+    // either one updates.
+    private var sentFriendUIDs: [String] = []
+    private var receivedFriendUIDs: [String] = []
 
     // MARK: - Search
 
@@ -43,7 +53,7 @@ final class FriendService: ObservableObject {
             .whereField("username", isLessThanOrEqualTo: username + "\u{f8ff}")
             .limit(to: 20)
             .getDocuments()
-        return snapshot.documents.compactMap { try? $0.data(as: FirestoreUser.self) }
+        return snapshot.decoded(as: FirestoreUser.self)
     }
 
     /// Matches phone numbers already saved in the user's contacts against
@@ -70,39 +80,38 @@ final class FriendService: ObservableObject {
         var localNumbers: Set<String> = []
         try store.enumerateContacts(with: request) { contact, _ in
             for number in contact.phoneNumbers {
-                localNumbers.insert(Self.normalize(number.value.stringValue))
+                localNumbers.insert(PhoneNumber.normalized(number.value.stringValue))
             }
         }
 
         guard !localNumbers.isEmpty else { return [] }
 
-        var matches: [FirestoreUser] = []
         // Firestore 'in' queries are capped at 30 values, so numbers are
         // checked in batches rather than one query per contact.
+        var matches: [FirestoreUser] = []
         for chunk in Array(localNumbers).chunked(into: 30) {
             let snapshot = try await db.collection("users")
                 .whereField("phoneNumber", in: chunk)
                 .getDocuments()
-            matches.append(contentsOf: snapshot.documents.compactMap { try? $0.data(as: FirestoreUser.self) })
+            matches.append(contentsOf: snapshot.decoded(as: FirestoreUser.self))
         }
         return matches
     }
 
-    private static func normalize(_ number: String) -> String {
-        number.filter(\.isNumber)
-    }
-
     // MARK: - Requests
 
+    /// Writes the friendship under a fixed `fromUID_toUID` document ID
+    /// rather than letting Firestore generate one, so the security
+    /// rules can check who's allowed to create it without a lookup.
     func sendFriendRequest(to user: FirestoreUser) async throws {
-        guard let myUID = Auth.auth().currentUser?.uid, let toUID = user.id else { return }
+        guard let myUID = Auth.auth().currentUser?.uid, let toUID = user.id, myUID != toUID else { return }
         let data: [String: Any] = [
             "fromUID": myUID,
             "toUID": toUID,
             "status": FriendRequestStatus.pending.rawValue,
             "createdAt": Date(),
         ]
-        try await db.collection("friendships").addDocument(data: data)
+        try await db.collection("friendships").document("\(myUID)_\(toUID)").setData(data)
     }
 
     func acceptFriendRequest(_ friendship: Friendship) async throws {
@@ -114,64 +123,94 @@ final class FriendService: ObservableObject {
 
     // MARK: - Live listeners
 
-    /// Starts two live listeners: one for incoming requests still waiting
-    /// on this user, one for already-accepted friendships in either
-    /// direction. Safe to call more than once, it only attaches once.
+    /// Starts three live listeners: incoming requests still waiting on
+    /// this user, accepted friendships this user sent, and accepted
+    /// friendships this user received. Accepted friendships need two
+    /// separate listeners rather than one unfiltered-by-user query,
+    /// since the security rules only allow reading friendships where
+    /// this user is the sender or the recipient. Safe to call more than
+    /// once, it only attaches once.
     func startListening() {
         guard !listenersStarted, let myUID = Auth.auth().currentUser?.uid else { return }
         listenersStarted = true
 
-        db.collection("friendships")
+        incomingRequestsListener = db.collection("friendships")
             .whereField("toUID", isEqualTo: myUID)
             .whereField("status", isEqualTo: FriendRequestStatus.pending.rawValue)
             .addSnapshotListener { [weak self] snapshot, _ in
                 guard let self else { return }
-                let requests = snapshot?.documents.compactMap { try? $0.data(as: Friendship.self) } ?? []
+                let requests = snapshot?.decoded(as: Friendship.self) ?? []
                 self.pendingIncoming = requests
                 Task { await self.loadRequesterNames(for: requests) }
             }
 
-        db.collection("friendships")
+        sentAcceptedListener = db.collection("friendships")
+            .whereField("fromUID", isEqualTo: myUID)
             .whereField("status", isEqualTo: FriendRequestStatus.accepted.rawValue)
             .addSnapshotListener { [weak self] snapshot, _ in
                 guard let self else { return }
-                let friendships = snapshot?.documents.compactMap { try? $0.data(as: Friendship.self) } ?? []
-                let friendUIDs = friendships.compactMap { friendship -> String? in
-                    if friendship.fromUID == myUID { return friendship.toUID }
-                    if friendship.toUID == myUID { return friendship.fromUID }
-                    return nil
-                }
-                Task { await self.loadUsers(uids: friendUIDs, into: \.friends) }
+                let friendships = snapshot?.decoded(as: Friendship.self) ?? []
+                self.sentFriendUIDs = friendships.map(\.toUID)
+                Task { await self.reloadFriends() }
             }
+
+        receivedAcceptedListener = db.collection("friendships")
+            .whereField("toUID", isEqualTo: myUID)
+            .whereField("status", isEqualTo: FriendRequestStatus.accepted.rawValue)
+            .addSnapshotListener { [weak self] snapshot, _ in
+                guard let self else { return }
+                let friendships = snapshot?.decoded(as: Friendship.self) ?? []
+                self.receivedFriendUIDs = friendships.map(\.fromUID)
+                Task { await self.reloadFriends() }
+            }
+    }
+
+    /// Detaches every listener and clears whatever they'd loaded, so a
+    /// newly signed-in user doesn't see the previous account's friends
+    /// and requests. Leaves the service ready for startListening() to be
+    /// called again.
+    func stopListening() {
+        incomingRequestsListener?.remove()
+        incomingRequestsListener = nil
+        sentAcceptedListener?.remove()
+        sentAcceptedListener = nil
+        receivedAcceptedListener?.remove()
+        receivedAcceptedListener = nil
+
+        sentFriendUIDs = []
+        receivedFriendUIDs = []
+        friends = []
+        pendingIncoming = []
+        pendingRequesterNames = [:]
+        listenersStarted = false
+    }
+
+    private func reloadFriends() async {
+        friends = await fetchUsers(withUIDs: sentFriendUIDs + receivedFriendUIDs)
     }
 
     private func loadRequesterNames(for requests: [Friendship]) async {
         let uids = Array(Set(requests.map(\.fromUID)))
-        guard !uids.isEmpty else { return }
-        for chunk in uids.chunked(into: 30) {
-            if let snapshot = try? await db.collection("users")
-                .whereField(FieldPath.documentID(), in: chunk)
-                .getDocuments() {
-                for doc in snapshot.documents {
-                    if let user = try? doc.data(as: FirestoreUser.self), let id = user.id {
-                        pendingRequesterNames[id] = user.username
-                    }
-                }
-            }
+        for user in await fetchUsers(withUIDs: uids) {
+            if let id = user.id { pendingRequesterNames[id] = user.username }
         }
     }
 
-    private func loadUsers(uids: [String], into keyPath: ReferenceWritableKeyPath<FriendService, [FirestoreUser]>) async {
-        guard !uids.isEmpty else { self[keyPath: keyPath] = []; return }
-        var loaded: [FirestoreUser] = []
+    /// Fetches the user records for a set of UIDs, in batches of 30
+    /// since that's the limit of a Firestore 'in' query. Shared by the
+    /// friends and requester-name listeners above, which both start from
+    /// a list of UIDs and want the matching FirestoreUser records.
+    private func fetchUsers(withUIDs uids: [String]) async -> [FirestoreUser] {
+        guard !uids.isEmpty else { return [] }
+        var users: [FirestoreUser] = []
         for chunk in uids.chunked(into: 30) {
             if let snapshot = try? await db.collection("users")
                 .whereField(FieldPath.documentID(), in: chunk)
                 .getDocuments() {
-                loaded.append(contentsOf: snapshot.documents.compactMap { try? $0.data(as: FirestoreUser.self) })
+                users.append(contentsOf: snapshot.decoded(as: FirestoreUser.self))
             }
         }
-        self[keyPath: keyPath] = loaded
+        return users
     }
 }
 

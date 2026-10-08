@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A22BE387307832D800805F62 /* CLAUDE.md in Resources */ = {isa = PBXBuildFile; fileRef = A22BE386307832D100805F62 /* CLAUDE.md */; };
 		A275C15630656C7B00BDF6C2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A275C15530656C7B00BDF6C2 /* FirebaseAuth */; };
 		A275C15830656C7B00BDF6C2 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = A275C15730656C7B00BDF6C2 /* FirebaseCore */; };
 		A275C15A30656C7B00BDF6C2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A275C15930656C7B00BDF6C2 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A22BE386307832D100805F62 /* CLAUDE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CLAUDE.md; sourceTree = "<group>"; };
 		A275C09F306567A200BDF6C2 /* Bloom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bloom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -27,6 +29,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A22BE3883078350D00805F62 /* Design */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Design;
+			sourceTree = "<group>";
+		};
 		A275C0A1306567A200BDF6C2 /* Bloom */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -54,6 +61,8 @@
 		A275C096306567A200BDF6C2 = {
 			isa = PBXGroup;
 			children = (
+				A22BE3883078350D00805F62 /* Design */,
+				A22BE386307832D100805F62 /* CLAUDE.md */,
 				A275C0A1306567A200BDF6C2 /* Bloom */,
 				A275C0A0306567A200BDF6C2 /* Products */,
 			);
@@ -83,6 +92,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				A22BE3883078350D00805F62 /* Design */,
 				A275C0A1306567A200BDF6C2 /* Bloom */,
 			);
 			name = Bloom;
@@ -103,7 +113,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2660;
-				LastUpgradeCheck = 2660;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					A275C09E306567A200BDF6C2 = {
 						CreatedOnToolsVersion = 26.6;
@@ -137,6 +147,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A22BE387307832D800805F62 /* CLAUDE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,6 +222,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -267,6 +279,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};

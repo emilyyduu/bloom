@@ -52,8 +52,7 @@ final class SharingService {
             .whereField("toUID", isEqualTo: myUID)
             .order(by: "sharedAt", descending: true)
             .addSnapshotListener { snapshot, _ in
-                let notes = snapshot?.documents.compactMap { try? $0.data(as: SharedNote.self) } ?? []
-                onChange(notes)
+                onChange(snapshot?.decoded(as: SharedNote.self) ?? [])
             }
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 extension Journal {
-    /// Finds (or creates and inserts) the journal for a given day.
+    // Finds (or creates and inserts) the journal for a given day.
     static func journal(for date: Date, in context: ModelContext) -> Journal {
         let startOfDay = Calendar.current.startOfDay(for: date)
 

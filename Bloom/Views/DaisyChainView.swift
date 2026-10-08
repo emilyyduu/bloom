@@ -6,23 +6,10 @@ import SwiftData
 /// moment it's saved, there is no publish step.
 struct DaisyChainView: View {
     @Environment(\.modelContext) private var context
-    @Query private var todaysNotes: [Note]
+    @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
 
     @State private var isShowingComposer = false
     @State private var noteToShare: Note?
-
-    init() {
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
-
-        _todaysNotes = Query(
-            filter: #Predicate<Note> { note in
-                note.createdAt >= startOfDay && note.createdAt < endOfDay && !note.isDraft
-            },
-            sort: \Note.createdAt,
-            order: .forward
-        )
-    }
 
     var body: some View {
         NavigationStack {

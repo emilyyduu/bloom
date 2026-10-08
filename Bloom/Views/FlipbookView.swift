@@ -4,20 +4,7 @@ import SwiftData
 /// The page-by-page view: today's notes shown one at a time, swiped
 /// through horizontally like a small book.
 struct FlipbookView: View {
-    @Query private var todaysNotes: [Note]
-
-    init() {
-        let startOfDay = Calendar.current.startOfDay(for: Date())
-        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
-
-        _todaysNotes = Query(
-            filter: #Predicate<Note> { note in
-                note.createdAt >= startOfDay && note.createdAt < endOfDay && !note.isDraft
-            },
-            sort: \Note.createdAt,
-            order: .forward
-        )
-    }
+    @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
 
     var body: some View {
         NavigationStack {

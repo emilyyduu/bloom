@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// A single journal entry: text and, optionally, a photo.
+// A single journal entry: text and, optionally, a photo.
 @Model
 final class Note {
     var id: UUID

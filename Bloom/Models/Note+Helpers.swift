@@ -22,6 +22,20 @@ extension Note {
         let url = FileManager.documentsDirectory.appendingPathComponent(fileName)
         return UIImage(contentsOfFile: url.path)
     }
+
+    // Used by DaisyChainView and FlipbookView, both of which page through
+    // today's saved notes in creation order.
+    static func todaysNotesDescriptor() -> FetchDescriptor<Note> {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay) ?? startOfDay
+
+        return FetchDescriptor<Note>(
+            predicate: #Predicate { note in
+                note.createdAt >= startOfDay && note.createdAt < endOfDay && !note.isDraft
+            },
+            sortBy: [SortDescriptor(\.createdAt, order: .forward)]
+        )
+    }
 }
 
 extension FileManager {

@@ -5,12 +5,7 @@ import SwiftUI
 struct LogInView: View {
     @Environment(\.dismiss) private var dismiss
 
-    private enum Method: String, CaseIterable {
-        case phone = "Phone"
-        case email = "Email"
-    }
-
-    @State private var method: Method = .phone
+    @State private var method: AuthMethod = .phone
     @State private var phoneNumber = ""
     @State private var email = ""
     @State private var password = ""
@@ -21,10 +16,7 @@ struct LogInView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Picker("Method", selection: $method) {
-                    ForEach(Method.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                AuthMethodPicker(method: $method)
 
                 switch method {
                 case .phone:
@@ -41,9 +33,7 @@ struct LogInView: View {
                     }
                 }
 
-                if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red).font(.footnote)
-                }
+                FormErrorText(message: errorMessage)
             }
             .navigationTitle("Log In")
             .toolbar {
@@ -62,21 +52,13 @@ struct LogInView: View {
     }
 
     private func submit() {
-        isSubmitting = true
-        errorMessage = nil
-
-        Task {
-            do {
-                switch method {
-                case .phone:
-                    verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
-                case .email:
-                    try await AuthService.shared.signInWithEmail(email: email, password: password)
-                }
-            } catch {
-                errorMessage = error.localizedDescription
+        performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
+            switch method {
+            case .phone:
+                verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
+            case .email:
+                try await AuthService.shared.signInWithEmail(email: email, password: password)
             }
-            isSubmitting = false
         }
     }
 }

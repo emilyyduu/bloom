@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 /// The one-time SMS code entry step. Shared by both sign-up and log-in,
 /// isNewAccount decides whether a Firestore user profile still needs to
@@ -18,9 +19,7 @@ struct PhoneVerificationView: View {
                 TextField("123456", text: $code)
                     .keyboardType(.numberPad)
             }
-            if let errorMessage {
-                Text(errorMessage).foregroundStyle(.red).font(.footnote)
-            }
+            FormErrorText(message: errorMessage)
         }
         .navigationTitle("Verify")
         .toolbar {
@@ -32,19 +31,12 @@ struct PhoneVerificationView: View {
     }
 
     private func verify() {
-        isSubmitting = true
-        errorMessage = nil
-
-        Task {
-            do {
-                try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
-                if isNewAccount {
-                    try await AuthService.shared.createUserProfile(username: username, email: nil, phoneNumber: nil)
-                }
-            } catch {
-                errorMessage = error.localizedDescription
+        performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
+            try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
+            if isNewAccount {
+                let phoneNumber = Auth.auth().currentUser?.phoneNumber.map(PhoneNumber.normalized)
+                try await AuthService.shared.createUserProfile(username: username, phoneNumber: phoneNumber)
             }
-            isSubmitting = false
         }
     }
 }

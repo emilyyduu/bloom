@@ -18,6 +18,7 @@ struct AddFriendView: View {
     @State private var requestedUIDs: Set<String> = []
     @State private var isSearching = false
     @State private var errorMessage: String?
+    @State private var requestErrorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -35,12 +36,7 @@ struct AddFriendView: View {
 
                 List(results) { user in
                     HStack {
-                        VStack(alignment: .leading) {
-                            Text(user.username)
-                            if let phone = user.phoneNumber {
-                                Text(phone).font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
+                        Text(user.username)
                         Spacer()
                         Button(requestedUIDs.contains(user.id ?? "") ? "Requested" : "Add") {
                             request(user)
@@ -60,6 +56,10 @@ struct AddFriendView: View {
                         )
                     }
                 }
+
+                FormErrorText(message: requestErrorMessage)
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
             }
             .navigationTitle("Add Friend")
             .toolbar {
@@ -102,8 +102,14 @@ struct AddFriendView: View {
     private func request(_ user: FirestoreUser) {
         guard let id = user.id else { return }
         requestedUIDs.insert(id)
+        requestErrorMessage = nil
         Task {
-            try? await friendService.sendFriendRequest(to: user)
+            do {
+                try await friendService.sendFriendRequest(to: user)
+            } catch {
+                requestedUIDs.remove(id)
+                requestErrorMessage = error.localizedDescription
+            }
         }
     }
 }
