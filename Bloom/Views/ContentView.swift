@@ -1,31 +1,63 @@
 import SwiftUI
 import SwiftData
 
-// The signed-in app's tab bar. Media logging (Movies & TV) and local
-// notifications aren't built yet at this stage, they're Week 9 work, so
-// this is deliberately three content tabs plus Circle.
+// The signed-in app's tab bar: Home, Journal, Add (a sheet trigger, not
+// a screen), Greenhouse and Profile.
 struct ContentView: View {
+    enum Tab: Hashable {
+        case home, journal, add, greenhouse, profile
+    }
+
+    @State private var selectedTab: Tab = .home
+    @State private var tabBeforeAdd: Tab = .home
+    @State private var isShowingComposer = false
+
     var body: some View {
-        TabView {
-            DaisyChainView()
+        TabView(selection: $selectedTab) {
+            HomeView(selectedTab: $selectedTab)
                 .tabItem {
-                    Label("Daisy Chain", systemImage: "list.bullet.rectangle")
+                    Label("Home", systemImage: "house")
                 }
+                .tag(Tab.home)
 
-            FlipbookView()
+            JournalView()
                 .tabItem {
-                    Label("Flipbook", systemImage: "book.pages")
+                    Label("Journal", systemImage: "book")
                 }
+                .tag(Tab.journal)
 
-            JournalHistoryListView()
+            Color.clear
                 .tabItem {
-                    Label("History", systemImage: "calendar")
+                    Label("Add", systemImage: "plus.circle.fill")
+                        .accessibilityLabel("Add petal")
                 }
+                .tag(Tab.add)
 
-            MyCircleView()
+            GreenhouseView()
                 .tabItem {
-                    Label("Circle", systemImage: "person.2")
+                    Label("Greenhouse", systemImage: "leaf")
                 }
+                .tag(Tab.greenhouse)
+
+            ProfileView()
+                .tabItem {
+                    Label("Profile", systemImage: "person")
+                }
+                .tag(Tab.profile)
+        }
+        // The Add tab is never actually shown: selecting it snaps the
+        // selection back to whichever tab was visible before and opens
+        // the composer as a sheet instead.
+        .onChange(of: selectedTab) { _, newValue in
+            guard newValue == .add else {
+                tabBeforeAdd = newValue
+                return
+            }
+            selectedTab = tabBeforeAdd
+            isShowingComposer = true
+        }
+        .sheet(isPresented: $isShowingComposer) {
+            NoteComposerView()
         }
     }
 }
