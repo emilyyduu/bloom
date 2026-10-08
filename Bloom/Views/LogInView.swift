@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Log-in for a returning user. No username field here, that's only
-/// needed once, at sign-up.
+// Log-in for a returning user. No username field here, that's only
+// needed once, at sign-up.
 struct LogInView: View {
     @Environment(\.dismiss) private var dismiss
 

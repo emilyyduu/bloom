@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Finding a friend works two ways: searching by username, or matching
-/// against the device's own contacts. Either path ends the same way, a
-/// friend request that the other person still has to accept.
+// Finding a friend works two ways: searching by username, or matching
+// against the device's own contacts. Either path ends the same way, a
+// friend request that the other person still has to accept.
 struct AddFriendView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var friendService = FriendService.shared

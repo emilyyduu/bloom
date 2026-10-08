@@ -1,15 +1,15 @@
 import SwiftUI
 
-/// The two ways a Bloom account signs in or signs up: a phone number
-/// verified by SMS, or an email and password. Shared by LogInView and
-/// SignUpView, which otherwise only differ in which fields they collect.
+// The two ways a Bloom account signs in or signs up: a phone number
+// verified by SMS, or an email and password. Shared by LogInView and
+// SignUpView, which otherwise only differ in which fields they collect.
 enum AuthMethod: String, CaseIterable {
     case phone = "Phone"
     case email = "Email"
 }
 
-/// The segmented control LogInView and SignUpView both use to choose
-/// between AuthMethod cases.
+// The segmented control LogInView and SignUpView both use to choose
+// between AuthMethod cases.
 struct AuthMethodPicker: View {
     @Binding var method: AuthMethod
 
@@ -21,8 +21,8 @@ struct AuthMethodPicker: View {
     }
 }
 
-/// The inline red footnote LogInView, SignUpView and PhoneVerificationView
-/// all show under their form when a request fails.
+// The inline red footnote LogInView, SignUpView and PhoneVerificationView
+// all show under their form when a request fails.
 struct FormErrorText: View {
     let message: String?
 
@@ -33,10 +33,10 @@ struct FormErrorText: View {
     }
 }
 
-/// Runs an async action while toggling a submission flag and capturing
-/// any thrown error's description. Shared by LogInView, SignUpView and
-/// PhoneVerificationView, which all talk to AuthService the same way:
-/// show a spinner, then either move on or show an inline error.
+// Runs an async action while toggling a submission flag and capturing
+// any thrown error's description. Shared by LogInView, SignUpView and
+// PhoneVerificationView, which all talk to AuthService the same way:
+// show a spinner, then either move on or show an inline error.
 @MainActor
 func performSubmission(
     isSubmitting: Binding<Bool>,

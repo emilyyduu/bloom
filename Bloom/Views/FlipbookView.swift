@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// The page-by-page view: today's notes shown one at a time, swiped
-/// through horizontally like a small book.
+// The page-by-page view: today's notes shown one at a time, swiped
+// through horizontally like a small book.
 struct FlipbookView: View {
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
 

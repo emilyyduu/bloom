@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// The signed-in app's tab bar. Media logging (Movies & TV) and local
-/// notifications aren't built yet at this stage, they're Week 9 work, so
-/// this is deliberately three content tabs plus Circle.
+// The signed-in app's tab bar. Media logging (Movies & TV) and local
+// notifications aren't built yet at this stage, they're Week 9 work, so
+// this is deliberately three content tabs plus Circle.
 struct ContentView: View {
     var body: some View {
         TabView {

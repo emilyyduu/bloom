@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Every past day that has at least one note in it. There's no published
-/// state to filter on, "past" just means not today.
+// Every past day that has at least one note in it. There's no published
+// state to filter on, "past" just means not today.
 struct JournalHistoryListView: View {
     @Query(sort: \Journal.date, order: .reverse) private var allJournals: [Journal]
 

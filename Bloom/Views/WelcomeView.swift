@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The entry point before sign-up or log-in. Shown whenever
-/// AuthService.isSignedIn is false.
+// The entry point before sign-up or log-in. Shown whenever
+// AuthService.isSignedIn is false.
 struct WelcomeView: View {
     @State private var isShowingSignUp = false
     @State private var isShowingLogIn = false

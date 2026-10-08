@@ -42,11 +42,10 @@ final class FriendService: ObservableObject {
     private var sentFriendUIDs: [String] = []
     private var receivedFriendUIDs: [String] = []
 
-    // MARK: - Search
-
-    /// A direct Firestore query against the `users` collection. This is
-    /// an open search by design, a username is something a person
-    /// chooses to be findable by.
+    // Search
+    // A direct Firestore query against the `users` collection. This is
+    // an open search by design, a username is something a person
+    // chooses to be findable by.
     func searchByUsername(_ username: String) async throws -> [FirestoreUser] {
         let snapshot = try await db.collection("users")
             .whereField("username", isGreaterThanOrEqualTo: username)
@@ -56,10 +55,10 @@ final class FriendService: ObservableObject {
         return snapshot.decoded(as: FirestoreUser.self)
     }
 
-    /// Matches phone numbers already saved in the user's contacts against
-    /// registered Bloom accounts. Only numbers the device already has
-    /// saved are ever checked against `users`, nothing is uploaded in
-    /// bulk and an arbitrary number can't be probed this way.
+    // Matches phone numbers already saved in the user's contacts against
+    // registered Bloom accounts. Only numbers the device already has
+    // saved are ever checked against `users`, nothing is uploaded in
+    // bulk and an arbitrary number can't be probed this way.
     func searchByContacts() async throws -> [FirestoreUser] {
         let store = CNContactStore()
 
@@ -98,11 +97,10 @@ final class FriendService: ObservableObject {
         return matches
     }
 
-    // MARK: - Requests
-
-    /// Writes the friendship under a fixed `fromUID_toUID` document ID
-    /// rather than letting Firestore generate one, so the security
-    /// rules can check who's allowed to create it without a lookup.
+    // Requests:
+    // Writes the friendship under a fixed `fromUID_toUID` document ID
+    // rather than letting Firestore generate one, so the security
+    // rules can check who's allowed to create it without a lookup.
     func sendFriendRequest(to user: FirestoreUser) async throws {
         guard let myUID = Auth.auth().currentUser?.uid, let toUID = user.id, myUID != toUID else { return }
         let data: [String: Any] = [
@@ -121,15 +119,14 @@ final class FriendService: ObservableObject {
         ])
     }
 
-    // MARK: - Live listeners
-
-    /// Starts three live listeners: incoming requests still waiting on
-    /// this user, accepted friendships this user sent, and accepted
-    /// friendships this user received. Accepted friendships need two
-    /// separate listeners rather than one unfiltered-by-user query,
-    /// since the security rules only allow reading friendships where
-    /// this user is the sender or the recipient. Safe to call more than
-    /// once, it only attaches once.
+    // Live listeners:
+    // Starts three live listeners: incoming requests still waiting on
+    // this user, accepted friendships this user sent, and accepted
+    // friendships this user received. Accepted friendships need two
+    // separate listeners rather than one unfiltered-by-user query,
+    // since the security rules only allow reading friendships where
+    // this user is the sender or the recipient. Safe to call more than
+    // once, it only attaches once.
     func startListening() {
         guard !listenersStarted, let myUID = Auth.auth().currentUser?.uid else { return }
         listenersStarted = true
@@ -165,10 +162,10 @@ final class FriendService: ObservableObject {
             }
     }
 
-    /// Detaches every listener and clears whatever they'd loaded, so a
-    /// newly signed-in user doesn't see the previous account's friends
-    /// and requests. Leaves the service ready for startListening() to be
-    /// called again.
+    // Detaches every listener and clears whatever they'd loaded, so a
+    // newly signed-in user doesn't see the previous account's friends
+    // and requests. Leaves the service ready for startListening() to be
+    // called again.
     func stopListening() {
         incomingRequestsListener?.remove()
         incomingRequestsListener = nil
@@ -196,10 +193,10 @@ final class FriendService: ObservableObject {
         }
     }
 
-    /// Fetches the user records for a set of UIDs, in batches of 30
-    /// since that's the limit of a Firestore 'in' query. Shared by the
-    /// friends and requester-name listeners above, which both start from
-    /// a list of UIDs and want the matching FirestoreUser records.
+    // Fetches the user records for a set of UIDs, in batches of 30
+    // since that's the limit of a Firestore 'in' query. Shared by the
+    // friends and requester-name listeners above, which both start from
+    // a list of UIDs and want the matching FirestoreUser records.
     private func fetchUsers(withUIDs uids: [String]) async -> [FirestoreUser] {
         guard !uids.isEmpty else { return [] }
         var users: [FirestoreUser] = []

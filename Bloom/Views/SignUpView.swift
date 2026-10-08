@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Signing up asks for phone or email first, then only shows the fields
-/// for whichever one is picked, rather than presenting one long form.
+// Signing up asks for phone or email first, then only shows the fields
+// for whichever one is picked, rather than presenting one long form.
 struct SignUpView: View {
     @Environment(\.dismiss) private var dismiss
 

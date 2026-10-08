@@ -1,9 +1,9 @@
 import SwiftUI
 import SwiftData
 
-/// The vertical timeline view: every note logged today, in order, each
-/// linked to the next like flowers in a chain. A note appears here the
-/// moment it's saved, there is no publish step.
+// The vertical timeline view: every note logged today, in order, each
+// linked to the next like flowers in a chain. A note appears here the
+// moment it's saved, there is no publish step.
 struct DaisyChainView: View {
     @Environment(\.modelContext) private var context
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]

@@ -1,9 +1,9 @@
 import SwiftUI
 import FirebaseAuth
 
-/// The one-time SMS code entry step. Shared by both sign-up and log-in,
-/// isNewAccount decides whether a Firestore user profile still needs to
-/// be created once the code is confirmed.
+// The one-time SMS code entry step. Shared by both sign-up and log-in,
+// isNewAccount decides whether a Firestore user profile still needs to
+// be created once the code is confirmed.
 struct PhoneVerificationView: View {
     let verificationID: String
     let username: String

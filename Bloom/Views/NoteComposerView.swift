@@ -2,9 +2,9 @@ import SwiftUI
 import PhotosUI
 import SwiftData
 
-/// Lets the user write a note, optionally attach a photo, and either save
-/// it as a draft or add it straight to today's journal. Adding a note is
-/// immediate, there is nothing further to publish.
+// Lets the user write a note, optionally attach a photo, and either save
+// it as a draft or add it straight to today's journal. Adding a note is
+// immediate, there is nothing further to publish.
 struct NoteComposerView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
