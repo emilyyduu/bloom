@@ -8,46 +8,30 @@ struct DaisyChainView: View {
     @Environment(\.modelContext) private var context
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
 
-    @State private var isShowingComposer = false
     @State private var noteToShare: Note?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(todaysNotes.enumerated()), id: \.element.id) { index, note in
-                        DaisyChainRow(note: note, isLast: index == todaysNotes.count - 1) {
-                            noteToShare = note
-                        }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(todaysNotes.enumerated()), id: \.element.id) { index, note in
+                    DaisyChainRow(note: note, isLast: index == todaysNotes.count - 1) {
+                        noteToShare = note
                     }
+                }
 
-                    if todaysNotes.isEmpty {
-                        ContentUnavailableView(
-                            "No notes yet today",
-                            systemImage: "leaf",
-                            description: Text("Tap + to add the first petal to today's chain.")
-                        )
-                        .padding(.top, 60)
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle("Today's Daisy Chain")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        isShowingComposer = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                    }
+                if todaysNotes.isEmpty {
+                    ContentUnavailableView(
+                        "No notes yet today",
+                        systemImage: "leaf",
+                        description: Text("Tap Add to add the first petal to today's chain.")
+                    )
+                    .padding(.top, 60)
                 }
             }
-            .sheet(isPresented: $isShowingComposer) {
-                NoteComposerView()
-            }
-            .sheet(item: $noteToShare) { note in
-                ShareToFriendView(note: note)
-            }
+            .padding()
+        }
+        .sheet(item: $noteToShare) { note in
+            ShareToFriendView(note: note)
         }
     }
 }
@@ -100,6 +84,8 @@ private struct DaisyChainRow: View {
 }
 
 #Preview {
-    DaisyChainView()
-        .modelContainer(PreviewContainer.shared)
+    NavigationStack {
+        DaisyChainView()
+    }
+    .modelContainer(PreviewContainer.shared)
 }
