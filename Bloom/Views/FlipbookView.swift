@@ -48,6 +48,10 @@ private struct FlipbookPage: View {
                 .font(.title3)
                 .multilineTextAlignment(.center)
 
+            if let mediaLogEntry = note.mediaLogEntry {
+                MediaLogChip(entry: mediaLogEntry)
+            }
+
             Spacer()
         }
         .padding()

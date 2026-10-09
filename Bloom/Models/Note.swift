@@ -11,6 +11,7 @@ final class Note {
     var isDraft: Bool
 
     var journal: Journal?
+    var mediaLogEntry: MediaLogEntry?
 
     init(text: String, photoFileName: String? = nil) {
         self.id = UUID()

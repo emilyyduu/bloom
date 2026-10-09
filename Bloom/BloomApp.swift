@@ -22,6 +22,6 @@ struct BloomApp: App {
             }
             .preferredColorScheme((AppAppearance(rawValue: appearanceRawValue) ?? .system).colorScheme)
         }
-        .modelContainer(for: [Note.self, Journal.self])
+        .modelContainer(for: [Note.self, Journal.self, MediaLogEntry.self])
     }
 }

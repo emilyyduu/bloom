@@ -77,6 +77,10 @@ private struct DaisyChainRow: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .clipped()
                 }
+
+                if let mediaLogEntry = note.mediaLogEntry {
+                    MediaLogChip(entry: mediaLogEntry)
+                }
             }
             .padding(.bottom, 20)
         }
