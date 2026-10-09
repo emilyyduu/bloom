@@ -5,6 +5,7 @@ import FirebaseCore
 @main
 struct BloomApp: App {
     @StateObject private var authService = AuthService.shared
+    @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
 
     init() {
         FirebaseApp.configure()
@@ -19,6 +20,7 @@ struct BloomApp: App {
                     WelcomeView()
                 }
             }
+            .preferredColorScheme((AppAppearance(rawValue: appearanceRawValue) ?? .system).colorScheme)
         }
         .modelContainer(for: [Note.self, Journal.self])
     }
