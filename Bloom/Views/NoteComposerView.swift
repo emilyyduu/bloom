@@ -77,6 +77,7 @@ struct NoteComposerView: View {
 
         if !asDraft {
             NotificationScheduler.shared.cancelTodaysReminder()
+            Task { await StreakSyncService.shared.sync(context: context) }
         }
 
         dismiss()
