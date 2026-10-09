@@ -12,30 +12,28 @@ struct JournalHistoryListView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List(pastJournals) { journal in
-                NavigationLink {
-                    JournalDetailView(journal: journal)
-                } label: {
-                    VStack(alignment: .leading) {
-                        Text(journal.date, style: .date)
-                            .font(.headline)
-                        let count = journal.sortedNotes.count
-                        Text("\(count) note\(count == 1 ? "" : "s")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+        List(pastJournals) { journal in
+            NavigationLink {
+                JournalDetailView(journal: journal)
+            } label: {
+                VStack(alignment: .leading) {
+                    Text(journal.date, style: .date)
+                        .font(.headline)
+                    let count = journal.sortedNotes.count
+                    Text("\(count) note\(count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Your Journals")
-            .overlay {
-                if pastJournals.isEmpty {
-                    ContentUnavailableView(
-                        "No days yet",
-                        systemImage: "book.closed",
-                        description: Text("Your days will appear here once you've logged a few notes.")
-                    )
-                }
+        }
+        .navigationTitle("Your Journals")
+        .overlay {
+            if pastJournals.isEmpty {
+                ContentUnavailableView(
+                    "No days yet",
+                    systemImage: "book.closed",
+                    description: Text("Your days will appear here once you've logged a few notes.")
+                )
             }
         }
     }
@@ -70,6 +68,8 @@ private struct JournalDetailView: View {
 }
 
 #Preview {
-    JournalHistoryListView()
-        .modelContainer(PreviewContainer.shared)
+    NavigationStack {
+        JournalHistoryListView()
+    }
+    .modelContainer(PreviewContainer.shared)
 }

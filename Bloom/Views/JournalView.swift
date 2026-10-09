@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // The Journal tab: the same day's notes shown three ways, switched
 // with a segmented control rather than three separate tabs.
