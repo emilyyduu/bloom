@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // Stored with @AppStorage and applied at the app root in BloomApp, so
 // it takes effect everywhere, not just while Settings is on screen.
@@ -20,8 +21,11 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
 
+    @Environment(\.modelContext) private var context
+
     @State private var isShowingSignOutConfirmation = false
     @State private var errorMessage: String?
+    @State private var reminderErrorMessage: String?
 
     private var appearance: Binding<AppAppearance> {
         Binding(
@@ -40,9 +44,17 @@ struct SettingsView: View {
             }
 
             Section("Notifications") {
-                // TODO: wire this up to a NotificationScheduler once daily
-                // reminders are built; for now it only persists the toggle.
                 Toggle("Daily Reminder", isOn: $isDailyReminderEnabled)
+                    .onChange(of: isDailyReminderEnabled) { _, isEnabled in
+                        handleReminderToggle(isEnabled)
+                    }
+                FormErrorText(message: reminderErrorMessage)
+
+                #if DEBUG
+                Button("Send Test Notification (5s)") {
+                    NotificationScheduler.shared.sendTestNotification()
+                }
+                #endif
             }
 
             Section {
@@ -63,6 +75,26 @@ struct SettingsView: View {
         }
     }
 
+    private func handleReminderToggle(_ isEnabled: Bool) {
+        reminderErrorMessage = nil
+
+        guard isEnabled else {
+            Task { await NotificationScheduler.shared.refreshReminders(enabled: false, context: context) }
+            return
+        }
+
+        Task {
+            let granted = await NotificationScheduler.shared.requestAuthorization()
+            if granted {
+                await NotificationScheduler.shared.refreshReminders(enabled: true, context: context)
+            } else {
+                isDailyReminderEnabled = false
+                reminderErrorMessage = "Bloom needs notification permission for reminders. " +
+                    "Turn it on in iOS Settings > Bloom > Notifications."
+            }
+        }
+    }
+
     private func signOut() {
         FriendService.shared.stopListening()
         do {
@@ -77,4 +109,5 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
     }
+    .modelContainer(PreviewContainer.shared)
 }

@@ -74,6 +74,11 @@ struct NoteComposerView: View {
         }
 
         try? context.save()
+
+        if !asDraft {
+            NotificationScheduler.shared.cancelTodaysReminder()
+        }
+
         dismiss()
     }
 

@@ -12,6 +12,10 @@ struct ContentView: View {
     @State private var tabBeforeAdd: Tab = .home
     @State private var isShowingComposer = false
 
+    @Environment(\.modelContext) private var context
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
+
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView(selectedTab: $selectedTab)
@@ -58,6 +62,15 @@ struct ContentView: View {
         }
         .sheet(isPresented: $isShowingComposer) {
             NoteComposerView()
+        }
+        .task {
+            await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task {
+                await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
+            }
         }
     }
 }
