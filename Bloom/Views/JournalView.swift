@@ -11,6 +11,7 @@ struct JournalView: View {
     }
 
     @State private var segment: Segment = .daisyChain
+    @State private var isShowingMediaSearch = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,21 @@ struct JournalView: View {
                 }
             }
             .navigationTitle(segment.rawValue)
+            .toolbar {
+                if segment == .library {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            isShowingMediaSearch = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .accessibilityLabel("Log a movie or show")
+                    }
+                }
+            }
+            .sheet(isPresented: $isShowingMediaSearch) {
+                MediaSearchView()
+            }
         }
     }
 }
