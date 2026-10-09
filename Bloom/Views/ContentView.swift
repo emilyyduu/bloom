@@ -65,11 +65,13 @@ struct ContentView: View {
         }
         .task {
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
+            await StreakSyncService.shared.sync(context: context)
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Task {
                 await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
+                await StreakSyncService.shared.sync(context: context)
             }
         }
     }
