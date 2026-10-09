@@ -7,26 +7,23 @@ struct FlipbookView: View {
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if todaysNotes.isEmpty {
-                    ContentUnavailableView(
-                        "No pages yet",
-                        systemImage: "book",
-                        description: Text("Notes you add today will appear here as pages.")
-                    )
-                } else {
-                    TabView {
-                        ForEach(todaysNotes) { note in
-                            FlipbookPage(note: note)
-                                .padding()
-                        }
+        Group {
+            if todaysNotes.isEmpty {
+                ContentUnavailableView(
+                    "No pages yet",
+                    systemImage: "book",
+                    description: Text("Notes you add today will appear here as pages.")
+                )
+            } else {
+                TabView {
+                    ForEach(todaysNotes) { note in
+                        FlipbookPage(note: note)
+                            .padding()
                     }
-                    .tabViewStyle(.page)
-                    .indexViewStyle(.page(backgroundDisplayMode: .always))
                 }
+                .tabViewStyle(.page)
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
             }
-            .navigationTitle("Flipbook")
         }
     }
 }
@@ -62,6 +59,8 @@ private struct FlipbookPage: View {
 }
 
 #Preview {
-    FlipbookView()
-        .modelContainer(PreviewContainer.shared)
+    NavigationStack {
+        FlipbookView()
+    }
+    .modelContainer(PreviewContainer.shared)
 }
