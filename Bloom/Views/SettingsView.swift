@@ -21,7 +21,12 @@ struct SettingsView: View {
     @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
 
+    #if DEBUG
+    @AppStorage("gardenSampleDataEnabled") private var isGardenSampleDataEnabled = false
+    #endif
+
     @Environment(\.modelContext) private var context
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var isShowingSignOutConfirmation = false
     @State private var errorMessage: String?
@@ -36,14 +41,13 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Appearance") {
-                Picker("Appearance", selection: appearance) {
-                    ForEach(AppAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+            Section {
+                appearancePicker
+            } header: {
+                SectionHeader("Appearance")
             }
 
-            Section("Notifications") {
+            Section {
                 Toggle("Daily Reminder", isOn: $isDailyReminderEnabled)
                     .onChange(of: isDailyReminderEnabled) { _, isEnabled in
                         handleReminderToggle(isEnabled)
@@ -55,7 +59,17 @@ struct SettingsView: View {
                     NotificationScheduler.shared.sendTestNotification()
                 }
                 #endif
+            } header: {
+                SectionHeader("Notifications")
             }
+
+            #if DEBUG
+            Section {
+                Toggle("Preview garden with sample data", isOn: $isGardenSampleDataEnabled)
+            } header: {
+                SectionHeader("Debug")
+            }
+            #endif
 
             Section {
                 Button("Sign Out", role: .destructive) {
@@ -72,6 +86,24 @@ struct SettingsView: View {
         ) {
             Button("Sign Out", role: .destructive) { signOut() }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    // The segmented style truncates "System"/"Light"/"Dark" at
+    // accessibility sizes, so it becomes a menu instead, same as the
+    // Journal segmented control.
+    @ViewBuilder
+    private var appearancePicker: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            Picker("Appearance", selection: appearance) {
+                ForEach(AppAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Picker("Appearance", selection: appearance) {
+                ForEach(AppAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
         }
     }
 
@@ -97,6 +129,7 @@ struct SettingsView: View {
 
     private func signOut() {
         FriendService.shared.stopListening()
+        GardenService.shared.stopListening()
         do {
             try AuthService.shared.signOut()
         } catch {
@@ -105,9 +138,42 @@ struct SettingsView: View {
     }
 }
 
-#Preview {
+#Preview("Light") {
     NavigationStack {
         SettingsView()
     }
     .modelContainer(PreviewContainer.shared)
+    .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    NavigationStack {
+        SettingsView()
+    }
+    .modelContainer(PreviewContainer.shared)
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Dynamic Type - Large") {
+    NavigationStack {
+        SettingsView()
+    }
+    .modelContainer(PreviewContainer.shared)
+    .environment(\.dynamicTypeSize, .large)
+}
+
+#Preview("Dynamic Type - XXX Large") {
+    NavigationStack {
+        SettingsView()
+    }
+    .modelContainer(PreviewContainer.shared)
+    .environment(\.dynamicTypeSize, .xxxLarge)
+}
+
+#Preview("Dynamic Type - Accessibility 5") {
+    NavigationStack {
+        SettingsView()
+    }
+    .modelContainer(PreviewContainer.shared)
+    .environment(\.dynamicTypeSize, .accessibility5)
 }

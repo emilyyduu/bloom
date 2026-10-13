@@ -32,6 +32,7 @@ struct StarRatingPicker: View {
                 } label: {
                     Image(systemName: star <= rating ? "star.fill" : "star")
                         .font(.title2)
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .accessibilityLabel("\(star) star\(star == 1 ? "" : "s")")
                 .accessibilityAddTraits(star == rating ? .isSelected : [])
