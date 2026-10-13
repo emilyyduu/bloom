@@ -32,15 +32,16 @@ struct MediaRatingView: View {
                 }
 
                 if !todaysNotes.isEmpty {
-                    Section("Attach to a note") {
+                    Section {
                         Picker("Note", selection: $selectedNote) {
                             Text("None").tag(Note?.none)
                             ForEach(todaysNotes) { note in
                                 Text(note.text.isEmpty ? "Untitled note" : note.text)
-                                    .lineLimit(1)
                                     .tag(Optional(note))
                             }
                         }
+                    } header: {
+                        SectionHeader("Attach to a note")
                     }
                 }
 

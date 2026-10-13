@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var tabBeforeAdd: Tab = .home
     @State private var isShowingComposer = false
 
+    @StateObject private var friendService = FriendService.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
@@ -48,6 +49,7 @@ struct ContentView: View {
                     Label("Profile", systemImage: "person")
                 }
                 .tag(Tab.profile)
+                .badge(friendService.pendingIncoming.count)
         }
         // The Add tab is never actually shown: selecting it snaps the
         // selection back to whichever tab was visible before and opens
@@ -64,6 +66,7 @@ struct ContentView: View {
             NoteComposerView()
         }
         .task {
+            friendService.startListening()
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
             await StreakSyncService.shared.sync(context: context)
         }

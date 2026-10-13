@@ -16,12 +16,14 @@ struct NoteComposerView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("What's happening?") {
+                Section {
                     TextEditor(text: $text)
                         .frame(minHeight: 120)
+                } header: {
+                    SectionHeader("What's happening?")
                 }
 
-                Section("Photo") {
+                Section {
                     PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                         Label(
                             selectedPhotoData == nil ? "Add a photo" : "Change photo",
@@ -36,6 +38,8 @@ struct NoteComposerView: View {
                             .frame(maxHeight: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                } header: {
+                    SectionHeader("Photo")
                 }
             }
             .navigationTitle("New Note")

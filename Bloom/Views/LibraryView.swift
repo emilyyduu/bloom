@@ -6,8 +6,11 @@ import SwiftData
 struct LibraryView: View {
     @Query(sort: \MediaLogEntry.loggedAt, order: .reverse) private var entries: [MediaLogEntry]
     @State private var selectedEntry: MediaLogEntry?
+    @ScaledMetric(relativeTo: .body) private var minimumColumnWidth: CGFloat = 110
 
-    private let columns = [GridItem(.adaptive(minimum: 110), spacing: 16)]
+    private var columns: [GridItem] {
+        [GridItem(.adaptive(minimum: minimumColumnWidth), spacing: 16)]
+    }
 
     var body: some View {
         Group {

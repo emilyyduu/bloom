@@ -16,24 +16,49 @@ struct ScreenHeader<Trailing: View>: View {
     let title: String
     private let trailing: () -> Trailing
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
     init(_ title: String, @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() }) {
         self.title = title
         self.trailing = trailing
     }
 
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+
+    // At accessibility sizes the title can easily run to two or three
+    // lines, so the trailing button moves below it instead of being
+    // squeezed into a shrinking sliver beside it.
+    private var layout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+    }
+
     var body: some View {
-        HStack(alignment: .top) {
+        layout {
             Text(title)
-                .font(.largeTitle.bold())
+                .font(isCompactHeight ? Theme.Fonts.screenTitleCompact : Theme.Fonts.screenTitle)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
 
-            Spacer(minLength: 8)
-
-            trailing()
+            if dynamicTypeSize.isAccessibilitySize {
+                trailing()
+            } else {
+                Spacer(minLength: 8)
+                trailing()
+            }
         }
         .padding(.horizontal)
-        .padding(.top, 10)
+        .padding(.top, isCompactHeight ? 8 : 10)
+        .padding(.bottom, isCompactHeight ? 8 : 0)
+        // Intentionally transparent: this component doesn't know what
+        // kind of content sits below it (a List's grouped grey, a plain
+        // ScrollView's system background, and so on), so it never paints
+        // its own background. Each screen is responsible for giving its
+        // outer container a background that matches its content, so
+        // there's no seam between the header and whatever follows it.
+        .background(Color.clear)
     }
 }
 

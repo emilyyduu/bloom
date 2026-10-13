@@ -12,14 +12,12 @@ struct RequestsView: View {
 
     @State private var segment: Segment = .incoming
     @State private var errorMessage: String?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Requests", selection: $segment) {
-                ForEach(Segment.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .padding()
+            segmentPicker
+                .padding()
 
             Group {
                 switch segment {
@@ -36,6 +34,24 @@ struct RequestsView: View {
         }
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // The segmented style truncates "Incoming"/"Outgoing" at
+    // accessibility sizes, so it becomes a menu instead; the binding is
+    // unchanged either way, so the current choice is never lost.
+    @ViewBuilder
+    private var segmentPicker: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            Picker("Requests", selection: $segment) {
+                ForEach(Segment.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Picker("Requests", selection: $segment) {
+                ForEach(Segment.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        }
     }
 
     private var incomingList: some View {
@@ -120,14 +136,26 @@ private func relativeTime(since date: Date) -> String {
     return formatter.localizedString(for: date, relativeTo: Date())
 }
 
+// At accessibility sizes the trailing buttons move below the name and
+// timestamp instead of squeezing them into a shrinking leading column.
+// Shared by both row types below.
+private func rowLayout(_ dynamicTypeSize: DynamicTypeSize) -> AnyLayout {
+    dynamicTypeSize.isAccessibilitySize
+        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+        : AnyLayout(HStackLayout())
+}
+
 private struct IncomingRequestRow: View {
     let request: Friendship
     let name: String
     let onAccept: () -> Void
     let onDecline: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack {
+        let layout = rowLayout(dynamicTypeSize)
+        layout {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                 Text(relativeTime(since: request.createdAt))
@@ -135,12 +163,16 @@ private struct IncomingRequestRow: View {
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer()
+            }
 
-            Button("Decline", role: .destructive) { onDecline() }
-                .buttonStyle(.bordered)
-            Button("Accept") { onAccept() }
-                .buttonStyle(.borderedProminent)
+            HStack {
+                Button("Decline", role: .destructive) { onDecline() }
+                    .buttonStyle(.bordered)
+                Button("Accept") { onAccept() }
+                    .buttonStyle(.borderedProminent)
+            }
         }
     }
 }
@@ -150,8 +182,11 @@ private struct OutgoingRequestRow: View {
     let name: String
     let onCancel: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack {
+        let layout = rowLayout(dynamicTypeSize)
+        layout {
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                 Text(relativeTime(since: request.createdAt))
@@ -159,19 +194,38 @@ private struct OutgoingRequestRow: View {
                     .foregroundStyle(.secondary)
             }
 
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer()
+            }
 
-            Text("Pending")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Button("Cancel", role: .destructive) { onCancel() }
-                .buttonStyle(.bordered)
+            HStack {
+                Text("Pending")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button("Cancel", role: .destructive) { onCancel() }
+                    .buttonStyle(.bordered)
+            }
         }
     }
 }
 
-#Preview {
+#Preview("Large") {
     NavigationStack {
         RequestsView()
     }
+    .environment(\.dynamicTypeSize, .large)
+}
+
+#Preview("XXX Large") {
+    NavigationStack {
+        RequestsView()
+    }
+    .environment(\.dynamicTypeSize, .xxxLarge)
+}
+
+#Preview("Accessibility 5") {
+    NavigationStack {
+        RequestsView()
+    }
+    .environment(\.dynamicTypeSize, .accessibility5)
 }

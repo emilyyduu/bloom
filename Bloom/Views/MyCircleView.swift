@@ -6,25 +6,27 @@ struct MyCircleView: View {
 
     var body: some View {
         List {
-            if !friendService.pendingIncoming.isEmpty {
-                Section("Requests") {
-                    ForEach(friendService.pendingIncoming) { request in
-                        HStack {
-                            Text(friendService.pendingRequesterNames[request.fromUID] ?? "Someone")
-                            Spacer()
-                            Button("Accept") {
-                                Task { try? await friendService.acceptFriendRequest(request) }
-                            }
-                            .buttonStyle(.borderedProminent)
+            Section {
+                NavigationLink {
+                    RequestsView()
+                } label: {
+                    HStack {
+                        Label("Requests", systemImage: "person.crop.circle.badge.clock")
+                        Spacer()
+                        if !friendService.pendingIncoming.isEmpty {
+                            Text("\(friendService.pendingIncoming.count)")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
             }
 
-            Section("Friends") {
+            Section {
                 ForEach(friendService.friends) { friend in
                     Text(friend.username)
                 }
+            } header: {
+                SectionHeader("Friends")
             }
         }
         .overlay {

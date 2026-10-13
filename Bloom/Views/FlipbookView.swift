@@ -18,7 +18,9 @@ struct FlipbookView: View {
                 TabView {
                     ForEach(todaysNotes) { note in
                         FlipbookPage(note: note)
-                            .padding()
+                            .padding(.horizontal, 16)
+                            .padding(.top, 16)
+                            .padding(.bottom, 36)
                     }
                 }
                 .tabViewStyle(.page)
@@ -31,30 +33,50 @@ struct FlipbookView: View {
 private struct FlipbookPage: View {
     let note: Note
 
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    // In landscape on iPhone (compact height) the photo and text sit
+    // side by side instead of stacked, so neither gets squeezed into a
+    // sliver of the limited height.
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+
+    private var contentLayout: AnyLayout {
+        isCompactHeight
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 16))
+            : AnyLayout(VStackLayout(spacing: 16))
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            Text(note.createdAt, style: .time)
-                .font(.headline)
-                .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(spacing: 16) {
+                Text(note.createdAt, style: .time)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
 
-            if let photo = note.photo {
-                Image(uiImage: photo)
-                    .resizable()
-                    .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                contentLayout {
+                    if let photo = note.photo {
+                        Image(uiImage: photo)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: isCompactHeight ? nil : .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+
+                    VStack(spacing: 12) {
+                        Text(note.text)
+                            .font(.title3)
+                            .multilineTextAlignment(.center)
+
+                        if let mediaLogEntry = note.mediaLogEntry {
+                            MediaLogChip(entry: mediaLogEntry)
+                        }
+                    }
+                }
             }
-
-            Text(note.text)
-                .font(.title3)
-                .multilineTextAlignment(.center)
-
-            if let mediaLogEntry = note.mediaLogEntry {
-                MediaLogChip(entry: mediaLogEntry)
-            }
-
-            Spacer()
+            .frame(maxWidth: .infinity)
+            .padding()
         }
-        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color(.secondarySystemBackground))
