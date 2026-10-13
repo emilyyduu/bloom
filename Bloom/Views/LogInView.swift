@@ -20,21 +20,27 @@ struct LogInView: View {
 
                 switch method {
                 case .phone:
-                    Section("Phone Number") {
+                    Section {
                         TextField("+61 4xx xxx xxx", text: $phoneNumber)
                             .keyboardType(.phonePad)
+                    } header: {
+                        SectionHeader("Phone Number")
                     }
                 case .email:
-                    Section("Email & Password") {
+                    Section {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                         SecureField("Password", text: $password)
+                    } header: {
+                        SectionHeader("Email & Password")
                     }
                 }
 
                 FormErrorText(message: errorMessage)
             }
+            .frame(maxWidth: 500)
+            .frame(maxWidth: .infinity)
             .navigationTitle("Log In")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -13,11 +13,23 @@ enum AuthMethod: String, CaseIterable {
 struct AuthMethodPicker: View {
     @Binding var method: AuthMethod
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        Picker("Method", selection: $method) {
-            ForEach(AuthMethod.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+        // The segmented style truncates "Phone"/"Email" at accessibility
+        // sizes, so it becomes a menu instead; the binding is unchanged
+        // either way, so the current choice is never lost.
+        if dynamicTypeSize.isAccessibilitySize {
+            Picker("Method", selection: $method) {
+                ForEach(AuthMethod.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Picker("Method", selection: $method) {
+                ForEach(AuthMethod.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
         }
-        .pickerStyle(.segmented)
     }
 }
 
