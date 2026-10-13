@@ -7,27 +7,29 @@ struct WelcomeView: View {
     @State private var isShowingLogIn = false
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 24) {
+                Text("Bloom")
+                    .font(.system(.largeTitle, design: .serif))
+                    .fontWeight(.bold)
+                Text("A shared garden of memories")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
 
-            Text("Bloom")
-                .font(.system(.largeTitle, design: .serif))
-                .fontWeight(.bold)
-            Text("A shared garden of memories")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                Spacer(minLength: 24)
 
-            Spacer()
+                Button("Sign Up") { isShowingSignUp = true }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
 
-            Button("Sign Up") { isShowingSignUp = true }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
-
-            Button("Log In") { isShowingLogIn = true }
-                .buttonStyle(.bordered)
-                .frame(maxWidth: .infinity)
+                Button("Log In") { isShowingLogIn = true }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(32)
+            .frame(maxWidth: 500)
+            .frame(maxWidth: .infinity)
         }
-        .padding(32)
         .sheet(isPresented: $isShowingSignUp) { SignUpView() }
         .sheet(isPresented: $isShowingLogIn) { LogInView() }
     }

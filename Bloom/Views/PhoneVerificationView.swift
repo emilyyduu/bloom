@@ -15,9 +15,11 @@ struct PhoneVerificationView: View {
 
     var body: some View {
         Form {
-            Section("Enter the 6-digit code sent by SMS") {
+            Section {
                 TextField("123456", text: $code)
                     .keyboardType(.numberPad)
+            } header: {
+                SectionHeader("Enter the 6-digit code sent by SMS")
             }
             FormErrorText(message: errorMessage)
         }

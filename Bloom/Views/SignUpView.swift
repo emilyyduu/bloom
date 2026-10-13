@@ -14,33 +14,56 @@ struct SignUpView: View {
     @State private var errorMessage: String?
     @State private var verificationID: String?
 
+    private var usernameValidationError: String? {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return UsernameValidator.errorMessage(for: trimmed)
+    }
+
+    private var isUsernameValid: Bool {
+        UsernameValidator.isValid(username.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 AuthMethodPicker(method: $method)
 
-                Section("Username") {
+                Section {
                     TextField("Username", text: $username)
                         .textInputAutocapitalization(.never)
+                    if let usernameValidationError {
+                        Text(usernameValidationError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    SectionHeader("Username")
                 }
 
                 switch method {
                 case .phone:
-                    Section("Phone Number") {
+                    Section {
                         TextField("+61 4xx xxx xxx", text: $phoneNumber)
                             .keyboardType(.phonePad)
+                    } header: {
+                        SectionHeader("Phone Number")
                     }
                 case .email:
-                    Section("Email & Password") {
+                    Section {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
                         SecureField("Password", text: $password)
+                    } header: {
+                        SectionHeader("Email & Password")
                     }
                 }
 
                 FormErrorText(message: errorMessage)
             }
+            .frame(maxWidth: 500)
+            .frame(maxWidth: .infinity)
             .navigationTitle("Sign Up")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -48,7 +71,7 @@ struct SignUpView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(method == .phone ? "Send Code" : "Sign Up") { submit() }
-                        .disabled(isSubmitting || username.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(isSubmitting || !isUsernameValid)
                 }
             }
             .navigationDestination(item: $verificationID) { id in
