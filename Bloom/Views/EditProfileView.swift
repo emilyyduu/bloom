@@ -19,17 +19,29 @@ struct EditProfileView: View {
         self.onSave = onSave
     }
 
+    private var usernameValidationError: String? {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return UsernameValidator.errorMessage(for: trimmed)
+    }
+
     private var isValid: Bool {
-        let count = username.trimmingCharacters(in: .whitespacesAndNewlines).count
-        return (1...30).contains(count)
+        UsernameValidator.isValid(username.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     var body: some View {
         Form {
-            Section("Username") {
+            Section {
                 TextField("Username", text: $username)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
+                if let usernameValidationError {
+                    Text(usernameValidationError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                SectionHeader("Username")
             }
 
             FormErrorText(message: errorMessage)
@@ -57,6 +69,7 @@ struct EditProfileView: View {
             do {
                 try await Firestore.firestore().collection("users").document(uid).updateData([
                     "username": trimmed,
+                    "usernameLower": trimmed.lowercased(),
                     "email": FieldValue.delete(),
                 ])
                 onSave(trimmed)

@@ -15,34 +15,27 @@ struct AddFriendView: View {
     @State private var mode: Mode = .username
     @State private var query = ""
     @State private var results: [FirestoreUser] = []
-    @State private var requestedUIDs: Set<String> = []
     @State private var isSearching = false
     @State private var errorMessage: String?
     @State private var requestErrorMessage: String?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Mode", selection: $mode) {
-                    ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .padding()
-                .onChange(of: mode) { _, newMode in
-                    results = []
-                    errorMessage = nil
-                    if newMode == .contacts { loadContacts() }
-                }
+                modePicker
+                    .padding()
+                    .onChange(of: mode) { _, newMode in
+                        results = []
+                        errorMessage = nil
+                        if newMode == .contacts { loadContacts() }
+                    }
 
                 List(results) { user in
                     HStack {
                         Text(user.username)
                         Spacer()
-                        Button(requestedUIDs.contains(user.id ?? "") ? "Requested" : "Add") {
-                            request(user)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(requestedUIDs.contains(user.id ?? ""))
+                        actionView(for: user)
                     }
                 }
                 .overlay {
@@ -61,6 +54,8 @@ struct AddFriendView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 8)
             }
+            .frame(maxWidth: 500)
+            .frame(maxWidth: .infinity)
             .navigationTitle("Add Friend")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -70,6 +65,47 @@ struct AddFriendView: View {
             .searchable(text: $query, prompt: "Search by username")
             .onSubmit(of: .search) { searchByUsername() }
         }
+    }
+
+    // The segmented style truncates "Username"/"Phone Contacts" at
+    // accessibility sizes, so it becomes a menu instead; the binding is
+    // unchanged either way, so the current choice is never lost.
+    @ViewBuilder
+    private var modePicker: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            Picker("Mode", selection: $mode) {
+                ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.menu)
+        } else {
+            Picker("Mode", selection: $mode) {
+                ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    @ViewBuilder
+    private func actionView(for user: FirestoreUser) -> some View {
+        switch relationship(for: user) {
+        case .friends:
+            Text("Friends")
+                .foregroundStyle(.secondary)
+        case .outgoingPending:
+            Text("Requested")
+                .foregroundStyle(.secondary)
+        case .incomingPending:
+            Button("Accept") { accept(user) }
+                .buttonStyle(.borderedProminent)
+        case .none:
+            Button("Add") { request(user) }
+                .buttonStyle(.bordered)
+        }
+    }
+
+    private func relationship(for user: FirestoreUser) -> FriendRelationship {
+        guard let id = user.id else { return .none }
+        return friendService.relationship(withUID: id)
     }
 
     private func searchByUsername() {
@@ -100,20 +136,40 @@ struct AddFriendView: View {
     }
 
     private func request(_ user: FirestoreUser) {
-        guard let id = user.id else { return }
-        requestedUIDs.insert(id)
         requestErrorMessage = nil
         Task {
             do {
                 try await friendService.sendFriendRequest(to: user)
             } catch {
-                requestedUIDs.remove(id)
+                requestErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func accept(_ user: FirestoreUser) {
+        guard let id = user.id, let incoming = friendService.incomingRequest(fromUID: id) else { return }
+        requestErrorMessage = nil
+        Task {
+            do {
+                try await friendService.acceptFriendRequest(incoming)
+            } catch {
                 requestErrorMessage = error.localizedDescription
             }
         }
     }
 }
 
-#Preview {
+#Preview("Large") {
     AddFriendView()
+        .environment(\.dynamicTypeSize, .large)
+}
+
+#Preview("XXX Large") {
+    AddFriendView()
+        .environment(\.dynamicTypeSize, .xxxLarge)
+}
+
+#Preview("Accessibility 5") {
+    AddFriendView()
+        .environment(\.dynamicTypeSize, .accessibility5)
 }
