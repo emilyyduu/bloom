@@ -48,4 +48,49 @@ enum Theme {
                 : UIColor(red: 0.86, green: 0.92, blue: 0.85, alpha: 1)
         })
     }
+
+    enum Fonts {
+        // The large root-screen title ScreenHeader shows on Home,
+        // Journal, Greenhouse and Profile. One definition here so every
+        // screen stays in sync if it ever changes.
+        static let screenTitle: Font = .largeTitle.bold()
+
+        // Used by ScreenHeader instead of screenTitle when the vertical
+        // size class is compact (landscape on iPhone), where a full
+        // large title would eat too much of the limited height.
+        static let screenTitleCompact: Font = .title2.bold()
+
+        // Bloom doesn't ship a custom font today, but a future one
+        // should be added through here rather than a fixed
+        // .font(.custom(name, size:)) anywhere else, so it keeps
+        // scaling with Dynamic Type via `relativeTo:` and falls back to
+        // the system font at the same text style if it isn't actually
+        // installed (e.g. missing from the target, or not yet added to
+        // Info.plist's UIAppFonts).
+        static func custom(_ name: String, textStyle: Font.TextStyle) -> Font {
+            let uiStyle = uiFontTextStyle(for: textStyle)
+            let baseSize = UIFont.preferredFont(forTextStyle: uiStyle).pointSize
+            guard UIFont(name: name, size: baseSize) != nil else {
+                return .system(textStyle)
+            }
+            return .custom(name, size: baseSize, relativeTo: textStyle)
+        }
+
+        private static func uiFontTextStyle(for textStyle: Font.TextStyle) -> UIFont.TextStyle {
+            switch textStyle {
+            case .largeTitle: return .largeTitle
+            case .title: return .title1
+            case .title2: return .title2
+            case .title3: return .title3
+            case .headline: return .headline
+            case .subheadline: return .subheadline
+            case .body: return .body
+            case .callout: return .callout
+            case .footnote: return .footnote
+            case .caption: return .caption1
+            case .caption2: return .caption2
+            default: return .body
+            }
+        }
+    }
 }

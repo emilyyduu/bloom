@@ -60,12 +60,12 @@ enum GardenSceneBuilder {
 
         let count = plants.count
         for (index, plant) in plants.enumerated() {
-            let angle = angle(forIndex: index, count: count)
+            let theta = angle(forIndex: index, count: count)
             let node = plantNode(for: plant.plantState)
             node.position = SCNVector3(
-                Float(radius * cos(angle)),
+                Float(radius * cos(theta)),
                 0,
-                Float(radius * sin(angle))
+                Float(radius * sin(theta))
             )
             plantsNode.addChildNode(node)
         }
