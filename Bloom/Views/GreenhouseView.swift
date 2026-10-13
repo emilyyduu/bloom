@@ -6,7 +6,19 @@ import SwiftUI
 // around to bring back later).
 struct GreenhouseView: View {
     @StateObject private var gardenService = GardenService.shared
-    @Environment(\.colorScheme) private var colorScheme
+    @ScaledMetric(relativeTo: .largeTitle) private var gardenIconSize: CGFloat = 56
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    // In landscape on iPhone (compact height) the garden card and the
+    // streaks list sit side by side instead of one on top of the
+    // other, but both still scroll together in the one ScrollView.
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+
+    private var panesLayout: AnyLayout {
+        isCompactHeight
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 0))
+            : AnyLayout(VStackLayout(spacing: 0))
+    }
 
     #if DEBUG
     @AppStorage("gardenSampleDataEnabled") private var isSampleDataEnabled = false
@@ -44,35 +56,52 @@ struct GreenhouseView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    myCirclePill
+            VStack(spacing: 0) {
+                ScreenHeader("Greenhouse")
 
-                    gardenPlaceholderCard
-
-                    Text("VIEW STREAKS")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .tracking(1.5)
-                        .foregroundStyle(.secondary)
-
-                    streaksCard
-
-                    if showsAddFriendsHint {
-                        Text("Add friends from Profile to grow your shared garden.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                ScrollView {
+                    panesLayout {
+                        gardenPane
+                        streaksPane
                     }
                 }
-                .padding()
             }
             .navigationTitle("Greenhouse")
-            .navigationBarTitleDisplayMode(.large)
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 FriendService.shared.startListening()
                 GardenService.shared.startListening()
             }
         }
+    }
+
+    private var gardenPane: some View {
+        VStack(alignment: .leading, spacing: isCompactHeight ? 10 : 16) {
+            myCirclePill
+            gardenPlaceholderCard
+        }
+        .padding(isCompactHeight ? 10 : 16)
+        .frame(maxWidth: isCompactHeight ? 340 : .infinity)
+    }
+
+    private var streaksPane: some View {
+        VStack(alignment: .leading, spacing: isCompactHeight ? 10 : 16) {
+            Text("VIEW STREAKS")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .tracking(1.5)
+                .foregroundStyle(.secondary)
+
+            streaksCard
+
+            if showsAddFriendsHint {
+                Text("Add friends from Profile to grow your shared garden.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(isCompactHeight ? 10 : 16)
+        .frame(maxWidth: .infinity)
     }
 
     private var myCirclePill: some View {
@@ -89,17 +118,20 @@ struct GreenhouseView: View {
     // once that's brought back.
     private var gardenPlaceholderCard: some View {
         RoundedRectangle(cornerRadius: 28)
-            .fill(Color.green.opacity(colorScheme == .dark ? 0.22 : 0.14))
+            .fill(Theme.Colors.gardenCardBackground)
             .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: isCompactHeight ? 260 : .infinity)
             .overlay {
                 VStack(spacing: 12) {
                     Image(systemName: "leaf.fill")
-                        .font(.system(size: 56))
-                        .foregroundStyle(.green)
+                        .font(.system(size: gardenIconSize))
+                        .foregroundStyle(Theme.Colors.blooming)
                     Text("3D garden - later implementation")
                         .font(.headline)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
+                .padding()
             }
     }
 
@@ -131,6 +163,12 @@ struct GreenhouseView: View {
 private struct GardenStreakRow: View {
     let plant: GardenPlant
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @ScaledMetric(relativeTo: .body) private var iconDiameter: CGFloat = 44
+
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+
     private var statusWord: String {
         switch plant.plantState {
         case .blooming: return "Blooming"
@@ -146,9 +184,9 @@ private struct GardenStreakRow: View {
 
     private var iconColor: Color {
         switch plant.plantState {
-        case .blooming: return .green
-        case .wilting: return Color(red: 0.62, green: 0.52, blue: 0.22)
-        case .dead: return .gray
+        case .blooming: return Theme.Colors.blooming
+        case .wilting: return Theme.Colors.wilting
+        case .dead: return Theme.Colors.dead
         case nil: return .secondary
         }
     }
@@ -169,15 +207,24 @@ private struct GardenStreakRow: View {
         }
     }
 
-    var body: some View {
+    // At accessibility sizes the streak value moves below the name and
+    // status instead of being squeezed into a shrinking trailing
+    // column next to them.
+    private var rowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+    }
+
+    private var identity: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle().fill(iconColor.opacity(0.15))
+                Circle().fill(iconColor.opacity(0.22))
                 Image(systemName: iconName)
                     .foregroundStyle(iconColor)
                     .font(.headline)
             }
-            .frame(width: 44, height: 44)
+            .frame(width: iconDiameter, height: iconDiameter)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(plant.username)
@@ -185,27 +232,61 @@ private struct GardenStreakRow: View {
                     .fontWeight(.medium)
                 Text(statusWord)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.primary)
             }
 
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(streakText)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                Text("days")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            if !dynamicTypeSize.isAccessibilitySize {
+                Spacer()
             }
         }
+    }
+
+    private var streakValue: some View {
+        VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 0) {
+            Text(streakText)
+                .font(.title3)
+                .fontWeight(.bold)
+            Text("days")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
+    }
+
+    var body: some View {
+        rowLayout {
+            identity
+            streakValue
+        }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, isCompactHeight ? 6 : 10)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(plant.username), \(statusWord.lowercased()), \(accessibilityStreakDescription)")
     }
 }
 
-#Preview {
+#Preview("Light") {
     GreenhouseView()
+        .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    GreenhouseView()
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Dynamic Type - Large") {
+    GreenhouseView()
+        .environment(\.dynamicTypeSize, .large)
+}
+
+#Preview("Dynamic Type - XXX Large") {
+    GreenhouseView()
+        .environment(\.dynamicTypeSize, .xxxLarge)
+}
+
+#Preview("Dynamic Type - Accessibility 5") {
+    GreenhouseView()
+        .environment(\.dynamicTypeSize, .accessibility5)
 }

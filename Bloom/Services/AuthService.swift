@@ -84,6 +84,7 @@ final class AuthService: ObservableObject {
 
         var data: [String: Any] = [
             "username": username,
+            "usernameLower": username.lowercased(),
             "createdAt": Date(),
         ]
         if let phoneNumber { data["phoneNumber"] = phoneNumber }

@@ -8,6 +8,7 @@ import FirebaseFirestore
 struct FirestoreUser: Codable, Identifiable {
     @DocumentID var id: String?
     var username: String
+    var usernameLower: String?
     var phoneNumber: String?
     var createdAt: Date
 }
