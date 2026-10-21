@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import SwiftData
+import FirebaseAuth
 
 // Lets the user write a note, optionally attach a photo, and either save
 // it as a draft or add it straight to today's journal. Adding a note is
@@ -12,6 +13,14 @@ struct NoteComposerView: View {
     @State private var text: String = ""
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedPhotoData: Data?
+    @State private var isSharedWithFriends: Bool
+
+    // Starts from the "Share new notes with friends" setting, so a
+    // note only needs the switch flipped by hand when it should
+    // differ from that default.
+    init() {
+        _isSharedWithFriends = State(initialValue: UserDefaults.standard.bool(forKey: "shareNewNotesWithFriends"))
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,6 +49,12 @@ struct NoteComposerView: View {
                     }
                 } header: {
                     SectionHeader("Photo")
+                }
+
+                Section {
+                    Toggle("Share with friends", isOn: $isSharedWithFriends)
+                } footer: {
+                    Text("Everyone in your circle can read notes you share. This does not apply to drafts.")
                 }
             }
             .navigationTitle("New Note")
@@ -77,12 +92,18 @@ struct NoteComposerView: View {
             note.journal = journal
         }
 
+        note.ownerUID = Auth.auth().currentUser?.uid
+        // A draft is never shared, the security rules reject it.
+        note.sharedWithFriends = asDraft ? false : isSharedWithFriends
+
         try? context.save()
 
         if !asDraft {
             NotificationScheduler.shared.cancelTodaysReminder()
             Task { await StreakSyncService.shared.sync(context: context) }
         }
+
+        NoteSyncService.shared.upload(note)
 
         dismiss()
     }

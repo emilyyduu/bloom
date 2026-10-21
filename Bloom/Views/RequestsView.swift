@@ -138,14 +138,17 @@ private func relativeTime(since date: Date) -> String {
 
 // At accessibility sizes the trailing buttons move below the name and
 // timestamp instead of squeezing them into a shrinking leading column.
-// Shared by both row types below.
-private func rowLayout(_ dynamicTypeSize: DynamicTypeSize) -> AnyLayout {
+// Shared by both row types below, and reused by NotificationsView for
+// the bell's incoming-requests section.
+func rowLayout(_ dynamicTypeSize: DynamicTypeSize) -> AnyLayout {
     dynamicTypeSize.isAccessibilitySize
         ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
         : AnyLayout(HStackLayout())
 }
 
-private struct IncomingRequestRow: View {
+// Reused by NotificationsView so the bell's incoming requests look and
+// behave exactly like the ones in My Circle > Requests.
+struct IncomingRequestRow: View {
     let request: Friendship
     let name: String
     let onAccept: () -> Void

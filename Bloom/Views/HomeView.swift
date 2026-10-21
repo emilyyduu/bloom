@@ -1,134 +1,674 @@
 import SwiftUI
 import SwiftData
 
-// The landing tab: how many petals are logged today, two quick
-// actions, and anything in my circle that needs my attention right now.
+// The landing tab: today's date and streak, today's timeline of
+// petals, and what friends have shared. The bell holds requests and
+// shares; the centre Add tab and the Greenhouse tab own the rest.
 struct HomeView: View {
     @Binding var selectedTab: ContentView.Tab
 
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
+    @Query(filter: #Predicate<Note> { !$0.isDraft }, sort: \Note.createdAt) private var postedNotes: [Note]
+
     @StateObject private var friendService = FriendService.shared
-    @State private var sharedNotes: [SharedNote] = []
+    @StateObject private var sharedNotesStore = SharedNotesStore.shared
+
     @State private var isShowingComposer = false
+    @State private var isShowingAddFriend = false
+    @State private var isShowingNotifications = false
+    @State private var friendSearchText = ""
+    @State private var noteToShare: Note?
+    @State private var noteToView: Note?
+    @State private var selectedSharedTile: SharedTileSelection?
+
+    @AppStorage("lastSeenNotificationsTimestamp") private var lastSeenNotificationsTimestamp: Double = 0
+
+    #if DEBUG
+    @AppStorage("gardenSampleDataEnabled") private var isSampleDataEnabled = false
+    #endif
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @ScaledMetric(relativeTo: .caption) private var timeColumnWidth: CGFloat = 44
+    @ScaledMetric(relativeTo: .body) private var minFriendTileWidth: CGFloat = 150
 
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
 
-    // At accessibility sizes the Accept button moves below the request
-    // text instead of squeezing it into a shrinking leading column.
-    private var requestRowLayout: AnyLayout {
-        dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout())
-    }
-
-    // In landscape on iPhone (compact height), Today and Quick Actions
-    // sit in a left column with Recent in a right column, each its own
-    // scrollable list, instead of one on top of the other.
+    // In landscape on iPhone (compact height), the timeline and Friends
+    // sit side by side instead of one above the other, but both stay
+    // inside the one ScrollView so scroll position and the friend
+    // search text survive rotation.
     private var columnsLayout: AnyLayout {
         isCompactHeight
-            ? AnyLayout(HStackLayout(alignment: .top, spacing: 0))
-            : AnyLayout(VStackLayout(spacing: 0))
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 20))
+            : AnyLayout(VStackLayout(spacing: 28))
     }
 
-    private var hasRecentItems: Bool {
-        !friendService.pendingIncoming.isEmpty || !sharedNotes.isEmpty
+    private var dateTitle: String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate("dMMMM")
+        return formatter.string(from: Date())
+    }
+
+    private var currentStreak: Int {
+        let calendar = Calendar.current
+        let postedDates = Set(postedNotes.map { calendar.startOfDay(for: $0.createdAt) })
+        return StreakCalculator.currentStreak(postedDates: postedDates, today: Date(), calendar: calendar)
+    }
+
+    private var hasUnseenNotifications: Bool {
+        if !friendService.pendingIncoming.isEmpty { return true }
+        guard let newest = sharedNotesStore.recentNotes.first else { return false }
+        return newest.sharedAt.timeIntervalSince1970 > lastSeenNotificationsTimestamp
+    }
+
+    private var displayedFriends: [FirestoreUser] {
+        #if DEBUG
+        if isSampleDataEnabled { return Self.sampleFriends }
+        #endif
+        return friendService.friends
+    }
+
+    private var displayedLatestNoteBySender: [String: SharedNote] {
+        #if DEBUG
+        if isSampleDataEnabled { return Self.sampleSharedNotes }
+        #endif
+        return sharedNotesStore.latestNoteBySender
+    }
+
+    private var filteredFriends: [FirestoreUser] {
+        let query = friendSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return displayedFriends }
+        return displayedFriends.filter { $0.username.localizedCaseInsensitiveContains(query) }
+    }
+
+    // Friends with a share sort newest first; everyone else sorts
+    // alphabetically after them.
+    private var sortedFriendTiles: [FriendTileItem] {
+        let latest = displayedLatestNoteBySender
+
+        let withShare = filteredFriends
+            .compactMap { friend -> (FirestoreUser, SharedNote)? in
+                guard let id = friend.id, let note = latest[id] else { return nil }
+                return (friend, note)
+            }
+            .sorted { $0.1.sharedAt > $1.1.sharedAt }
+            .map { FriendTileItem(id: $0.0.id ?? $0.0.username, friend: $0.0, note: $0.1) }
+
+        let withoutShare = filteredFriends
+            .filter { ($0.id).map { latest[$0] == nil } ?? true }
+            .sorted { $0.username.localizedCaseInsensitiveCompare($1.username) == .orderedAscending }
+            .map { FriendTileItem(id: $0.id ?? $0.username, friend: $0, note: nil) }
+
+        return withShare + withoutShare
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ScreenHeader("Home")
+                ScreenHeader(dateTitle) {
+                    bellButton
+                }
 
-                columnsLayout {
-                    todayAndQuickActionsList
-                    recentList
+                streakLine
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+
+                ScrollView {
+                    columnsLayout {
+                        timelineSection
+                            .frame(maxWidth: isCompactHeight ? 360 : .infinity, alignment: .leading)
+                        friendsSection
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 24)
                 }
             }
-            // Matches the List's own grouped background, so the clear
-            // area behind the header isn't a different colour than the
-            // list beneath it.
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("Home")
+            .navigationTitle(dateTitle)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isShowingComposer) {
                 NoteComposerView()
             }
+            .sheet(isPresented: $isShowingAddFriend) {
+                AddFriendView()
+            }
+            .sheet(isPresented: $isShowingNotifications) {
+                NotificationsView()
+            }
+            .sheet(item: $noteToShare) { note in
+                ShareToFriendView(note: note)
+            }
+            .sheet(item: $noteToView) { note in
+                NoteDetailSheet(note: note)
+            }
+            .sheet(item: $selectedSharedTile) { tile in
+                SharedNoteDetailSheet(friend: tile.friend, sharedNote: tile.note)
+            }
             .task {
                 friendService.startListening()
-                SharingService.shared.listenForSharedNotes { notes in
-                    sharedNotes = notes
+                sharedNotesStore.startListening()
+            }
+        }
+    }
+
+    private var bellButton: some View {
+        Button {
+            lastSeenNotificationsTimestamp = Date().timeIntervalSince1970
+            isShowingNotifications = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bell")
+                    .font(.title3)
+                if hasUnseenNotifications {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 8, height: 8)
+                        .offset(x: 4, y: -4)
+                }
+            }
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("Notifications")
+        .accessibilityValue(hasUnseenNotifications ? "New notifications" : "")
+    }
+
+    private var streakLine: some View {
+        Button {
+            selectedTab = .greenhouse
+        } label: {
+            Text("Streaks: \(currentStreak) day\(currentStreak == 1 ? "" : "s")")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Today's timeline
+
+    private var timelineSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if todaysNotes.isEmpty {
+                emptyTimelineState
+            } else {
+                ForEach(Array(todaysNotes.enumerated()), id: \.element.id) { index, note in
+                    TimelineRow(
+                        note: note,
+                        isLast: index == todaysNotes.count - 1,
+                        timeColumnWidth: timeColumnWidth,
+                        onShare: { noteToShare = note },
+                        onTap: { noteToView = note }
+                    )
                 }
             }
         }
     }
 
-    private var todayAndQuickActionsList: some View {
-        List {
-            Section {
-                Label(
-                    "\(todaysNotes.count) petal\(todaysNotes.count == 1 ? "" : "s") logged today",
-                    systemImage: "leaf"
-                )
-            } header: {
-                SectionHeader("Today")
+    private var emptyTimelineState: some View {
+        VStack(spacing: 12) {
+            Text("No petals yet today")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+            Button("Add a Petal") {
+                isShowingComposer = true
             }
-
-            Section {
-                Button {
-                    isShowingComposer = true
-                } label: {
-                    Label("Add Petal", systemImage: "plus.circle")
-                }
-                Button {
-                    selectedTab = .greenhouse
-                } label: {
-                    Label("Streaks", systemImage: "flame")
-                }
-            } header: {
-                SectionHeader("Quick Actions")
-            }
+            .buttonStyle(.borderedProminent)
         }
-        .listSectionSpacing(isCompactHeight ? .compact : .default)
-        .frame(maxWidth: isCompactHeight ? 350 : .infinity)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
     }
 
-    private var recentList: some View {
-        List {
-            Section {
-                if hasRecentItems {
-                    ForEach(friendService.pendingIncoming) { request in
-                        requestRowLayout {
-                            Text("\(friendService.pendingRequesterNames[request.fromUID] ?? "Someone") wants to be friends")
-                            if !dynamicTypeSize.isAccessibilitySize {
-                                Spacer()
-                            }
-                            Button("Accept") {
-                                Task { try? await friendService.acceptFriendRequest(request) }
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                    }
+    // MARK: - Friends
 
-                    ForEach(sharedNotes) { shared in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(shared.text)
-                            Text(shared.sharedAt, style: .relative)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } else {
-                    Text("Nothing new right now.")
+    private var friendsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                SectionHeader("Friends")
+                Spacer()
+                Button {
+                    isShowingAddFriend = true
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel("Add friend")
+            }
+
+            if displayedFriends.isEmpty {
+                emptyFriendsState
+            } else {
+                friendSearchField
+                friendsGrid
+            }
+        }
+    }
+
+    private var friendSearchField: some View {
+        HStack {
+            TextField("Search Friends", text: $friendSearchText)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.separator), lineWidth: 1))
+    }
+
+    private var friendsGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: minFriendTileWidth), spacing: 12)], spacing: 12) {
+            ForEach(sortedFriendTiles) { tile in
+                FriendTile(friend: tile.friend, sharedNote: tile.note) {
+                    guard let note = tile.note else { return }
+                    selectedSharedTile = SharedTileSelection(id: tile.id, friend: tile.friend, note: note)
+                }
+            }
+        }
+    }
+
+    private var emptyFriendsState: some View {
+        VStack(spacing: 12) {
+            Text("Add friends to see what they share")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Button("Add Friend") {
+                isShowingAddFriend = true
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+    }
+
+    #if DEBUG
+    // Four fake friends, one of them with nothing shared, so every
+    // tile state can be checked without writing anything to Firestore.
+    private static let sampleFriends: [FirestoreUser] = [
+        FirestoreUser(id: "sample-allison", username: "Allison", usernameLower: "allison", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-priya", username: "Priya", usernameLower: "priya", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-tom", username: "Tom", usernameLower: "tom", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-mei", username: "Mei", usernameLower: "mei", phoneNumber: nil, createdAt: Date()),
+    ]
+
+    private static let sampleSharedNotes: [String: SharedNote] = [
+        "sample-allison": SharedNote(
+            id: "sample-note-1", fromUID: "sample-allison", toUID: "me",
+            text: "Finally finished the FIT3178 assignment, feeling good about it.",
+            createdAt: Date(), sharedAt: Date().addingTimeInterval(-3600)
+        ),
+        "sample-tom": SharedNote(
+            id: "sample-note-2", fromUID: "sample-tom", toUID: "me",
+            text: "Coffee with the team was great today, long overdue catch up.",
+            createdAt: Date(), sharedAt: Date().addingTimeInterval(-7200)
+        ),
+        "sample-mei": SharedNote(
+            id: "sample-note-3", fromUID: "sample-mei", toUID: "me",
+            text: "Long walk by the river after work, needed that.",
+            createdAt: Date(), sharedAt: Date().addingTimeInterval(-86400)
+        ),
+    ]
+    #endif
+}
+
+// MARK: - Supporting types
+
+struct SharedTileSelection: Identifiable {
+    let id: String
+    let friend: FirestoreUser
+    let note: SharedNote
+}
+
+struct FriendTileItem: Identifiable {
+    let id: String
+    let friend: FirestoreUser
+    let note: SharedNote?
+}
+
+// MARK: - Date and time helpers
+
+private struct TimeDisplay {
+    let value: String
+    let period: String?
+}
+
+// Splits a time into its numeric value and, for 12-hour locales, a
+// separate AM/PM part so the narrow time column can wrap the period
+// under the value instead of truncating it.
+private func timeDisplay(for date: Date) -> TimeDisplay {
+    let locale = Locale.current
+    if let template = DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: locale),
+       template.contains("a") {
+        let valueFormatter = DateFormatter()
+        valueFormatter.locale = locale
+        valueFormatter.dateFormat = "h:mm"
+        let periodFormatter = DateFormatter()
+        periodFormatter.locale = locale
+        periodFormatter.dateFormat = "a"
+        return TimeDisplay(value: valueFormatter.string(from: date), period: periodFormatter.string(from: date))
+    }
+    let formatter = DateFormatter()
+    formatter.locale = locale
+    formatter.dateFormat = "HH:mm"
+    return TimeDisplay(value: formatter.string(from: date), period: nil)
+}
+
+private func timeString(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = .current
+    formatter.dateStyle = .none
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+}
+
+private func longDateString(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = .current
+    formatter.setLocalizedDateFormatFromTemplate("dMMMM")
+    return formatter.string(from: date)
+}
+
+// A locale-aware day/month short date, like "13/10", following whichever
+// of day or month the locale normally puts first.
+private func shortDateString(_ date: Date) -> String {
+    let calendar = Calendar.current
+    let day = calendar.component(.day, from: date)
+    let month = calendar.component(.month, from: date)
+    let template = DateFormatter.dateFormat(fromTemplate: "Md", options: 0, locale: .current) ?? "d/M"
+    if let dRange = template.range(of: "d"), let mRange = template.range(of: "M"), mRange.lowerBound < dRange.lowerBound {
+        return "\(month)/\(day)"
+    }
+    return "\(day)/\(month)"
+}
+
+// MARK: - Timeline row
+
+private struct TimelineConnector: View {
+    let isLast: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Circle()
+                .fill(Color.accentColor)
+                .frame(width: 8, height: 8)
+            if !isLast {
+                Rectangle()
+                    .fill(Color(.separator))
+                    .frame(width: 1)
+            }
+        }
+    }
+}
+
+private struct TimelineCard: View {
+    let note: Note
+    let onShare: () -> Void
+    let onTap: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(note.text)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let photo = note.photo {
+                    Image(uiImage: photo)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipped()
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button(action: onShare) {
+                    Image(systemName: "square.and.arrow.up")
                         .foregroundStyle(.secondary)
                 }
-            } header: {
-                SectionHeader("Recent")
+                .accessibilityLabel("Share note")
             }
         }
-        .listSectionSpacing(isCompactHeight ? .compact : .default)
-        .frame(maxWidth: isCompactHeight ? 700 : .infinity)
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 24).fill(Color(.secondarySystemBackground)))
+        .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color(.separator), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 24))
+        .onTapGesture(perform: onTap)
+    }
+}
+
+private struct TimelineRow: View {
+    let note: Note
+    let isLast: Bool
+    let timeColumnWidth: CGFloat
+    let onShare: () -> Void
+    let onTap: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var time: TimeDisplay { timeDisplay(for: note.createdAt) }
+
+    private var timeLabel: some View {
+        VStack(spacing: 0) {
+            Text(time.value)
+                .font(.caption)
+                .fontWeight(.medium)
+            if let period = time.period {
+                Text(period)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                timeLabel
+                TimelineCard(note: note, onShare: onShare, onTap: onTap)
+            }
+            .padding(.bottom, 16)
+        } else {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(spacing: 6) {
+                    timeLabel
+                    TimelineConnector(isLast: isLast)
+                }
+                .frame(width: timeColumnWidth)
+
+                TimelineCard(note: note, onShare: onShare, onTap: onTap)
+            }
+            .padding(.bottom, 16)
+        }
+    }
+}
+
+// Full text and photo for a note tapped in the timeline.
+private struct NoteDetailSheet: View {
+    let note: Note
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(note.createdAt, style: .time)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    if let photo = note.photo {
+                        Image(uiImage: photo)
+                            .resizable()
+                            .scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+
+                    Text(note.text)
+                        .font(.body)
+
+                    if let mediaLogEntry = note.mediaLogEntry {
+                        MediaLogChip(entry: mediaLogEntry)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("Note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Friend tiles
+
+private struct InitialsAvatar: View {
+    let username: String
+    var diameter: CGFloat = 32
+
+    private var initials: String {
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return "?" }
+        return String(first).uppercased()
+    }
+
+    var body: some View {
+        Circle()
+            .fill(Color.accentColor.opacity(0.18))
+            .frame(width: diameter, height: diameter)
+            .overlay(
+                Text(initials)
+                    .font(.system(size: diameter * 0.42, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            )
+    }
+}
+
+private struct FriendTile: View {
+    let friend: FirestoreUser
+    let sharedNote: SharedNote?
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            Group {
+                if let sharedNote {
+                    sharedContent(sharedNote)
+                } else {
+                    emptyContent
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 140, alignment: sharedNote != nil ? .topLeading : .center)
+            .background(background)
+            .overlay(border)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .disabled(sharedNote == nil)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private func sharedContent(_ note: SharedNote) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(shortDateString(note.sharedAt))
+                Spacer()
+                Text(timeString(note.sharedAt))
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
+            Text(note.text)
+                .font(.subheadline)
+                .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 6) {
+                Spacer()
+                Text(friend.username)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                InitialsAvatar(username: friend.username, diameter: 24)
+            }
+        }
+    }
+
+    private var emptyContent: some View {
+        VStack(spacing: 8) {
+            InitialsAvatar(username: friend.username, diameter: 40)
+            Text(friend.username)
+                .font(.subheadline)
+                .fontWeight(.medium)
+            Text("Nothing shared yet")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var background: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(sharedNote != nil ? Color.accentColor.opacity(0.14) : Color(.systemBackground))
+    }
+
+    @ViewBuilder
+    private var border: some View {
+        if sharedNote == nil {
+            RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1)
+        }
+    }
+
+    private var accessibilityLabel: String {
+        guard let sharedNote else {
+            return "\(friend.username), nothing shared yet"
+        }
+        return "\(friend.username), shared \(longDateString(sharedNote.sharedAt)) at " +
+            "\(timeString(sharedNote.sharedAt)), \(sharedNote.text)"
+    }
+}
+
+// Full note, sender and timestamp for a friend tile tap.
+private struct SharedNoteDetailSheet: View {
+    let friend: FirestoreUser
+    let sharedNote: SharedNote
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(friend.username)
+                        .font(.headline)
+                    Text("\(longDateString(sharedNote.sharedAt)) at \(timeString(sharedNote.sharedAt))")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text(sharedNote.text)
+                        .font(.body)
+                }
+                .padding()
+            }
+            .navigationTitle("Shared Note")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }
 

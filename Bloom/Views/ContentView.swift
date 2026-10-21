@@ -67,14 +67,19 @@ struct ContentView: View {
         }
         .task {
             friendService.startListening()
+            SharedNotesStore.shared.startListening()
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
             await StreakSyncService.shared.sync(context: context)
+            await NoteSyncService.shared.restore(context: context)
+            await NoteSyncService.shared.syncPending(context: context)
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Task {
                 await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
                 await StreakSyncService.shared.sync(context: context)
+                await NoteSyncService.shared.restore(context: context)
+                await NoteSyncService.shared.syncPending(context: context)
             }
         }
     }

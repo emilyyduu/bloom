@@ -1,11 +1,10 @@
 import SwiftUI
 import SwiftData
 
-// The Journal tab: the same day's notes shown three ways, switched
-// with a segmented control rather than three separate tabs.
+// The Journal tab: the same day's notes shown two ways, switched with
+// a segmented control rather than two separate tabs.
 struct JournalView: View {
     enum Segment: String, CaseIterable {
-        case daisyChain = "Daisy Chain"
         case flipbook = "Flipbook"
         case library = "Library"
     }
@@ -17,7 +16,7 @@ struct JournalView: View {
 
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
 
-    init(initialSegment: Segment = .daisyChain) {
+    init(initialSegment: Segment = .flipbook) {
         _segment = State(initialValue: initialSegment)
     }
 
@@ -56,8 +55,6 @@ struct JournalView: View {
 
                 Group {
                     switch segment {
-                    case .daisyChain:
-                        DaisyChainView()
                     case .flipbook:
                         FlipbookView()
                     case .library:
@@ -86,24 +83,6 @@ struct JournalView: View {
     JournalView()
         .modelContainer(PreviewContainer.shared)
         .preferredColorScheme(.dark)
-}
-
-#Preview("Daisy Chain - Large") {
-    JournalView(initialSegment: .daisyChain)
-        .modelContainer(PreviewContainer.shared)
-        .environment(\.dynamicTypeSize, .large)
-}
-
-#Preview("Daisy Chain - XXX Large") {
-    JournalView(initialSegment: .daisyChain)
-        .modelContainer(PreviewContainer.shared)
-        .environment(\.dynamicTypeSize, .xxxLarge)
-}
-
-#Preview("Daisy Chain - Accessibility 5") {
-    JournalView(initialSegment: .daisyChain)
-        .modelContainer(PreviewContainer.shared)
-        .environment(\.dynamicTypeSize, .accessibility5)
 }
 
 #Preview("Flipbook - Large") {

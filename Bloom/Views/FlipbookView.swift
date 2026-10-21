@@ -5,6 +5,7 @@ import SwiftData
 // through horizontally like a small book.
 struct FlipbookView: View {
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
+    @State private var noteToShare: Note?
 
     var body: some View {
         Group {
@@ -17,7 +18,7 @@ struct FlipbookView: View {
             } else {
                 TabView {
                     ForEach(todaysNotes) { note in
-                        FlipbookPage(note: note)
+                        FlipbookPage(note: note, onShare: { noteToShare = note })
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
                             .padding(.bottom, 36)
@@ -27,11 +28,15 @@ struct FlipbookView: View {
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
             }
         }
+        .sheet(item: $noteToShare) { note in
+            ShareNoteSheet(note: note)
+        }
     }
 }
 
 private struct FlipbookPage: View {
     let note: Note
+    let onShare: () -> Void
 
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
@@ -49,9 +54,19 @@ private struct FlipbookPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                Text(note.createdAt, style: .time)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(note.createdAt, style: .time)
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    if note.sharedWithFriends {
+                        SharedIndicator()
+                    }
+                    Spacer()
+                    Button(action: onShare) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel("Share note")
+                }
 
                 contentLayout {
                     if let photo = note.photo {
