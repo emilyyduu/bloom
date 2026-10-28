@@ -16,7 +16,6 @@ struct HomeView: View {
     @State private var isShowingComposer = false
     @State private var isShowingAddFriend = false
     @State private var isShowingNotifications = false
-    @State private var friendSearchText = ""
     @State private var noteToShare: Note?
     @State private var noteToView: Note?
     @State private var selectedFriendForJournal: FirestoreUser?
@@ -35,8 +34,7 @@ struct HomeView: View {
 
     // In landscape on iPhone (compact height), the timeline and Friends
     // sit side by side instead of one above the other, but both stay
-    // inside the one ScrollView so scroll position and the friend
-    // search text survive rotation.
+    // inside the one ScrollView so scroll position survives rotation.
     private var columnsLayout: AnyLayout {
         isCompactHeight
             ? AnyLayout(HStackLayout(alignment: .top, spacing: 20))
@@ -84,18 +82,12 @@ struct HomeView: View {
         return friendService.friends.compactMap(\.id)
     }
 
-    private var filteredFriends: [FirestoreUser] {
-        let query = friendSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return displayedFriends }
-        return displayedFriends.filter { $0.username.localizedCaseInsensitiveContains(query) }
-    }
-
     // Friends with a share sort newest first; everyone else sorts
     // alphabetically after them.
     private var sortedFriendTiles: [FriendTileItem] {
         let latest = displayedLatestNoteByFriend
 
-        let withShare = filteredFriends
+        let withShare = displayedFriends
             .compactMap { friend -> (FirestoreUser, FriendNote)? in
                 guard let id = friend.id, let note = latest[id] else { return nil }
                 return (friend, note)
@@ -103,9 +95,9 @@ struct HomeView: View {
             .sorted { $0.1.createdAt > $1.1.createdAt }
             .map { FriendTileItem(id: $0.0.id ?? $0.0.username, friend: $0.0, note: $0.1) }
 
-        let withoutShare = filteredFriends
+        let withoutShare = displayedFriends
             .filter { ($0.id).map { latest[$0] == nil } ?? true }
-            .sorted { $0.username.localizedCaseInsensitiveCompare($1.username) == .orderedAscending }
+            .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
             .map { FriendTileItem(id: $0.id ?? $0.username, friend: $0, note: nil) }
 
         return withShare + withoutShare
@@ -241,38 +233,15 @@ struct HomeView: View {
 
     private var friendsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                SectionHeader("Friends")
-                Spacer()
-                Button {
-                    isShowingAddFriend = true
-                } label: {
-                    Image(systemName: "person.badge.plus")
-                }
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Add friend")
-            }
+            SectionHeader("Friends’ journals")
+                .accessibilityAddTraits(.isHeader)
 
             if displayedFriends.isEmpty {
                 emptyFriendsState
             } else {
-                friendSearchField
                 friendsGrid
             }
         }
-    }
-
-    private var friendSearchField: some View {
-        HStack {
-            TextField("Search Friends", text: $friendSearchText)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.separator), lineWidth: 1))
     }
 
     private var friendsGrid: some View {
@@ -304,10 +273,10 @@ struct HomeView: View {
     // Four fake friends, one of them with nothing shared, so every
     // tile state can be checked without writing anything to Firestore.
     private static let sampleFriends: [FirestoreUser] = [
-        FirestoreUser(id: "sample-allison", username: "Allison", usernameLower: "allison", phoneNumber: nil, createdAt: Date()),
-        FirestoreUser(id: "sample-priya", username: "Priya", usernameLower: "priya", phoneNumber: nil, createdAt: Date()),
-        FirestoreUser(id: "sample-tom", username: "Tom", usernameLower: "tom", phoneNumber: nil, createdAt: Date()),
-        FirestoreUser(id: "sample-mei", username: "Mei", usernameLower: "mei", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-allison", username: "allison", displayName: "Allison Chen", usernameLower: "allison", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-priya", username: "priya", displayName: "Priya Raman", usernameLower: "priya", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-tom", username: "tom", displayName: "Tom Nguyen", usernameLower: "tom", phoneNumber: nil, createdAt: Date()),
+        FirestoreUser(id: "sample-mei", username: "mei", displayName: "Mei Tanaka", usernameLower: "mei", phoneNumber: nil, createdAt: Date()),
     ]
 
     private static let sampleLatestNoteByFriend: [String: FriendNote] = [
@@ -439,6 +408,9 @@ private struct TimelineCard: View {
                 if note.sharedWithFriends {
                     SharedIndicator()
                 }
+                if note.isPinned {
+                    PinIndicator()
+                }
                 Spacer()
                 Button(action: onShare) {
                     Image(systemName: "square.and.arrow.up")
@@ -452,6 +424,7 @@ private struct TimelineCard: View {
         .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color(.separator), lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 24))
         .onTapGesture(perform: onTap)
+        .notePinActions(note)
     }
 }
 
@@ -502,7 +475,7 @@ private struct TimelineRow: View {
 }
 
 // Full text and photo for a note tapped in the timeline.
-private struct NoteDetailSheet: View {
+struct NoteDetailSheet: View {
     let note: Note
     @Environment(\.dismiss) private var dismiss
 
@@ -542,28 +515,6 @@ private struct NoteDetailSheet: View {
 }
 
 // MARK: - Friend tiles
-
-private struct InitialsAvatar: View {
-    let username: String
-    var diameter: CGFloat = 32
-
-    private var initials: String {
-        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let first = trimmed.first else { return "?" }
-        return String(first).uppercased()
-    }
-
-    var body: some View {
-        Circle()
-            .fill(Color.accentColor.opacity(0.18))
-            .frame(width: diameter, height: diameter)
-            .overlay(
-                Text(initials)
-                    .font(.system(size: diameter * 0.42, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-            )
-    }
-}
 
 private struct FriendTile: View {
     let friend: FirestoreUser
@@ -610,21 +561,27 @@ private struct FriendTile: View {
 
             HStack(spacing: 6) {
                 Spacer()
-                Text(friend.username)
+                Text(friend.shownName)
                     .font(.caption)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                InitialsAvatar(username: friend.username, diameter: 24)
+                AvatarView(user: friend, size: 24, relativeTo: .caption)
             }
         }
     }
 
     private var emptyContent: some View {
         VStack(spacing: 8) {
-            InitialsAvatar(username: friend.username, diameter: 40)
-            Text(friend.username)
-                .font(.subheadline)
-                .fontWeight(.medium)
+            AvatarView(user: friend, size: 40)
+            VStack(spacing: 0) {
+                Text(friend.shownName)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text("@\(friend.username)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .multilineTextAlignment(.center)
             Text("Nothing shared yet")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -646,9 +603,9 @@ private struct FriendTile: View {
 
     private var accessibilityLabel: String {
         guard let sharedNote else {
-            return "\(friend.username), nothing shared yet"
+            return "\(friend.shownName), nothing shared yet"
         }
-        return "\(friend.username), shared \(longDateString(sharedNote.createdAt)) at " +
+        return "\(friend.shownName), shared \(longDateString(sharedNote.createdAt)) at " +
             "\(timeString(sharedNote.createdAt)), \(sharedNote.text)"
     }
 }

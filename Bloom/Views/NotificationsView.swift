@@ -17,7 +17,9 @@ struct NotificationsView: View {
                         ForEach(friendService.pendingIncoming) { request in
                             IncomingRequestRow(
                                 request: request,
-                                name: friendService.pendingRequesterNames[request.fromUID] ?? "Someone",
+                                name: friendService.pendingRequesterProfiles[request.fromUID]?.shownName ?? "Someone",
+                                username: friendService.pendingRequesterProfiles[request.fromUID]?.username,
+                                profile: friendService.pendingRequesterProfiles[request.fromUID],
                                 onAccept: { accept(request) },
                                 onDecline: { decline(request) }
                             )

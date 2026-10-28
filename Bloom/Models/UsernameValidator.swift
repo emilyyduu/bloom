@@ -26,3 +26,16 @@ enum UsernameValidator {
         errorMessage(for: username) == nil
     }
 }
+
+// The display name rule shared by Sign Up and Edit Profile: 1 to 40
+// characters after trimming, anything goes.
+enum DisplayNameValidator {
+    static func errorMessage(for displayName: String) -> String? {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (1...40).contains(trimmed.count) ? nil : "Display name must be 1 to 40 characters."
+    }
+
+    static func isValid(_ displayName: String) -> Bool {
+        errorMessage(for: displayName) == nil
+    }
+}

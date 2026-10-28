@@ -6,6 +6,7 @@ struct SignUpView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var method: AuthMethod = .phone
+    @State private var displayName = ""
     @State private var username = ""
     @State private var phoneNumber = ""
     @State private var email = ""
@@ -13,6 +14,14 @@ struct SignUpView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var verificationID: String?
+
+    // Only shown once something is typed, like the username error, so
+    // an untouched form isn't covered in red.
+    private var displayNameValidationError: String? {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return DisplayNameValidator.errorMessage(for: trimmed)
+    }
 
     private var usernameValidationError: String? {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -28,6 +37,21 @@ struct SignUpView: View {
         NavigationStack {
             Form {
                 AuthMethodPicker(method: $method)
+
+                Section {
+                    TextField("Display name", text: $displayName)
+                        .textContentType(.name)
+                        .textInputAutocapitalization(.words)
+                    if let displayNameValidationError {
+                        Text(displayNameValidationError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } header: {
+                    SectionHeader("Display name")
+                } footer: {
+                    Text("This is the name friends see. Your username is how they find you.")
+                }
 
                 Section {
                     TextField("Username", text: $username)
@@ -71,11 +95,11 @@ struct SignUpView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(method == .phone ? "Send Code" : "Sign Up") { submit() }
-                        .disabled(isSubmitting || !isUsernameValid)
+                        .disabled(isSubmitting || !isUsernameValid || !DisplayNameValidator.isValid(displayName))
                 }
             }
             .navigationDestination(item: $verificationID) { id in
-                PhoneVerificationView(verificationID: id, username: username, isNewAccount: true)
+                PhoneVerificationView(verificationID: id, displayName: displayName, username: username, isNewAccount: true)
             }
         }
     }
@@ -87,7 +111,7 @@ struct SignUpView: View {
                 verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
             case .email:
                 try await AuthService.shared.signUpWithEmail(email: email, password: password)
-                try await AuthService.shared.createUserProfile(username: username, phoneNumber: nil)
+                try await AuthService.shared.createUserProfile(displayName: displayName, username: username, phoneNumber: nil)
             }
         }
     }

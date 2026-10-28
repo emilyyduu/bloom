@@ -6,6 +6,7 @@ import FirebaseAuth
 // be created once the code is confirmed.
 struct PhoneVerificationView: View {
     let verificationID: String
+    let displayName: String
     let username: String
     let isNewAccount: Bool
 
@@ -37,7 +38,7 @@ struct PhoneVerificationView: View {
             try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
             if isNewAccount {
                 let phoneNumber = Auth.auth().currentUser?.phoneNumber.map(PhoneNumber.normalized)
-                try await AuthService.shared.createUserProfile(username: username, phoneNumber: phoneNumber)
+                try await AuthService.shared.createUserProfile(displayName: displayName, username: username, phoneNumber: phoneNumber)
             }
         }
     }

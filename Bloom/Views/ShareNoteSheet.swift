@@ -1,7 +1,7 @@
 import SwiftUI
 
 // The per-note sharing control, reached from the share button on a
-// note already saved (Home's timeline, Flipbook). Replaces the old
+// note already saved (Home's timeline, Today's Notes). Replaces the old
 // ShareToFriendView flow now that sharing is a flag on the note's
 // Firestore backup rather than a separate sharedNotes write.
 struct ShareNoteSheet: View {

@@ -75,14 +75,19 @@ final class AuthService: ObservableObject {
     // Creates the small Firestore record, username and, for phone
     // sign-ups, the verified phone number, that makes an account
     // findable by someone else. Called once, immediately after sign-up
-    // succeeds. The security rules only allow username, createdAt and
-    // phoneNumber on this document, email is never written here.
+    // succeeds. The security rules only allow displayName, username,
+    // usernameLower, createdAt and phoneNumber on this document, email
+    // is never written here, and displayName, username and
+    // usernameLower are always written together.
     // Merges rather than overwrites, so a record already holding a
     // phone number can't be clobbered by a later call without one.
-    func createUserProfile(username: String, phoneNumber: String?) async throws {
+    func createUserProfile(displayName: String, username: String, phoneNumber: String?) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
+        let displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
         var data: [String: Any] = [
+            "displayName": displayName,
             "username": username,
             "usernameLower": username.lowercased(),
             "createdAt": Date(),

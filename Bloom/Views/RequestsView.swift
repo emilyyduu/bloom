@@ -66,7 +66,9 @@ struct RequestsView: View {
                 List(friendService.pendingIncoming) { request in
                     IncomingRequestRow(
                         request: request,
-                        name: friendService.pendingRequesterNames[request.fromUID] ?? "Someone",
+                        name: friendService.pendingRequesterProfiles[request.fromUID]?.shownName ?? "Someone",
+                        username: friendService.pendingRequesterProfiles[request.fromUID]?.username,
+                        profile: friendService.pendingRequesterProfiles[request.fromUID],
                         onAccept: { accept(request) },
                         onDecline: { decline(request) }
                     )
@@ -87,7 +89,9 @@ struct RequestsView: View {
                 List(friendService.pendingOutgoing) { request in
                     OutgoingRequestRow(
                         request: request,
-                        name: friendService.pendingRecipientNames[request.toUID] ?? "Someone",
+                        name: friendService.pendingRecipientProfiles[request.toUID]?.shownName ?? "Someone",
+                        username: friendService.pendingRecipientProfiles[request.toUID]?.username,
+                        profile: friendService.pendingRecipientProfiles[request.toUID],
                         onCancel: { cancel(request) }
                     )
                 }
@@ -146,11 +150,31 @@ func rowLayout(_ dynamicTypeSize: DynamicTypeSize) -> AnyLayout {
         : AnyLayout(HStackLayout())
 }
 
+// The avatar beside a request row. The profile can still be loading,
+// in which case it shows initials until it arrives.
+private struct RequestAvatar: View {
+    let profile: FirestoreUser?
+    let name: String
+
+    var body: some View {
+        Group {
+            if let profile {
+                AvatarView(user: profile, size: 40)
+            } else {
+                AvatarView(uid: nil, name: name, hasAvatar: false, avatarUpdatedAt: nil, size: 40)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 // Reused by NotificationsView so the bell's incoming requests look and
 // behave exactly like the ones in My Circle > Requests.
 struct IncomingRequestRow: View {
     let request: Friendship
     let name: String
+    let username: String?
+    let profile: FirestoreUser?
     let onAccept: () -> Void
     let onDecline: () -> Void
 
@@ -159,11 +183,19 @@ struct IncomingRequestRow: View {
     var body: some View {
         let layout = rowLayout(dynamicTypeSize)
         layout {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                Text(relativeTime(since: request.createdAt))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                RequestAvatar(profile: profile, name: name)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                    if let username {
+                        Text("@\(username)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(relativeTime(since: request.createdAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if !dynamicTypeSize.isAccessibilitySize {
@@ -183,6 +215,8 @@ struct IncomingRequestRow: View {
 private struct OutgoingRequestRow: View {
     let request: Friendship
     let name: String
+    let username: String?
+    let profile: FirestoreUser?
     let onCancel: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -190,11 +224,19 @@ private struct OutgoingRequestRow: View {
     var body: some View {
         let layout = rowLayout(dynamicTypeSize)
         layout {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                Text(relativeTime(since: request.createdAt))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                RequestAvatar(profile: profile, name: name)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                    if let username {
+                        Text("@\(username)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(relativeTime(since: request.createdAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if !dynamicTypeSize.isAccessibilitySize {

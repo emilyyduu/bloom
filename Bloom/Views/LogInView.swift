@@ -52,7 +52,7 @@ struct LogInView: View {
                 }
             }
             .navigationDestination(item: $verificationID) { id in
-                PhoneVerificationView(verificationID: id, username: "", isNewAccount: false)
+                PhoneVerificationView(verificationID: id, displayName: "", username: "", isNewAccount: false)
             }
         }
     }

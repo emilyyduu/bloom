@@ -27,7 +27,39 @@ struct FriendJournalView: View {
             .sorted { $0.monthStart > $1.monthStart }
     }
 
+    // Who this journal belongs to, above whichever state is showing.
+    private var header: some View {
+        HStack(spacing: 12) {
+            AvatarView(user: friend, size: 56, relativeTo: .title)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(friend.shownName)
+                    .font(.title3)
+                    .fontWeight(.bold)
+                Text("@\(friend.username)")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+            header
+            content
+        }
+        .navigationTitle(friend.shownName)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { startListening() }
+        .onDisappear { listener.stop() }
+    }
+
+    private var content: some View {
         Group {
             switch listener.state {
             case .loading:
@@ -49,17 +81,13 @@ struct FriendJournalView: View {
                 }
             case .loaded where listener.notes.isEmpty:
                 ContentUnavailableView(
-                    "\(friend.username) hasn't shared anything yet",
+                    "\(friend.shownName) hasn't shared anything yet",
                     systemImage: "tray"
                 )
             case .loaded:
                 journal
             }
         }
-        .navigationTitle(friend.username)
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear { startListening() }
-        .onDisappear { listener.stop() }
     }
 
     private func startListening() {
@@ -84,7 +112,7 @@ struct FriendJournalView: View {
                                     .accessibilityAddTraits(.isHeader)
 
                                 ForEach(day.notes) { note in
-                                    FriendNoteRow(friendName: friend.username, friendUID: friend.id, note: note)
+                                    FriendNoteRow(friendName: friend.shownName, friendUID: friend.id, note: note)
                                 }
                             }
                         }

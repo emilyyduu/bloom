@@ -38,9 +38,9 @@ final class FriendService: ObservableObject {
 
     @Published var friends: [FirestoreUser] = []
     @Published var pendingIncoming: [Friendship] = []
-    @Published var pendingRequesterNames: [String: String] = [:]
+    @Published var pendingRequesterProfiles: [String: FirestoreUser] = [:]
     @Published var pendingOutgoing: [Friendship] = []
-    @Published var pendingRecipientNames: [String: String] = [:]
+    @Published var pendingRecipientProfiles: [String: FirestoreUser] = [:]
 
     private var listenersStarted = false
     private var incomingRequestsListener: ListenerRegistration?
@@ -253,9 +253,9 @@ final class FriendService: ObservableObject {
         receivedFriendUIDs = []
         friends = []
         pendingIncoming = []
-        pendingRequesterNames = [:]
+        pendingRequesterProfiles = [:]
         pendingOutgoing = []
-        pendingRecipientNames = [:]
+        pendingRecipientProfiles = [:]
         listenersStarted = false
     }
 
@@ -266,14 +266,14 @@ final class FriendService: ObservableObject {
     private func loadRequesterNames(for requests: [Friendship]) async {
         let uids = Array(Set(requests.map(\.fromUID)))
         for user in await fetchUsers(withUIDs: uids) {
-            if let id = user.id { pendingRequesterNames[id] = user.username }
+            if let id = user.id { pendingRequesterProfiles[id] = user }
         }
     }
 
     private func loadRecipientNames(for requests: [Friendship]) async {
         let uids = Array(Set(requests.map(\.toUID)))
         for user in await fetchUsers(withUIDs: uids) {
-            if let id = user.id { pendingRecipientNames[id] = user.username }
+            if let id = user.id { pendingRecipientProfiles[id] = user }
         }
     }
 

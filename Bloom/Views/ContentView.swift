@@ -15,6 +15,7 @@ struct ContentView: View {
 
     @StateObject private var friendService = FriendService.shared
     @StateObject private var draftSaveBanner = DraftSaveBanner.shared
+    @StateObject private var linkCoordinator = ProfileLinkCoordinator.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
@@ -71,6 +72,15 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingDrafts) {
             DraftsView()
         }
+        // On its own view rather than a third sheet on the TabView, so
+        // the two isPresented sheets above and this item sheet don't
+        // share one presentation slot.
+        .background {
+            Color.clear
+                .sheet(item: $linkCoordinator.incoming) { link in
+                    AddByLinkSheet(uid: link.uid)
+                }
+        }
         // Reserves space above the tab bar for the "Saved to Drafts"
         // banner rather than overlaying it, so the tab bar is never
         // covered and its taps are never blocked.
@@ -111,6 +121,9 @@ struct ContentView: View {
             NoteSyncService.shared.queuePhotosForBackfill(context: context)
             hasBackfilledPhotoSync = true
         }
+        // Only posted notes can be pinned, so clear any pin a draft
+        // somehow has before the pending notes upload.
+        Note.unpinDrafts(in: context)
         await NoteSyncService.shared.syncPending(context: context)
     }
 }

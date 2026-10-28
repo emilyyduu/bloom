@@ -26,7 +26,16 @@ struct MyCircleView: View {
                     NavigationLink {
                         FriendJournalView(friend: friend)
                     } label: {
-                        Text(friend.username)
+                        HStack(spacing: 12) {
+                            AvatarView(user: friend, size: 40)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(friend.shownName)
+                                Text("@\(friend.username)")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
             } header: {

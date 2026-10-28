@@ -1,7 +1,7 @@
 import SwiftUI
 
 // A small sheet listing accepted friends, tap one to share a note with
-// them. Presented from a note in the Daisy Chain.
+// them. Presented from a note in Home's timeline.
 struct ShareToFriendView: View {
     let note: Note
     @Environment(\.dismiss) private var dismiss

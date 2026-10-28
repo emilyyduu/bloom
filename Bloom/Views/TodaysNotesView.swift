@@ -61,6 +61,9 @@ private struct TodaysNotesPage: View {
                     if note.sharedWithFriends {
                         SharedIndicator()
                     }
+                    if note.isPinned {
+                        PinIndicator()
+                    }
                     Spacer()
                     Button(action: onShare) {
                         Image(systemName: "square.and.arrow.up")
@@ -96,6 +99,7 @@ private struct TodaysNotesPage: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color(.secondarySystemBackground))
         )
+        .notePinActions(note)
     }
 }
 

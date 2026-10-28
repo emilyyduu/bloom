@@ -23,6 +23,27 @@ extension Note {
         return UIImage(contentsOfFile: url.path)
     }
 
+    static let pinLimit = 3
+
+    // How many posted notes are pinned right now.
+    static func pinnedCount(in context: ModelContext) -> Int {
+        let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.isPinned && !$0.isDraft })
+        return (try? context.fetchCount(descriptor)) ?? 0
+    }
+
+    // Only posted notes can be pinned. If a draft somehow carries a pin,
+    // this clears it and queues the note to re-upload without one.
+    static func unpinDrafts(in context: ModelContext) {
+        let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.isPinned && $0.isDraft })
+        guard let drafts = try? context.fetch(descriptor), !drafts.isEmpty else { return }
+        for draft in drafts {
+            draft.isPinned = false
+            draft.pinnedAt = nil
+            draft.syncedAt = nil
+        }
+        try? context.save()
+    }
+
     // Used by TodaysNotesView and HomeView, both of which page through
     // today's saved notes in creation order.
     static func todaysNotesDescriptor() -> FetchDescriptor<Note> {

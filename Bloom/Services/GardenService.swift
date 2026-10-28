@@ -9,6 +9,16 @@ struct GardenPlant: Identifiable, Equatable {
     let username: String
     let currentStreak: Int
     let plantState: PlantState?
+    // The friend's display name, nil for "You" and for friends who
+    // don't have one yet. The streak rows show it above @username.
+    var displayName: String? = nil
+    var hasAvatar = false
+    var avatarUpdatedAt: Date? = nil
+    // My own plant reads its picture from MyAvatar, which updates the
+    // moment I change it, rather than from a friends snapshot.
+    var isMe = false
+
+    var shownName: String { displayName ?? username }
 }
 
 // Builds the Shared Circle Garden from the signed-in user's own
@@ -29,6 +39,8 @@ final class GardenService: ObservableObject {
 
     private var orderedUIDs: [String] = []
     private var usernames: [String: String] = [:]
+    private var displayNames: [String: String] = [:]
+    private var avatars: [String: (hasAvatar: Bool, updatedAt: Date?)] = [:]
     private var streakSnapshots: [String: (currentStreak: Int, lastPostDate: Date?)] = [:]
     private var listeners: [String: ListenerRegistration] = [:]
     private var friendsCancellable: AnyCancellable?
@@ -53,6 +65,8 @@ final class GardenService: ObservableObject {
         friendsCancellable = nil
         orderedUIDs = []
         usernames = [:]
+        displayNames = [:]
+        avatars = [:]
         streakSnapshots = [:]
         plants = []
     }
@@ -66,6 +80,13 @@ final class GardenService: ObservableObject {
 
         orderedUIDs = people.map(\.uid)
         usernames = Dictionary(uniqueKeysWithValues: people.map { ($0.uid, $0.username) })
+        displayNames = [:]
+        avatars = [:]
+        for friend in friends {
+            guard let id = friend.id else { continue }
+            displayNames[id] = friend.shownName
+            avatars[id] = (friend.hasAvatar ?? false, friend.avatarUpdatedAt)
+        }
 
         let currentUIDs = Set(orderedUIDs)
         for uid in listeners.keys where !currentUIDs.contains(uid) {
@@ -115,7 +136,11 @@ final class GardenService: ObservableObject {
                 id: uid,
                 username: usernames[uid] ?? "Someone",
                 currentStreak: snapshot?.currentStreak ?? 0,
-                plantState: GrowthState.plantState(lastPostDate: snapshot?.lastPostDate, today: today)
+                plantState: GrowthState.plantState(lastPostDate: snapshot?.lastPostDate, today: today),
+                displayName: displayNames[uid],
+                hasAvatar: avatars[uid]?.hasAvatar ?? false,
+                avatarUpdatedAt: avatars[uid]?.updatedAt,
+                isMe: uid == Auth.auth().currentUser?.uid
             )
         }
     }

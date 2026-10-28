@@ -97,19 +97,28 @@ final class NoteSyncService {
         case couldNotCompress
     }
 
-    // The document always carries exactly these six fields, a draft
-    // is never written as shared regardless of what sharedWithFriends
-    // holds locally, since the security rules reject a shared draft.
+    // The document carries these seven fields, plus pinnedAt while the
+    // note is pinned. A draft is never written as shared or pinned
+    // regardless of what is held locally, since the security rules
+    // reject a shared draft and only posted notes can be pinned.
     // hasPhoto is only true once the photo document really exists.
+    // setData replaces the whole document, so an unpinned note simply
+    // has no pinnedAt.
     private func noteData(for note: Note) -> [String: Any] {
-        [
+        let isPinned = !note.isDraft && note.isPinned
+        var data: [String: Any] = [
             "text": note.text,
             "createdAt": Timestamp(date: note.createdAt),
             "isDraft": note.isDraft,
             "updatedAt": Timestamp(date: Date()),
             "sharedWithFriends": note.isDraft ? false : note.sharedWithFriends,
             "hasPhoto": note.hasPhoto && note.photoSyncedAt != nil,
+            "isPinned": isPinned,
         ]
+        if isPinned {
+            data["pinnedAt"] = Timestamp(date: note.pinnedAt ?? Date())
+        }
+        return data
     }
 
     // MARK: - Delete
@@ -168,6 +177,23 @@ final class NoteSyncService {
             try? note.modelContext?.save()
             throw error
         }
+    }
+
+    // MARK: - Pinning
+
+    // Pins or unpins a posted note. Local first, like the rest of the
+    // app: the change is saved straight away and syncedAt is cleared so
+    // the note shows as pending, then the upload (which stamps
+    // updatedAt) runs in the background. A failed upload leaves
+    // syncedAt nil, so syncPending retries it. The limit is checked by
+    // the caller, see Note.pinLimit. A draft is never pinned.
+    func setPinned(_ isPinned: Bool, for note: Note) {
+        guard !note.isDraft || !isPinned else { return }
+        note.isPinned = isPinned
+        note.pinnedAt = isPinned ? Date() : nil
+        note.syncedAt = nil
+        try? note.modelContext?.save()
+        upload(note)
     }
 
     // Sets sharedWithFriends on every non-draft note at once, for the
@@ -375,6 +401,10 @@ final class NoteSyncService {
             note.syncedAt = Date()
             note.photoSyncedAt = restoredPhotoFileName == nil ? nil : Date()
             note.sharedWithFriends = isDraft ? false : (data["sharedWithFriends"] as? Bool ?? false)
+            note.isPinned = isDraft ? false : (data["isPinned"] as? Bool ?? false)
+            note.pinnedAt = note.isPinned
+                ? ((data["pinnedAt"] as? Timestamp)?.dateValue() ?? note.createdAt)
+                : nil
             context.insert(note)
 
             if !isDraft {

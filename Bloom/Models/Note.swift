@@ -31,6 +31,14 @@ final class Note {
     // value to backfill onto existing rows for this new attribute.
     var sharedWithFriends: Bool = false
 
+    // Pinned notes show on my profile (and, if shared, on friends'
+    // view of it). At most Note.pinLimit at a time, enforced by the
+    // pin actions, and only ever on posted notes. Both are additive
+    // attributes with declared defaults, so SwiftData's lightweight
+    // migration can backfill existing rows.
+    var isPinned: Bool = false
+    var pinnedAt: Date?
+
     var journal: Journal?
     var mediaLogEntry: MediaLogEntry?
 

@@ -21,6 +21,12 @@ struct BloomApp: App {
                 }
             }
             .preferredColorScheme((AppAppearance(rawValue: appearanceRawValue) ?? .system).colorScheme)
+            // Anything that isn't bloom://add/{uid} is ignored. A valid
+            // link waits in the coordinator until the signed-in app can
+            // show it, so signing in first doesn't lose it.
+            .onOpenURL { url in
+                ProfileLinkCoordinator.shared.handle(url)
+            }
         }
         .modelContainer(for: [Note.self, Journal.self, MediaLogEntry.self])
     }

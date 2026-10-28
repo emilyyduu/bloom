@@ -2,35 +2,96 @@ import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
-// Changes the username on the users document. The Firestore rules for
-// that document only allow username, phoneNumber and createdAt, so
-// this also clears any leftover "email" field with FieldValue.delete()
-// rather than ever writing one.
+// Changes the display name and username on the users document. The
+// Firestore rules for that document only allow displayName, username,
+// usernameLower, phoneNumber and createdAt, so displayName, username and
+// usernameLower are always written together, and this also clears any
+// leftover "email" field with FieldValue.delete() rather than ever
+// writing one.
 struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
 
+    @State private var displayName: String
     @State private var username: String
     @State private var errorMessage: String?
     @State private var isSaving = false
-    let onSave: (String) -> Void
+    @StateObject private var myAvatar = MyAvatar.shared
 
-    init(username: String, onSave: @escaping (String) -> Void) {
+    private let originalDisplayName: String
+    private let originalUsername: String
+    let onSave: (_ displayName: String, _ username: String) -> Void
+
+    init(displayName: String, username: String, onSave: @escaping (_ displayName: String, _ username: String) -> Void) {
+        _displayName = State(initialValue: displayName)
         _username = State(initialValue: username)
+        originalDisplayName = displayName
+        originalUsername = username
         self.onSave = onSave
     }
 
+    private var trimmedDisplayName: String {
+        displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedUsername: String {
+        username.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // Unlike Sign Up, an empty display name does show its error here:
+    // the field starts filled in, so empty means it was cleared.
+    private var displayNameValidationError: String? {
+        DisplayNameValidator.errorMessage(for: trimmedDisplayName)
+    }
+
     private var usernameValidationError: String? {
-        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return UsernameValidator.errorMessage(for: trimmed)
+        guard !trimmedUsername.isEmpty else { return nil }
+        return UsernameValidator.errorMessage(for: trimmedUsername)
     }
 
     private var isValid: Bool {
-        UsernameValidator.isValid(username.trimmingCharacters(in: .whitespacesAndNewlines))
+        DisplayNameValidator.isValid(trimmedDisplayName) && UsernameValidator.isValid(trimmedUsername)
+    }
+
+    private var hasChanges: Bool {
+        trimmedDisplayName != originalDisplayName || trimmedUsername != originalUsername
     }
 
     var body: some View {
         Form {
+            // The photo saves on its own as soon as it's chosen, it
+            // isn't part of the Save button below.
+            Section {
+                VStack(spacing: 8) {
+                    EditableAvatar(
+                        model: myAvatar,
+                        uid: Auth.auth().currentUser?.uid,
+                        name: trimmedDisplayName.isEmpty ? originalDisplayName : trimmedDisplayName,
+                        size: 96,
+                        relativeTo: .largeTitle,
+                        maxSize: 140
+                    )
+                    FormErrorText(message: myAvatar.errorMessage)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+            }
+
+            Section {
+                TextField("Display name", text: $displayName)
+                    .textContentType(.name)
+                    .textInputAutocapitalization(.words)
+                if let displayNameValidationError {
+                    Text(displayNameValidationError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                SectionHeader("Display name")
+            } footer: {
+                Text("This is the name friends see. Your username is how they find you.")
+            }
+
             Section {
                 TextField("Username", text: $username)
                     .textInputAutocapitalization(.never)
@@ -53,7 +114,7 @@ struct EditProfileView: View {
                     ProgressView()
                 } else {
                     Button("Save") { save() }
-                        .disabled(!isValid)
+                        .disabled(!isValid || !hasChanges)
                 }
             }
         }
@@ -61,21 +122,23 @@ struct EditProfileView: View {
 
     private func save() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
-        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let newDisplayName = trimmedDisplayName
+        let newUsername = trimmedUsername
 
         isSaving = true
         errorMessage = nil
         Task {
             do {
                 try await Firestore.firestore().collection("users").document(uid).updateData([
-                    "username": trimmed,
-                    "usernameLower": trimmed.lowercased(),
+                    "displayName": newDisplayName,
+                    "username": newUsername,
+                    "usernameLower": newUsername.lowercased(),
                     "email": FieldValue.delete(),
                 ])
-                onSave(trimmed)
+                onSave(newDisplayName, newUsername)
                 dismiss()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = "Couldn't save your changes. \(error.localizedDescription)"
             }
             isSaving = false
         }
@@ -84,6 +147,6 @@ struct EditProfileView: View {
 
 #Preview {
     NavigationStack {
-        EditProfileView(username: "bloom_user") { _ in }
+        EditProfileView(displayName: "Bloom User", username: "bloom_user") { _, _ in }
     }
 }

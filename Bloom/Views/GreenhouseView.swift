@@ -175,7 +175,7 @@ private struct GardenStreakRow: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
-    @ScaledMetric(relativeTo: .body) private var iconDiameter: CGFloat = 44
+    @ObservedObject private var myAvatar = MyAvatar.shared
 
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
 
@@ -226,20 +226,53 @@ private struct GardenStreakRow: View {
             : AnyLayout(HStackLayout(spacing: 12))
     }
 
+    @ViewBuilder
+    private var avatar: some View {
+        if plant.isMe {
+            AvatarView(
+                uid: plant.id,
+                name: plant.shownName,
+                hasAvatar: myAvatar.hasAvatar,
+                avatarUpdatedAt: myAvatar.updatedAt,
+                size: 44,
+                localImage: myAvatar.localImage
+            )
+        } else {
+            AvatarView(
+                uid: plant.id,
+                name: plant.shownName,
+                hasAvatar: plant.hasAvatar,
+                avatarUpdatedAt: plant.avatarUpdatedAt,
+                size: 44
+            )
+        }
+    }
+
     private var identity: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle().fill(iconColor.opacity(0.22))
-                Image(systemName: iconName)
-                    .foregroundStyle(iconColor)
-                    .font(.headline)
-            }
-            .frame(width: iconDiameter, height: iconDiameter)
+            avatar
+                .overlay(alignment: .bottomTrailing) {
+                    // The plant's state stays visible as a small leaf
+                    // on the corner of the avatar.
+                    Image(systemName: iconName)
+                        .font(.caption2)
+                        .foregroundStyle(iconColor)
+                        .padding(4)
+                        .background(Circle().fill(Color(.secondarySystemBackground)))
+                        .offset(x: 4, y: 4)
+                        .accessibilityHidden(true)
+                }
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(plant.username)
+                Text(plant.shownName)
                     .font(.body)
                     .fontWeight(.medium)
+                if plant.displayName != nil {
+                    Text("@\(plant.username)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Text(statusWord)
                     .font(.caption)
                     .fontWeight(.medium)
@@ -272,7 +305,7 @@ private struct GardenStreakRow: View {
         .padding(.horizontal, 16)
         .padding(.vertical, isCompactHeight ? 6 : 10)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(plant.username), \(statusWord.lowercased()), \(accessibilityStreakDescription)")
+        .accessibilityLabel("\(plant.shownName), \(statusWord.lowercased()), \(accessibilityStreakDescription)")
     }
 }
 

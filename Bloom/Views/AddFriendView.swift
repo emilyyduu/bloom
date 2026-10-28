@@ -18,7 +18,12 @@ struct AddFriendView: View {
     @State private var isSearching = false
     @State private var errorMessage: String?
     @State private var requestErrorMessage: String?
+    @State private var isSearchPresented = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    // Profile's "Search for friends" field opens this with the search
+    // field already active, so typing can start straight away.
+    var startsWithSearchFocused = false
 
     var body: some View {
         NavigationStack {
@@ -32,8 +37,15 @@ struct AddFriendView: View {
                     }
 
                 List(results) { user in
-                    HStack {
-                        Text(user.username)
+                    HStack(spacing: 12) {
+                        AvatarView(user: user, size: 40)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(user.shownName)
+                            Text("@\(user.username)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
                         actionView(for: user)
                     }
@@ -62,8 +74,26 @@ struct AddFriendView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .searchable(text: $query, prompt: "Search by username")
+            .searchable(
+                text: $query,
+                isPresented: $isSearchPresented,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search by username"
+            )
             .onSubmit(of: .search) { searchByUsername() }
+            // Activating search while the sheet is still animating in is
+            // unreliable, so wait for it to settle. .task runs once per
+            // appearance and cancels if the sheet goes away first.
+            .task {
+                guard startsWithSearchFocused else { return }
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled else { return }
+                isSearchPresented = true
+            }
+            #if DEBUG
+            .onAppear { print("AddFriendView appeared") }
+            .onDisappear { print("AddFriendView disappeared") }
+            #endif
         }
     }
 

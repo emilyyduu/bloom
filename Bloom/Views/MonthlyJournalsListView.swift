@@ -114,9 +114,14 @@ private struct MonthlyJournalNoteRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(note.createdAt, style: .time)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text(note.createdAt, style: .time)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if note.isPinned {
+                    PinIndicator()
+                }
+            }
             Text(note.text)
 
             if let photo = note.photo {
@@ -130,6 +135,9 @@ private struct MonthlyJournalNoteRow: View {
                 MediaLogChip(entry: mediaLogEntry)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .notePinActions(note)
     }
 }
 
