@@ -287,6 +287,7 @@
 				INFOPLIST_FILE = Bloom/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom checks your contacts to help you find friends who are already using the app.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bloom records voice memos you attach to your notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -321,6 +322,7 @@
 				INFOPLIST_FILE = Bloom/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom checks your contacts to help you find friends who are already using the app.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bloom records voice memos you attach to your notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

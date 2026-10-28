@@ -18,6 +18,8 @@ struct NoteComposerView: View {
     @State private var originalText: String
 
     @State private var text: String
+    // Where the cursor is in the note, so a quick emoji lands there.
+    @State private var textSelection: TextSelection?
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedPhotoData: Data?
     @State private var isSharedWithFriends: Bool
@@ -69,7 +71,9 @@ struct NoteComposerView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextEditor(text: $text)
+                    quickEmojiRow
+                        .listRowInsets(EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8))
+                    TextEditor(text: $text, selection: $textSelection)
                         .frame(minHeight: 120)
                 } header: {
                     SectionHeader("What's happening?")
@@ -188,6 +192,64 @@ struct NoteComposerView: View {
                 }
             }
         }
+    }
+
+    // A short scrolling row above the note text. Each button names its
+    // emoji for VoiceOver and is at least 44 by 44 points.
+    private var quickEmojiRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 0) {
+                ForEach(Self.quickEmojis) { item in
+                    Button {
+                        insertEmoji(item.emoji)
+                    } label: {
+                        Text(item.emoji)
+                            .font(.title2)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(item.name)
+                }
+            }
+        }
+    }
+
+    private struct QuickEmoji: Identifiable {
+        let emoji: String
+        let name: String
+        var id: String { name }
+    }
+
+    private static let quickEmojis: [QuickEmoji] = [
+        QuickEmoji(emoji: "☀️", name: "Sun"),
+        QuickEmoji(emoji: "☕️", name: "Coffee"),
+        QuickEmoji(emoji: "🌧️", name: "Rain cloud"),
+        QuickEmoji(emoji: "🍜", name: "Noodles"),
+        QuickEmoji(emoji: "📚", name: "Books"),
+        QuickEmoji(emoji: "🎬", name: "Clapper board"),
+        QuickEmoji(emoji: "💛", name: "Yellow heart"),
+        QuickEmoji(emoji: "😴", name: "Sleeping face"),
+        QuickEmoji(emoji: "🌱", name: "Seedling"),
+        QuickEmoji(emoji: "🎉", name: "Party popper"),
+    ]
+
+    // Inserts at the cursor, replacing any selected text, or at the end
+    // if there is no cursor yet. Offsets are counted in whole
+    // characters, so an emoji is never split.
+    private func insertEmoji(_ emoji: String) {
+        var lower = text.endIndex
+        var upper = text.endIndex
+        if let textSelection, case .selection(let range) = textSelection.indices,
+           range.upperBound <= text.endIndex {
+            lower = range.lowerBound
+            upper = range.upperBound
+        }
+        let insertOffset = text.distance(from: text.startIndex, to: lower)
+
+        text.replaceSubrange(lower..<upper, with: emoji)
+
+        let cursor = text.index(text.startIndex, offsetBy: insertOffset + 1, limitedBy: text.endIndex) ?? text.endIndex
+        textSelection = TextSelection(insertionPoint: cursor)
     }
 
     // Visible even at zero drafts, so it's always findable; the count
