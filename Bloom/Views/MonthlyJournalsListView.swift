@@ -18,8 +18,8 @@ struct MonthlyJournalsListView: View {
         }
 
         return grouped
-            .map { monthStart, notes in
-                MonthGroup(monthStart: monthStart, notes: notes, isCurrentMonth: monthStart == currentMonthStart)
+            .map { monthStart, notesInMonth in
+                MonthGroup(monthStart: monthStart, notes: notesInMonth, isCurrentMonth: monthStart == currentMonthStart)
             }
             .sorted { $0.monthStart > $1.monthStart }
     }
@@ -168,4 +168,11 @@ private func dayHeaderString(_ date: Date) -> String {
     }
     .modelContainer(PreviewContainer.shared)
     .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Landscape", traits: .landscapeLeft) {
+    NavigationStack {
+        MonthlyJournalsListView()
+    }
+    .modelContainer(PreviewContainer.shared)
 }

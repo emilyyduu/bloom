@@ -3,16 +3,31 @@ import SwiftData
 import FirebaseAuth
 
 // Every note saved with "Save as Draft", newest first. Presented as a
-// sheet from the Journal header's Drafts button.
+// sheet from the Journal header's Drafts button, or nested inside
+// NoteComposerView's own Drafts button.
+//
+// onSelect is nil by default: tapping a draft then opens it in a
+// second composer sheet stacked on top of this one, which is what the
+// Journal header and the composer's "Add" sheet still want. Passing a
+// closure (as NoteComposerView does) replaces that with loading the
+// draft straight into the caller instead.
 struct DraftsView: View {
+    var excludedDraft: Note?
+    var onSelect: ((Note) -> Void)?
+
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
     @Query(filter: #Predicate<Note> { $0.isDraft }, sort: \Note.createdAt, order: .reverse)
-    private var drafts: [Note]
+    private var allDrafts: [Note]
 
     @State private var draftToEdit: Note?
     @State private var draftPendingDeletion: Note?
+
+    private var drafts: [Note] {
+        guard let excludedDraft else { return allDrafts }
+        return allDrafts.filter { $0.id != excludedDraft.id }
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,7 +43,7 @@ struct DraftsView: View {
                         ForEach(drafts) { draft in
                             DraftRow(draft: draft)
                                 .contentShape(Rectangle())
-                                .onTapGesture { draftToEdit = draft }
+                                .onTapGesture { selectDraft(draft) }
                                 .swipeActions(edge: .trailing) {
                                     Button(role: .destructive) {
                                         draftPendingDeletion = draft
@@ -46,7 +61,7 @@ struct DraftsView: View {
                                 }
                                 .contextMenu {
                                     Button {
-                                        draftToEdit = draft
+                                        selectDraft(draft)
                                     } label: {
                                         Label("Edit", systemImage: "pencil")
                                     }
@@ -94,6 +109,14 @@ struct DraftsView: View {
                     draftPendingDeletion = nil
                 }
             }
+        }
+    }
+
+    private func selectDraft(_ draft: Note) {
+        if let onSelect {
+            onSelect(draft)
+        } else {
+            draftToEdit = draft
         }
     }
 

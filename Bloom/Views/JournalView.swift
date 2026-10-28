@@ -5,7 +5,7 @@ import SwiftData
 // a segmented control rather than two separate tabs.
 struct JournalView: View {
     enum Segment: String, CaseIterable {
-        case flipbook = "Flipbook"
+        case todaysNotes = "Today's Notes"
         case library = "Library"
     }
 
@@ -19,7 +19,7 @@ struct JournalView: View {
 
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
 
-    init(initialSegment: Segment = .flipbook) {
+    init(initialSegment: Segment = .todaysNotes) {
         _segment = State(initialValue: initialSegment)
     }
 
@@ -62,8 +62,8 @@ struct JournalView: View {
 
                 Group {
                     switch segment {
-                    case .flipbook:
-                        FlipbookView()
+                    case .todaysNotes:
+                        TodaysNotesView()
                     case .library:
                         LibraryView()
                     }
@@ -119,20 +119,20 @@ struct JournalView: View {
         .preferredColorScheme(.dark)
 }
 
-#Preview("Flipbook - Large") {
-    JournalView(initialSegment: .flipbook)
+#Preview("Today's Notes - Large") {
+    JournalView(initialSegment: .todaysNotes)
         .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .large)
 }
 
-#Preview("Flipbook - XXX Large") {
-    JournalView(initialSegment: .flipbook)
+#Preview("Today's Notes - XXX Large") {
+    JournalView(initialSegment: .todaysNotes)
         .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .xxxLarge)
 }
 
-#Preview("Flipbook - Accessibility 5") {
-    JournalView(initialSegment: .flipbook)
+#Preview("Today's Notes - Accessibility 5") {
+    JournalView(initialSegment: .todaysNotes)
         .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .accessibility5)
 }

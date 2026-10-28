@@ -3,7 +3,7 @@ import FirebaseAuth
 import FirebaseFirestore
 
 // The Profile tab: who I am, plus the rows that used to be scattered
-// across separate tabs (My Circle, Your Journals) or missing entirely
+// across separate tabs (My Circle, Monthly Journals) or missing entirely
 // (Edit Profile, Settings).
 struct ProfileView: View {
     @State private var username: String = ""
@@ -49,9 +49,9 @@ struct ProfileView: View {
                             Label("My Circle", systemImage: "person.2")
                         }
                         NavigationLink {
-                            JournalHistoryListView()
+                            MonthlyJournalsListView()
                         } label: {
-                            Label("Your Journals", systemImage: "book.closed")
+                            Label("Monthly Journals", systemImage: "book.closed")
                         }
                         NavigationLink {
                             SettingsView()

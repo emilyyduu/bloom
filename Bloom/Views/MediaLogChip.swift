@@ -1,7 +1,7 @@
 import SwiftUI
 
 // The small pill shown on a note that has a movie or show attached, in
-// both the Daisy Chain and Flipbook views.
+// both Today's Notes and Home views.
 struct MediaLogChip: View {
     let entry: MediaLogEntry
 

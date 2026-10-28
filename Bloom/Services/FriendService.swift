@@ -185,8 +185,11 @@ final class FriendService: ObservableObject {
         incomingRequestsListener = db.collection("friendships")
             .whereField("toUID", isEqualTo: myUID)
             .whereField("status", isEqualTo: FriendRequestStatus.pending.rawValue)
-            .addSnapshotListener { [weak self] snapshot, _ in
+            .addSnapshotListener { [weak self] snapshot, error in
                 guard let self else { return }
+                #if DEBUG
+                if let error { logFirestoreError(error, while: "listening for incoming friend requests") }
+                #endif
                 let requests = snapshot?.decoded(as: Friendship.self) ?? []
                 self.pendingIncoming = requests
                 Task { await self.loadRequesterNames(for: requests) }
@@ -195,8 +198,11 @@ final class FriendService: ObservableObject {
         outgoingRequestsListener = db.collection("friendships")
             .whereField("fromUID", isEqualTo: myUID)
             .whereField("status", isEqualTo: FriendRequestStatus.pending.rawValue)
-            .addSnapshotListener { [weak self] snapshot, _ in
+            .addSnapshotListener { [weak self] snapshot, error in
                 guard let self else { return }
+                #if DEBUG
+                if let error { logFirestoreError(error, while: "listening for outgoing friend requests") }
+                #endif
                 let requests = snapshot?.decoded(as: Friendship.self) ?? []
                 self.pendingOutgoing = requests
                 Task { await self.loadRecipientNames(for: requests) }
@@ -205,8 +211,11 @@ final class FriendService: ObservableObject {
         sentAcceptedListener = db.collection("friendships")
             .whereField("fromUID", isEqualTo: myUID)
             .whereField("status", isEqualTo: FriendRequestStatus.accepted.rawValue)
-            .addSnapshotListener { [weak self] snapshot, _ in
+            .addSnapshotListener { [weak self] snapshot, error in
                 guard let self else { return }
+                #if DEBUG
+                if let error { logFirestoreError(error, while: "listening for friendships I sent that were accepted") }
+                #endif
                 let friendships = snapshot?.decoded(as: Friendship.self) ?? []
                 self.sentFriendUIDs = friendships.map(\.toUID)
                 Task { await self.reloadFriends() }
@@ -215,8 +224,11 @@ final class FriendService: ObservableObject {
         receivedAcceptedListener = db.collection("friendships")
             .whereField("toUID", isEqualTo: myUID)
             .whereField("status", isEqualTo: FriendRequestStatus.accepted.rawValue)
-            .addSnapshotListener { [weak self] snapshot, _ in
+            .addSnapshotListener { [weak self] snapshot, error in
                 guard let self else { return }
+                #if DEBUG
+                if let error { logFirestoreError(error, while: "listening for friendships I received that were accepted") }
+                #endif
                 let friendships = snapshot?.decoded(as: Friendship.self) ?? []
                 self.receivedFriendUIDs = friendships.map(\.fromUID)
                 Task { await self.reloadFriends() }
