@@ -11,8 +11,10 @@ struct ContentView: View {
     @State private var selectedTab: Tab = .home
     @State private var tabBeforeAdd: Tab = .home
     @State private var isShowingComposer = false
+    @State private var isShowingDrafts = false
 
     @StateObject private var friendService = FriendService.shared
+    @StateObject private var draftSaveBanner = DraftSaveBanner.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
@@ -65,9 +67,26 @@ struct ContentView: View {
         .sheet(isPresented: $isShowingComposer) {
             NoteComposerView()
         }
+        .sheet(isPresented: $isShowingDrafts) {
+            DraftsView()
+        }
+        // Reserves space above the tab bar for the "Saved to Drafts"
+        // banner rather than overlaying it, so the tab bar is never
+        // covered and its taps are never blocked.
+        .safeAreaInset(edge: .bottom) {
+            if draftSaveBanner.isShowing {
+                DraftSavedBanner {
+                    draftSaveBanner.dismiss()
+                    isShowingDrafts = true
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 4)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
         .task {
             friendService.startListening()
-            SharedNotesStore.shared.startListening()
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
             await StreakSyncService.shared.sync(context: context)
             await NoteSyncService.shared.restore(context: context)
@@ -82,6 +101,27 @@ struct ContentView: View {
                 await NoteSyncService.shared.syncPending(context: context)
             }
         }
+    }
+}
+
+// The transient confirmation shown after "Save as Draft". A View
+// button opens Drafts directly.
+private struct DraftSavedBanner: View {
+    let onView: () -> Void
+
+    var body: some View {
+        HStack {
+            Text("Saved to Drafts")
+                .font(.subheadline)
+            Spacer()
+            Button("View", action: onView)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
     }
 }
 

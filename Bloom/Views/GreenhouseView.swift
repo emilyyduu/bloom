@@ -1,13 +1,12 @@
 import SwiftUI
 
-// The Greenhouse tab. Week 10 scope is streaks from real data behind a
-// placeholder card, not the SceneKit scene itself (see
-// GardenSceneBuilder.swift, which this view no longer uses but keeps
-// around to bring back later).
+// The Greenhouse tab. The garden is a RealityKit scene (GardenRealityView):
+// a small, non-interactive preview sits in the card below, and tapping
+// it opens a full screen interactive version.
 struct GreenhouseView: View {
     @StateObject private var gardenService = GardenService.shared
-    @ScaledMetric(relativeTo: .largeTitle) private var gardenIconSize: CGFloat = 56
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @State private var isShowingFullScreenGarden = false
 
     // In landscape on iPhone (compact height) the garden card and the
     // streaks list sit side by side instead of one on top of the
@@ -72,13 +71,16 @@ struct GreenhouseView: View {
                 FriendService.shared.startListening()
                 GardenService.shared.startListening()
             }
+            .fullScreenCover(isPresented: $isShowingFullScreenGarden) {
+                FullScreenGardenView(plants: plants)
+            }
         }
     }
 
     private var gardenPane: some View {
         VStack(alignment: .leading, spacing: isCompactHeight ? 10 : 16) {
             myCirclePill
-            gardenPlaceholderCard
+            gardenCard
         }
         .padding(isCompactHeight ? 10 : 16)
         .frame(maxWidth: isCompactHeight ? 340 : .infinity)
@@ -113,26 +115,34 @@ struct GreenhouseView: View {
             .background(Color(.secondarySystemBackground), in: Capsule())
     }
 
-    // Placeholder for the future 3D SceneKit garden. Swap this card's
-    // contents for a GardenSceneView (built on GardenSceneBuilder)
-    // once that's brought back.
-    private var gardenPlaceholderCard: some View {
+    // The real RealityKit garden, shown small and non-interactive
+    // here so the page still scrolls when a finger starts on the
+    // card. Tapping it opens the full screen interactive version.
+    private var gardenCard: some View {
         RoundedRectangle(cornerRadius: 28)
             .fill(Theme.Colors.gardenCardBackground)
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: isCompactHeight ? 260 : .infinity)
             .overlay {
-                VStack(spacing: 12) {
-                    Image(systemName: "leaf.fill")
-                        .font(.system(size: gardenIconSize))
-                        .foregroundStyle(Theme.Colors.blooming)
-                    Text("3D garden - later implementation")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding()
+                GardenRealityView(plants: plants)
+                    .padding(8)
             }
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(8)
+                    .background(.thinMaterial, in: Circle())
+                    .padding(10)
+                    .accessibilityHidden(true)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 28))
+            .contentShape(RoundedRectangle(cornerRadius: 28))
+            .onTapGesture {
+                isShowingFullScreenGarden = true
+            }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint("Double tap to view full screen garden.")
     }
 
     private var streaksCard: some View {

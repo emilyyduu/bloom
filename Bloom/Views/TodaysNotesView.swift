@@ -3,7 +3,7 @@ import SwiftData
 
 // The page-by-page view: today's notes shown one at a time, swiped
 // through horizontally like a small book.
-struct FlipbookView: View {
+struct TodaysNotesView: View {
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
     @State private var noteToShare: Note?
 
@@ -18,7 +18,7 @@ struct FlipbookView: View {
             } else {
                 TabView {
                     ForEach(todaysNotes) { note in
-                        FlipbookPage(note: note, onShare: { noteToShare = note })
+                        TodaysNotesPage(note: note, onShare: { noteToShare = note })
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
                             .padding(.bottom, 36)
@@ -34,7 +34,7 @@ struct FlipbookView: View {
     }
 }
 
-private struct FlipbookPage: View {
+private struct TodaysNotesPage: View {
     let note: Note
     let onShare: () -> Void
 
@@ -101,7 +101,7 @@ private struct FlipbookPage: View {
 
 #Preview {
     NavigationStack {
-        FlipbookView()
+        TodaysNotesView()
     }
     .modelContainer(PreviewContainer.shared)
 }
