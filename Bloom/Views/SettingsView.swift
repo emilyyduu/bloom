@@ -31,8 +31,9 @@ struct SettingsView: View {
     @Query(filter: #Predicate<Note> { !$0.isDraft && $0.sharedWithFriends }) private var sharedNotes: [Note]
     @State private var isBackingUp = false
 
-    @AppStorage("shareNewNotesWithFriends") private var shareNewNotesWithFriends = false
-    @AppStorage("hasShownShareNewNotesConfirmation") private var hasShownShareNewNotesConfirmation = false
+    // Per account, see AccountDefaults.
+    @AppStorage private var shareNewNotesWithFriends: Bool
+    @AppStorage private var hasShownShareNewNotesConfirmation: Bool
     @State private var isShowingShareNewNotesConfirmation = false
     @State private var isShowingShareAllConfirmation = false
     @State private var isShowingStopSharingAllConfirmation = false
@@ -44,6 +45,15 @@ struct SettingsView: View {
     @State private var isShowingSignOutConfirmation = false
     @State private var errorMessage: String?
     @State private var reminderErrorMessage: String?
+
+    init() {
+        _shareNewNotesWithFriends = AppStorage(
+            wrappedValue: false, AccountDefaults.key(AccountDefaults.shareNewNotesBase)
+        )
+        _hasShownShareNewNotesConfirmation = AppStorage(
+            wrappedValue: false, AccountDefaults.key(AccountDefaults.shareNewNotesConfirmationBase)
+        )
+    }
 
     private var appearance: Binding<AppAppearance> {
         Binding(
@@ -233,9 +243,7 @@ struct SettingsView: View {
     }
 
     private func signOut() {
-        FriendService.shared.stopListening()
-        GardenService.shared.stopListening()
-        SharedNotesStore.shared.stopListening()
+        AuthService.shared.resetInMemoryAccountState()
         do {
             try AuthService.shared.signOut()
         } catch {

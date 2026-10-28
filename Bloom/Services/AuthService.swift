@@ -16,12 +16,37 @@ final class AuthService: ObservableObject {
     // state changes.
     @Published var isSignedIn = false
 
+    // The signed-in account's uid, nil when signed out. BloomApp keys the
+    // signed-in UI and its per account SwiftData store on this.
+    @Published private(set) var uid: String?
+
     private var handle: AuthStateDidChangeListenerHandle?
 
     private init() {
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            self?.isSignedIn = user != nil
+            guard let self else { return }
+            // Covers a sign out that didn't come from Settings (for
+            // example a revoked session) or one account replacing another.
+            if let previous = self.uid, previous != user?.uid {
+                self.resetInMemoryAccountState()
+            }
+            self.uid = user?.uid
+            self.isSignedIn = user != nil
         }
+    }
+
+    // Clears everything held in memory about the account that was
+    // signed in, so the next account starts clean. Safe to call twice.
+    // Local notes need no clearing here, each account has its own store.
+    func resetInMemoryAccountState() {
+        FriendService.shared.stopListening()
+        GardenService.shared.stopListening()
+        SharedNotesStore.shared.stopListening()
+        FriendJournalService.shared.reset()
+        MyAvatar.shared.reset()
+        NoteSyncService.shared.reset()
+        ProfileLinkCoordinator.shared.reset()
+        Task { await NotificationScheduler.shared.cancelAllReminders() }
     }
 
     enum AuthServiceError: Error {

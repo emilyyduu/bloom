@@ -40,7 +40,7 @@ struct NoteComposerView: View {
         _draft = State(initialValue: draft)
         _originalText = State(initialValue: initialText)
         _text = State(initialValue: initialText)
-        _isSharedWithFriends = State(initialValue: UserDefaults.standard.bool(forKey: "shareNewNotesWithFriends"))
+        _isSharedWithFriends = State(initialValue: AccountDefaults.shareNewNotes)
 
         if let photo = draft?.photo, let data = photo.jpegData(compressionQuality: 0.9) {
             _selectedPhotoData = State(initialValue: data)

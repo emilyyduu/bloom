@@ -8,7 +8,7 @@ import Foundation
 enum PreviewContainer {
     @MainActor
     static let shared: ModelContainer = {
-        let schema = Schema([Note.self, Journal.self, MediaLogEntry.self])
+        let schema = StoreManager.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
 
         guard let container = try? ModelContainer(for: schema, configurations: [configuration]) else {

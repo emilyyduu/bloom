@@ -20,6 +20,28 @@ final class NoteSyncService {
 
     private var isRestoring = false
     private var isSyncingPending = false
+    // Bumped on sign out. A run still in flight for the previous account
+    // only clears its own in progress flag, never the next account's.
+    private var generation = 0
+
+    // Called on sign out, so the next account's restore and sync are
+    // never skipped because the previous account's run was still going.
+    func reset() {
+        generation += 1
+        isRestoring = false
+        isSyncingPending = false
+    }
+
+    // A context is only used if it is the signed-in account's own store,
+    // so a context from a previous account (say, in a Task that outlived
+    // its view) can never be backed up under the new account's uid.
+    private func ownsContext(_ context: ModelContext, uid: String?) -> Bool {
+        let owns = StoreManager.shared.owns(context, uid: uid)
+        #if DEBUG
+        if !owns { print("NoteSyncService: ignored a context that isn't the signed-in account's store") }
+        #endif
+        return owns
+    }
 
     // MARK: - Upload
 
@@ -204,7 +226,7 @@ final class NoteSyncService {
     // pending instead of being written. Firestore batches cap at 500
     // writes, so notes are uploaded in chunks.
     func setSharedWithFriendsForAllNotes(_ isShared: Bool, context: ModelContext) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = Auth.auth().currentUser?.uid, ownsContext(context, uid: uid) else { return }
 
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { !$0.isDraft })
         guard let notes = try? context.fetch(descriptor), !notes.isEmpty else {
@@ -270,6 +292,7 @@ final class NoteSyncService {
     // backup, so syncPending uploads the photo and rewrites the note
     // with hasPhoto. The caller guards this to run only once.
     func queuePhotosForBackfill(context: ModelContext) {
+        guard ownsContext(context, uid: Auth.auth().currentUser?.uid) else { return }
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate {
             $0.photoFileName != nil && $0.syncedAt != nil && $0.photoSyncedAt == nil
         })
@@ -291,9 +314,11 @@ final class NoteSyncService {
     // owned by a different account (e.g. a previous sign-in's unsynced
     // draft still sitting in the local store) is never uploaded.
     func syncPending(context: ModelContext) async {
-        guard !isSyncingPending, let uid = Auth.auth().currentUser?.uid else { return }
+        guard !isSyncingPending, let uid = Auth.auth().currentUser?.uid,
+              ownsContext(context, uid: uid) else { return }
         isSyncingPending = true
-        defer { isSyncingPending = false }
+        let startedGeneration = generation
+        defer { if startedGeneration == generation { isSyncingPending = false } }
 
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.syncedAt == nil })
         guard let candidates = try? context.fetch(descriptor) else { return }
@@ -338,9 +363,11 @@ final class NoteSyncService {
     // If that download fails the note is skipped, not inserted, so the
     // next restore retries it instead of losing the photo for good.
     func restore(context: ModelContext) async {
-        guard !isRestoring, let uid = Auth.auth().currentUser?.uid else { return }
+        guard !isRestoring, let uid = Auth.auth().currentUser?.uid,
+              ownsContext(context, uid: uid) else { return }
         isRestoring = true
-        defer { isRestoring = false }
+        let startedGeneration = generation
+        defer { if startedGeneration == generation { isRestoring = false } }
 
         let existingIDs: Set<String>
         if let existingNotes = try? context.fetch(FetchDescriptor<Note>()) {
@@ -417,7 +444,7 @@ final class NoteSyncService {
         try? context.save()
 
         #if DEBUG
-        print("NoteSyncService: restore - restored \(restored), failed \(failed)")
+        print("NoteSyncService: restore for \(uid) added \(restored) note(s), failed \(failed)")
         #endif
 
         guard restored > 0 else { return }

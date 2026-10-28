@@ -131,7 +131,7 @@ struct DraftsView: View {
         if note.ownerUID == nil {
             note.ownerUID = Auth.auth().currentUser?.uid
         }
-        note.sharedWithFriends = UserDefaults.standard.bool(forKey: "shareNewNotesWithFriends")
+        note.sharedWithFriends = AccountDefaults.shareNewNotes
         note.syncedAt = nil
         try? context.save()
 

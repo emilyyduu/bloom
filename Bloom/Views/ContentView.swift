@@ -19,7 +19,14 @@ struct ContentView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
-    @AppStorage("hasBackfilledPhotoSync") private var hasBackfilledPhotoSync = false
+    // Per account, see AccountDefaults.
+    @AppStorage private var hasBackfilledPhotoSync: Bool
+
+    init() {
+        _hasBackfilledPhotoSync = AppStorage(
+            wrappedValue: false, AccountDefaults.key(AccountDefaults.photoBackfillBase)
+        )
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {

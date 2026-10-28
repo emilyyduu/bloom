@@ -14,8 +14,12 @@ struct BloomApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if authService.isSignedIn {
-                    ContentView()
+                if let uid = authService.uid {
+                    // One store file per account. The id makes SwiftUI
+                    // rebuild the whole signed-in UI when the account
+                    // changes, so every @Query and the environment
+                    // context rebind to the new account's container.
+                    signedInContent(uid: uid)
                 } else {
                     WelcomeView()
                 }
@@ -28,6 +32,39 @@ struct BloomApp: App {
                 ProfileLinkCoordinator.shared.handle(url)
             }
         }
-        .modelContainer(for: [Note.self, Journal.self, MediaLogEntry.self])
+    }
+
+    @ViewBuilder
+    private func signedInContent(uid: String) -> some View {
+        if let container = Self.container(for: uid) {
+            ContentView()
+                .modelContainer(container)
+                .id(uid)
+        } else {
+            StoreUnavailableView()
+        }
+    }
+
+    private static func container(for uid: String) -> ModelContainer? {
+        do {
+            return try StoreManager.shared.container(for: uid)
+        } catch {
+            #if DEBUG
+            print("BloomApp: could not open the store for \(uid): \(error)")
+            #endif
+            return nil
+        }
+    }
+}
+
+// Shown only if an account's store file can't be opened, so notes are
+// never silently written somewhere else.
+private struct StoreUnavailableView: View {
+    var body: some View {
+        ContentUnavailableView(
+            "Can't open your notes",
+            systemImage: "exclamationmark.triangle",
+            description: Text("Close Bloom and open it again. If this keeps happening, sign out and sign back in.")
+        )
     }
 }

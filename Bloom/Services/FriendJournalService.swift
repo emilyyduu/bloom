@@ -30,7 +30,17 @@ final class FriendJournalService: ObservableObject {
 
     @Published private(set) var latestNoteByFriend: [String: FriendNote] = [:]
 
+    // Bumped on sign out so a fetch still in flight for the previous
+    // account can't write its results into the next account's tiles.
+    private var generation = 0
+
+    func reset() {
+        generation += 1
+        latestNoteByFriend = [:]
+    }
+
     func refreshLatestNotes(for friendUIDs: [String]) async {
+        let startedGeneration = generation
         for uid in friendUIDs {
             do {
                 let snapshot = try await db.collection("users").document(uid).collection("notes")
@@ -38,6 +48,7 @@ final class FriendJournalService: ObservableObject {
                     .order(by: "createdAt", descending: true)
                     .limit(to: 1)
                     .getDocuments()
+                guard startedGeneration == generation else { return }
                 latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first
             } catch {
                 #if DEBUG

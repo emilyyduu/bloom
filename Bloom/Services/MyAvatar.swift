@@ -26,6 +26,20 @@ final class MyAvatar: ObservableObject {
 
     private var uid: String? { Auth.auth().currentUser?.uid }
 
+    // Bumped on sign out so an upload or removal still in flight for the
+    // previous account can't change the next account's picture state.
+    private var generation = 0
+
+    // Back to the signed-out state, called when the account changes.
+    func reset() {
+        generation += 1
+        hasAvatar = false
+        updatedAt = nil
+        localImage = nil
+        isWorking = false
+        errorMessage = nil
+    }
+
     // Called when my profile document is loaded. Skipped while a change
     // is in flight so it can't undo what was just chosen.
     func load(hasAvatar: Bool, updatedAt: Date?) {
@@ -52,18 +66,21 @@ final class MyAvatar: ObservableObject {
         }
 
         let previousImage = localImage
+        let startedGeneration = generation
         localImage = processed
         errorMessage = nil
         isWorking = true
         do {
             let date = try await store.upload(data, uid: uid)
             await AvatarCache.shared.save(data, uid: uid, updatedAt: date)
+            guard startedGeneration == generation else { return }
             hasAvatar = true
             updatedAt = date
         } catch {
             #if DEBUG
             logFirestoreError(error, while: "uploading my avatar")
             #endif
+            guard startedGeneration == generation else { return }
             localImage = previousImage
             errorMessage = "Couldn't update your photo. Check your connection and try again."
         }
@@ -75,6 +92,7 @@ final class MyAvatar: ObservableObject {
 
         let previousImage = localImage
         let previousHasAvatar = hasAvatar
+        let startedGeneration = generation
         localImage = nil
         hasAvatar = false
         errorMessage = nil
@@ -85,10 +103,12 @@ final class MyAvatar: ObservableObject {
             #if DEBUG
             logFirestoreError(error, while: "removing my avatar")
             #endif
+            guard startedGeneration == generation else { return }
             localImage = previousImage
             hasAvatar = previousHasAvatar
             errorMessage = "Couldn't remove your photo. Check your connection and try again."
         }
+        guard startedGeneration == generation else { return }
         isWorking = false
     }
 }

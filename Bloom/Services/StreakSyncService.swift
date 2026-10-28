@@ -16,7 +16,8 @@ final class StreakSyncService {
     private let db = Firestore.firestore()
 
     func sync(context: ModelContext) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = Auth.auth().currentUser?.uid,
+              StoreManager.shared.owns(context, uid: uid) else { return }
 
         let calendar = Calendar.current
         let postedDates = postedDates(in: context, calendar: calendar)

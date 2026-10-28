@@ -46,6 +46,12 @@ final class ProfileLinkCoordinator: ObservableObject {
 
     @Published var incoming: IncomingProfileLink?
 
+    // Drops a link that was opened but not yet shown, so it can't be
+    // presented to the next account on this device.
+    func reset() {
+        incoming = nil
+    }
+
     func handle(_ url: URL) {
         guard let uid = ProfileLink.uid(from: url) else { return }
         incoming = IncomingProfileLink(uid: uid)

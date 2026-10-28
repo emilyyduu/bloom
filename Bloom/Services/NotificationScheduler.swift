@@ -1,6 +1,7 @@
 import Foundation
 import UserNotifications
 import SwiftData
+import FirebaseAuth
 
 // Schedules Bloom's evening reminder. A local notification can't check
 // at delivery time whether a note was logged today, so instead of one
@@ -38,6 +39,10 @@ final class NotificationScheduler {
 
         let settings = await center.notificationSettings()
         guard settings.authorizationStatus == .authorized else { return }
+
+        // Only plan from the signed-in account's own store, and only if
+        // that account is still signed in after the awaits above.
+        guard StoreManager.shared.owns(context, uid: Auth.auth().currentUser?.uid) else { return }
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
