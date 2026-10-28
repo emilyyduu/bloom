@@ -23,7 +23,7 @@ extension Note {
         return UIImage(contentsOfFile: url.path)
     }
 
-    // Used by DaisyChainView and FlipbookView, both of which page through
+    // Used by TodaysNotesView and HomeView, both of which page through
     // today's saved notes in creation order.
     static func todaysNotesDescriptor() -> FetchDescriptor<Note> {
         let startOfDay = Calendar.current.startOfDay(for: Date())

@@ -28,11 +28,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A22BE3883078350D00805F62 /* Design */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Design;
-			sourceTree = "<group>";
-		};
 		A275C0A1306567A200BDF6C2 /* Bloom */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -60,7 +55,6 @@
 		A275C096306567A200BDF6C2 = {
 			isa = PBXGroup;
 			children = (
-				A22BE3883078350D00805F62 /* Design */,
 				A275C0A1306567A200BDF6C2 /* Bloom */,
 				A275C0A0306567A200BDF6C2 /* Products */,
 			);
@@ -90,7 +84,6 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				A22BE3883078350D00805F62 /* Design */,
 				A275C0A1306567A200BDF6C2 /* Bloom */,
 			);
 			name = Bloom;

@@ -23,7 +23,11 @@ struct MyCircleView: View {
 
             Section {
                 ForEach(friendService.friends) { friend in
-                    Text(friend.username)
+                    NavigationLink {
+                        FriendJournalView(friend: friend)
+                    } label: {
+                        Text(friend.username)
+                    }
                 }
             } header: {
                 SectionHeader("Friends")

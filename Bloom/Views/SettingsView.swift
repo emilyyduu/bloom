@@ -119,7 +119,6 @@ struct SettingsView: View {
             #if DEBUG
             Section {
                 Toggle("Preview garden with sample data", isOn: $isGardenSampleDataEnabled)
-                RealityKitSpikeEntryRow()
             } header: {
                 SectionHeader("Debug")
             }

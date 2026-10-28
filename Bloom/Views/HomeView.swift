@@ -11,7 +11,7 @@ struct HomeView: View {
     @Query(filter: #Predicate<Note> { !$0.isDraft }, sort: \Note.createdAt) private var postedNotes: [Note]
 
     @StateObject private var friendService = FriendService.shared
-    @StateObject private var sharedNotesStore = SharedNotesStore.shared
+    @StateObject private var friendJournalService = FriendJournalService.shared
 
     @State private var isShowingComposer = false
     @State private var isShowingAddFriend = false
@@ -19,9 +19,7 @@ struct HomeView: View {
     @State private var friendSearchText = ""
     @State private var noteToShare: Note?
     @State private var noteToView: Note?
-    @State private var selectedSharedTile: SharedTileSelection?
-
-    @AppStorage("lastSeenNotificationsTimestamp") private var lastSeenNotificationsTimestamp: Double = 0
+    @State private var selectedFriendForJournal: FirestoreUser?
 
     #if DEBUG
     @AppStorage("gardenSampleDataEnabled") private var isSampleDataEnabled = false
@@ -29,6 +27,7 @@ struct HomeView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.scenePhase) private var scenePhase
     @ScaledMetric(relativeTo: .caption) private var timeColumnWidth: CGFloat = 44
     @ScaledMetric(relativeTo: .body) private var minFriendTileWidth: CGFloat = 150
 
@@ -58,9 +57,7 @@ struct HomeView: View {
     }
 
     private var hasUnseenNotifications: Bool {
-        if !friendService.pendingIncoming.isEmpty { return true }
-        guard let newest = sharedNotesStore.recentNotes.first else { return false }
-        return newest.sharedAt.timeIntervalSince1970 > lastSeenNotificationsTimestamp
+        !friendService.pendingIncoming.isEmpty
     }
 
     private var displayedFriends: [FirestoreUser] {
@@ -70,11 +67,21 @@ struct HomeView: View {
         return friendService.friends
     }
 
-    private var displayedLatestNoteBySender: [String: SharedNote] {
+    private var displayedLatestNoteByFriend: [String: FriendNote] {
         #if DEBUG
-        if isSampleDataEnabled { return Self.sampleSharedNotes }
+        if isSampleDataEnabled { return Self.sampleLatestNoteByFriend }
         #endif
-        return sharedNotesStore.latestNoteBySender
+        return friendJournalService.latestNoteByFriend
+    }
+
+    // Home's friend tile preview is a refresh-on-appear fetch, not a
+    // live listener, scoped to the friends actually shown here rather
+    // than any broader list.
+    private var friendUIDsForTileRefresh: [String] {
+        #if DEBUG
+        if isSampleDataEnabled { return [] }
+        #endif
+        return friendService.friends.compactMap(\.id)
     }
 
     private var filteredFriends: [FirestoreUser] {
@@ -86,14 +93,14 @@ struct HomeView: View {
     // Friends with a share sort newest first; everyone else sorts
     // alphabetically after them.
     private var sortedFriendTiles: [FriendTileItem] {
-        let latest = displayedLatestNoteBySender
+        let latest = displayedLatestNoteByFriend
 
         let withShare = filteredFriends
-            .compactMap { friend -> (FirestoreUser, SharedNote)? in
+            .compactMap { friend -> (FirestoreUser, FriendNote)? in
                 guard let id = friend.id, let note = latest[id] else { return nil }
                 return (friend, note)
             }
-            .sorted { $0.1.sharedAt > $1.1.sharedAt }
+            .sorted { $0.1.createdAt > $1.1.createdAt }
             .map { FriendTileItem(id: $0.0.id ?? $0.0.username, friend: $0.0, note: $0.1) }
 
         let withoutShare = filteredFriends
@@ -139,24 +146,34 @@ struct HomeView: View {
                 NotificationsView()
             }
             .sheet(item: $noteToShare) { note in
-                ShareToFriendView(note: note)
+                ShareNoteSheet(note: note)
             }
             .sheet(item: $noteToView) { note in
                 NoteDetailSheet(note: note)
             }
-            .sheet(item: $selectedSharedTile) { tile in
-                SharedNoteDetailSheet(friend: tile.friend, sharedNote: tile.note)
+            .sheet(item: $selectedFriendForJournal) { friend in
+                NavigationStack {
+                    FriendJournalView(friend: friend)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Done") { selectedFriendForJournal = nil }
+                            }
+                        }
+                }
             }
             .task {
                 friendService.startListening()
-                sharedNotesStore.startListening()
+                await FriendJournalService.shared.refreshLatestNotes(for: friendUIDsForTileRefresh)
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                Task { await FriendJournalService.shared.refreshLatestNotes(for: friendUIDsForTileRefresh) }
             }
         }
     }
 
     private var bellButton: some View {
         Button {
-            lastSeenNotificationsTimestamp = Date().timeIntervalSince1970
             isShowingNotifications = true
         } label: {
             ZStack(alignment: .topTrailing) {
@@ -262,8 +279,7 @@ struct HomeView: View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: minFriendTileWidth), spacing: 12)], spacing: 12) {
             ForEach(sortedFriendTiles) { tile in
                 FriendTile(friend: tile.friend, sharedNote: tile.note) {
-                    guard let note = tile.note else { return }
-                    selectedSharedTile = SharedTileSelection(id: tile.id, friend: tile.friend, note: note)
+                    selectedFriendForJournal = tile.friend
                 }
             }
         }
@@ -294,21 +310,21 @@ struct HomeView: View {
         FirestoreUser(id: "sample-mei", username: "Mei", usernameLower: "mei", phoneNumber: nil, createdAt: Date()),
     ]
 
-    private static let sampleSharedNotes: [String: SharedNote] = [
-        "sample-allison": SharedNote(
-            id: "sample-note-1", fromUID: "sample-allison", toUID: "me",
+    private static let sampleLatestNoteByFriend: [String: FriendNote] = [
+        "sample-allison": FriendNote(
+            id: "sample-note-1",
             text: "Finally finished the FIT3178 assignment, feeling good about it.",
-            createdAt: Date(), sharedAt: Date().addingTimeInterval(-3600)
+            createdAt: Date().addingTimeInterval(-3600)
         ),
-        "sample-tom": SharedNote(
-            id: "sample-note-2", fromUID: "sample-tom", toUID: "me",
+        "sample-tom": FriendNote(
+            id: "sample-note-2",
             text: "Coffee with the team was great today, long overdue catch up.",
-            createdAt: Date(), sharedAt: Date().addingTimeInterval(-7200)
+            createdAt: Date().addingTimeInterval(-7200)
         ),
-        "sample-mei": SharedNote(
-            id: "sample-note-3", fromUID: "sample-mei", toUID: "me",
+        "sample-mei": FriendNote(
+            id: "sample-note-3",
             text: "Long walk by the river after work, needed that.",
-            createdAt: Date(), sharedAt: Date().addingTimeInterval(-86400)
+            createdAt: Date().addingTimeInterval(-86400)
         ),
     ]
     #endif
@@ -316,16 +332,10 @@ struct HomeView: View {
 
 // MARK: - Supporting types
 
-struct SharedTileSelection: Identifiable {
-    let id: String
-    let friend: FirestoreUser
-    let note: SharedNote
-}
-
 struct FriendTileItem: Identifiable {
     let id: String
     let friend: FirestoreUser
-    let note: SharedNote?
+    let note: FriendNote?
 }
 
 // MARK: - Date and time helpers
@@ -426,6 +436,9 @@ private struct TimelineCard: View {
             }
 
             HStack {
+                if note.sharedWithFriends {
+                    SharedIndicator()
+                }
                 Spacer()
                 Button(action: onShare) {
                     Image(systemName: "square.and.arrow.up")
@@ -554,7 +567,7 @@ private struct InitialsAvatar: View {
 
 private struct FriendTile: View {
     let friend: FirestoreUser
-    let sharedNote: SharedNote?
+    let sharedNote: FriendNote?
     let onTap: () -> Void
 
     var body: some View {
@@ -573,18 +586,17 @@ private struct FriendTile: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .disabled(sharedNote == nil)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
     }
 
     @ViewBuilder
-    private func sharedContent(_ note: SharedNote) -> some View {
+    private func sharedContent(_ note: FriendNote) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(shortDateString(note.sharedAt))
+                Text(shortDateString(note.createdAt))
                 Spacer()
-                Text(timeString(note.sharedAt))
+                Text(timeString(note.createdAt))
             }
             .font(.caption2)
             .foregroundStyle(.secondary)
@@ -636,39 +648,8 @@ private struct FriendTile: View {
         guard let sharedNote else {
             return "\(friend.username), nothing shared yet"
         }
-        return "\(friend.username), shared \(longDateString(sharedNote.sharedAt)) at " +
-            "\(timeString(sharedNote.sharedAt)), \(sharedNote.text)"
-    }
-}
-
-// Full note, sender and timestamp for a friend tile tap.
-private struct SharedNoteDetailSheet: View {
-    let friend: FirestoreUser
-    let sharedNote: SharedNote
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(friend.username)
-                        .font(.headline)
-                    Text("\(longDateString(sharedNote.sharedAt)) at \(timeString(sharedNote.sharedAt))")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text(sharedNote.text)
-                        .font(.body)
-                }
-                .padding()
-            }
-            .navigationTitle("Shared Note")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
+        return "\(friend.username), shared \(longDateString(sharedNote.createdAt)) at " +
+            "\(timeString(sharedNote.createdAt)), \(sharedNote.text)"
     }
 }
 
@@ -700,4 +681,16 @@ private struct SharedNoteDetailSheet: View {
     HomeView(selectedTab: .constant(.home))
         .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Sample Data") {
+    let _ = UserDefaults.standard.set(true, forKey: "gardenSampleDataEnabled")
+    HomeView(selectedTab: .constant(.home))
+        .modelContainer(PreviewContainer.shared)
+}
+
+#Preview("Landscape", traits: .landscapeLeft) {
+    let _ = UserDefaults.standard.set(true, forKey: "gardenSampleDataEnabled")
+    HomeView(selectedTab: .constant(.home))
+        .modelContainer(PreviewContainer.shared)
 }
