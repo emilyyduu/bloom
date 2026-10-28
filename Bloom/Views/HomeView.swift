@@ -145,7 +145,7 @@ struct HomeView: View {
             }
             .sheet(item: $selectedFriendForJournal) { friend in
                 NavigationStack {
-                    FriendJournalView(friend: friend)
+                    FriendProfileView(friend: friend)
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
                                 Button("Done") { selectedFriendForJournal = nil }

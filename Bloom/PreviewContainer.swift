@@ -19,9 +19,21 @@ enum PreviewContainer {
         let note = Note(text: "Walked past the jacaranda trees on the way home, the whole street was purple.")
         note.isDraft = false
         note.journal = journal
+        // Pinned and shared, so Profile previews show a normal pinned card.
+        note.isPinned = true
+        note.pinnedAt = Date().addingTimeInterval(-3600)
+        note.sharedWithFriends = true
+
+        // Pinned but not shared, so previews also show the "Only you" card.
+        let privateNote = Note(text: "A quiet note I'm keeping to myself for now.")
+        privateNote.isDraft = false
+        privateNote.journal = journal
+        privateNote.isPinned = true
+        privateNote.pinnedAt = Date()
 
         container.mainContext.insert(journal)
         container.mainContext.insert(note)
+        container.mainContext.insert(privateNote)
 
         return container
     }()

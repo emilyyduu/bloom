@@ -212,7 +212,7 @@ private struct FriendNoteRow: View {
 // Fetched only when the row scrolls on screen (the task starts when
 // the view appears), through FriendPhotoCache so a photo is never
 // downloaded twice.
-private struct FriendNotePhoto: View {
+struct FriendNotePhoto: View {
     let friendUID: String
     let noteID: String
 

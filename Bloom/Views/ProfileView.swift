@@ -461,24 +461,29 @@ private extension View {
 
 #Preview("Dark") {
     ProfileView()
+        .modelContainer(PreviewContainer.shared)
         .preferredColorScheme(.dark)
 }
 
 #Preview("Dynamic Type - Large") {
     ProfileView()
+        .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .large)
 }
 
 #Preview("Dynamic Type - XXX Large") {
     ProfileView()
+        .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .xxxLarge)
 }
 
 #Preview("Dynamic Type - Accessibility 5") {
     ProfileView()
+        .modelContainer(PreviewContainer.shared)
         .environment(\.dynamicTypeSize, .accessibility5)
 }
 
 #Preview("Landscape", traits: .landscapeLeft) {
     ProfileView()
+        .modelContainer(PreviewContainer.shared)
 }

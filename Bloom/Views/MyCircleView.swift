@@ -24,7 +24,7 @@ struct MyCircleView: View {
             Section {
                 ForEach(friendService.friends) { friend in
                     NavigationLink {
-                        FriendJournalView(friend: friend)
+                        FriendProfileView(friend: friend)
                     } label: {
                         HStack(spacing: 12) {
                             AvatarView(user: friend, size: 40)

@@ -12,6 +12,9 @@ struct FriendNote: Codable, Identifiable {
     var text: String
     var createdAt: Date
     var hasPhoto: Bool = false
+    // Only set on a note the friend has pinned, nil otherwise and on
+    // older documents. Used to order a friend's pinned notes.
+    var pinnedAt: Date?
 }
 
 // Fetches, per accepted friend, the single most recent note they've
