@@ -141,6 +141,7 @@ struct DraftsView: View {
     }
 
     private func delete(_ note: Note) {
+        note.mediaLogEntry?.deleteCompletely(in: context)
         if let fileName = note.photoFileName {
             try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
         }

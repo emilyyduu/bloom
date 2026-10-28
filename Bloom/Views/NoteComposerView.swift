@@ -31,13 +31,24 @@ struct NoteComposerView: View {
     @State private var pendingDraftSelection: Note?
     @State private var isShowingSaveDraftFirstDialog = false
 
+    // The movie or show chosen for this note. It only becomes a stored
+    // entry when the note is saved, so removing it first creates
+    // nothing. originalMediaDraft is what the draft already had.
+    @State private var mediaDraft: MediaReviewDraft?
+    @State private var originalMediaDraft: MediaReviewDraft?
+    @State private var isShowingMediaSearch = false
+    @State private var isShowingMediaEdit = false
+
     @Query(filter: #Predicate<Note> { $0.isDraft }) private var allDrafts: [Note]
 
     // Starts from the "Share new notes with friends" setting, so a
     // note only needs the switch flipped by hand when it should
     // differ from that default. Prefills text and photo when editing
     // an existing draft.
-    init(draft: Note? = nil) {
+    init(draft: Note? = nil, attaching: MediaReviewDraft? = nil) {
+        let existingMedia = draft?.mediaLogEntry.map(MediaReviewDraft.init(entry:))
+        _mediaDraft = State(initialValue: attaching ?? existingMedia)
+        _originalMediaDraft = State(initialValue: existingMedia)
         let initialText = draft?.text ?? ""
         _draft = State(initialValue: draft)
         _originalText = State(initialValue: initialText)
@@ -62,9 +73,10 @@ struct NoteComposerView: View {
     // brand new note counts any text or photo as unsaved.
     private var hasUnsavedChanges: Bool {
         if isEditingDraft {
-            return text != originalText || hasPhotoChanged
+            return text != originalText || hasPhotoChanged || mediaDraft != originalMediaDraft
         }
-        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedPhotoData != nil
+        return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || selectedPhotoData != nil || mediaDraft != nil
     }
 
     var body: some View {
@@ -77,6 +89,25 @@ struct NoteComposerView: View {
                         .frame(minHeight: 120)
                 } header: {
                     SectionHeader("What's happening?")
+                }
+
+                Section {
+                    if let mediaDraft {
+                        MediaDraftCard(
+                            draft: mediaDraft,
+                            onEdit: { isShowingMediaEdit = true },
+                            onRemove: { self.mediaDraft = nil }
+                        )
+                    } else {
+                        Button {
+                            isShowingMediaSearch = true
+                        } label: {
+                            Label("Log a movie or show", systemImage: "film")
+                        }
+                        .accessibilityHint("Search for a movie or show to add to this note")
+                    }
+                } header: {
+                    SectionHeader("Movie or show")
                 }
 
                 Section {
@@ -185,6 +216,19 @@ struct NoteComposerView: View {
                     pendingDraftSelection = nil
                 }
             }
+            .sheet(isPresented: $isShowingMediaSearch) {
+                MediaSearchView { mediaDraft = $0 }
+            }
+            .sheet(isPresented: $isShowingMediaEdit) {
+                if let mediaDraft {
+                    MediaReviewSheet(draft: mediaDraft) { edited in
+                        var updated = edited
+                        updated.posterPath = mediaDraft.posterPath
+                        updated.posterFileName = mediaDraft.posterFileName
+                        self.mediaDraft = updated
+                    }
+                }
+            }
             .sheet(isPresented: $isShowingDraftsSheet) {
                 DraftsView(excludedDraft: draft) { selected in
                     isShowingDraftsSheet = false
@@ -291,6 +335,9 @@ struct NoteComposerView: View {
         draft = newDraft
         originalText = newDraft.text
         text = newDraft.text
+        let existingMedia = newDraft.mediaLogEntry.map(MediaReviewDraft.init(entry:))
+        mediaDraft = existingMedia
+        originalMediaDraft = existingMedia
         selectedPhotoItem = nil
         hasPickedNewPhoto = false
         isPhotoRemoved = false
@@ -342,6 +389,7 @@ struct NoteComposerView: View {
         }
 
         note.isDraft = asDraft
+        syncMediaEntry(for: note)
 
         if !asDraft {
             note.createdAt = Date()
@@ -366,6 +414,22 @@ struct NoteComposerView: View {
         return note
     }
 
+    // Creates, updates or removes the note's movie or show to match what
+    // the composer shows. A note has at most one entry.
+    private func syncMediaEntry(for note: Note) {
+        let existing = note.mediaLogEntry
+        guard let mediaDraft else {
+            existing?.deleteCompletely(in: context)
+            return
+        }
+        if let existing, existing.tmdbID == mediaDraft.tmdbID {
+            existing.apply(mediaDraft)
+        } else {
+            existing?.deleteCompletely(in: context)
+            _ = MediaLogEntry.create(from: mediaDraft, note: note, in: context)
+        }
+    }
+
     private func save(asDraft: Bool) {
         persistCurrentNote(asDraft: asDraft)
         dismiss()
@@ -377,6 +441,7 @@ struct NoteComposerView: View {
     private func deleteDraft() {
         guard let draft else { return }
         NoteSyncService.shared.delete(draft)
+        draft.mediaLogEntry?.deleteCompletely(in: context)
         if let fileName = draft.photoFileName {
             try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
         }

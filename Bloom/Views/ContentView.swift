@@ -45,7 +45,7 @@ struct ContentView: View {
             Color.clear
                 .tabItem {
                     Label("Add", systemImage: "plus.circle.fill")
-                        .accessibilityLabel("Add petal")
+                        .accessibilityLabel("Add note")
                 }
                 .tag(Tab.add)
 

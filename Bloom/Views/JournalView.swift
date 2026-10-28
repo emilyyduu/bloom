@@ -11,6 +11,14 @@ struct JournalView: View {
 
     @State private var segment: Segment
     @State private var isShowingMediaSearch = false
+    // The Library flow: search, then review, then the attach choice.
+    // Each step is handed on when the previous sheet has finished
+    // dismissing, so two sheets are never swapped at once.
+    @State private var chosenMedia: MediaReviewDraft?
+    @State private var attachingMedia: MediaReviewDraft?
+    @State private var pendingComposerMedia: MediaReviewDraft?
+    @State private var composerMedia: MediaReviewDraft?
+    @Environment(\.modelContext) private var context
     @State private var isShowingDrafts = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -73,12 +81,40 @@ struct JournalView: View {
             }
             .navigationTitle(segment.rawValue)
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $isShowingMediaSearch) {
-                MediaSearchView()
+            .sheet(isPresented: $isShowingMediaSearch, onDismiss: {
+                attachingMedia = chosenMedia
+                chosenMedia = nil
+            }) {
+                MediaSearchView { chosenMedia = $0 }
+            }
+            .sheet(item: $attachingMedia, onDismiss: {
+                composerMedia = pendingComposerMedia
+                pendingComposerMedia = nil
+            }) { draft in
+                MediaAttachChoiceSheet(draft: draft) { choice in
+                    handle(choice, for: draft)
+                }
+            }
+            .sheet(item: $composerMedia) { draft in
+                NoteComposerView(attaching: draft)
             }
             .sheet(isPresented: $isShowingDrafts) {
                 DraftsView()
             }
+        }
+    }
+
+    private func handle(_ choice: MediaAttachChoice, for draft: MediaReviewDraft) {
+        switch choice {
+        case .none:
+            _ = MediaLogEntry.create(from: draft, note: nil, in: context)
+            try? context.save()
+        case .note(let note):
+            _ = MediaLogEntry.create(from: draft, note: note, in: context)
+            try? context.save()
+        case .newNote:
+            // The entry is created when that note is saved.
+            pendingComposerMedia = draft
         }
     }
 

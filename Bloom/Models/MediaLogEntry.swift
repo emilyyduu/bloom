@@ -14,6 +14,10 @@ final class MediaLogEntry {
     var releaseYear: Int?
     var posterFileName: String?
     var rating: Int // 1 to 5
+    // An optional short review, at most MediaLogEntry.reviewLimit
+    // characters. Additive with a nil default, so SwiftData's
+    // lightweight migration needs nothing from existing rows.
+    var reviewText: String?
     var loggedAt: Date
 
     @Relationship(deleteRule: .nullify, inverse: \Note.mediaLogEntry)

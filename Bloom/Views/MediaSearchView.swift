@@ -1,9 +1,12 @@
 import SwiftUI
 
-// Presented from the Library toolbar button. Searches TMDB for movies
-// and shows, then hands off to MediaRatingView to log whichever result
-// is tapped.
+// Presented from the composer and the Library. Searches TMDB for movies
+// and shows, then opens MediaReviewSheet for whichever result is
+// tapped and hands the finished review to onChosen. Nothing is stored
+// here, the caller decides what to do with it.
 struct MediaSearchView: View {
+    let onChosen: (MediaReviewDraft) -> Void
+
     @Environment(\.dismiss) private var dismiss
 
     @State private var query = ""
@@ -58,7 +61,10 @@ struct MediaSearchView: View {
                 }
             }
             .sheet(item: $selectedResult) { result in
-                MediaRatingView(result: result, onLogged: { dismiss() })
+                MediaReviewSheet(draft: MediaReviewDraft(result: result)) { draft in
+                    onChosen(draft)
+                    dismiss()
+                }
             }
         }
     }
@@ -124,5 +130,5 @@ private struct MediaSearchResultRow: View {
 }
 
 #Preview {
-    MediaSearchView()
+    MediaSearchView(onChosen: { _ in })
 }

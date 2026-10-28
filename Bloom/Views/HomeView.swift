@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 // The landing tab: today's date and streak, today's timeline of
-// petals, and what friends have shared. The bell holds requests and
+// notes, and what friends have shared. The bell holds requests and
 // shares; the centre Add tab and the Greenhouse tab own the rest.
 struct HomeView: View {
     @Binding var selectedTab: ContentView.Tab
@@ -217,10 +217,10 @@ struct HomeView: View {
 
     private var emptyTimelineState: some View {
         VStack(spacing: 12) {
-            Text("No petals yet today")
+            Text("No notes yet today")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Button("Add a Petal") {
+            Button("Add Note") {
                 isShowingComposer = true
             }
             .buttonStyle(.borderedProminent)
