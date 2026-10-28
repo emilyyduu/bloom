@@ -6,8 +6,9 @@ import SwiftData
 // Backs up notes to Firestore's users/{uid}/notes/{note.id} and
 // restores them on a new install. SwiftData stays the source of
 // truth: notes work fully offline, this only mirrors them privately
-// to the signed-in account so they survive a reinstall. Photos are
-// not backed up. sharedWithFriends mirrors too, so an accepted friend
+// to the signed-in account so they survive a reinstall. A note's
+// photo is backed up separately through PhotoStore, never inside the
+// note document. sharedWithFriends mirrors too, so an accepted friend
 // can read a note's backup copy once it's turned on.
 @MainActor
 final class NoteSyncService {
@@ -15,6 +16,7 @@ final class NoteSyncService {
     private init() {}
 
     private let db = Firestore.firestore()
+    private let photoStore: PhotoStore = PhotoStores.current
 
     private var isRestoring = false
     private var isSyncingPending = false
@@ -40,11 +42,14 @@ final class NoteSyncService {
         }
     }
 
-    // The document always carries exactly these five fields, a draft
-    // is never written as shared regardless of what sharedWithFriends
-    // holds locally, since the security rules reject a shared draft.
+    // The photo goes first so a note is never written with hasPhoto
+    // true before its photo exists. If the photo step throws, the note
+    // is not written and syncedAt stays nil, so it retries.
     private func uploadNote(_ note: Note) async throws {
         guard let uid = note.ownerUID else { return }
+
+        try await syncPhoto(for: note, ownerUID: uid)
+
         let data = noteData(for: note)
 
         try await db.collection("users").document(uid)
@@ -55,6 +60,47 @@ final class NoteSyncService {
         try? note.modelContext?.save()
     }
 
+    // Brings the backed-up photo in line with the local one. A new or
+    // replaced local photo is compressed and uploaded (overwriting any
+    // old one); a removed one has its backup deleted. A photoFileName
+    // whose file is gone is treated as no photo.
+    private func syncPhoto(for note: Note, ownerUID: String) async throws {
+        let noteID = note.id.uuidString
+
+        do {
+            if note.hasPhoto, let image = note.photo {
+                guard note.photoSyncedAt == nil else { return }
+                guard let data = PhotoCompressor.uploadData(from: image) else {
+                    throw PhotoSyncError.couldNotCompress
+                }
+                try await photoStore.upload(data, ownerUID: ownerUID, noteID: noteID)
+                note.photoSyncedAt = Date()
+                #if DEBUG
+                print("NoteSyncService: uploaded photo for \(noteID), \(data.count) bytes")
+                #endif
+            } else if note.photoSyncedAt != nil {
+                try await photoStore.delete(ownerUID: ownerUID, noteID: noteID)
+                note.photoSyncedAt = nil
+                #if DEBUG
+                print("NoteSyncService: deleted photo for \(noteID)")
+                #endif
+            }
+        } catch {
+            #if DEBUG
+            logFirestoreError(error, while: "syncing photo for note \(noteID). Permission denied here means the photos rules aren't published")
+            #endif
+            throw error
+        }
+    }
+
+    private enum PhotoSyncError: Error {
+        case couldNotCompress
+    }
+
+    // The document always carries exactly these six fields, a draft
+    // is never written as shared regardless of what sharedWithFriends
+    // holds locally, since the security rules reject a shared draft.
+    // hasPhoto is only true once the photo document really exists.
     private func noteData(for note: Note) -> [String: Any] {
         [
             "text": note.text,
@@ -62,17 +108,52 @@ final class NoteSyncService {
             "isDraft": note.isDraft,
             "updatedAt": Timestamp(date: Date()),
             "sharedWithFriends": note.isDraft ? false : note.sharedWithFriends,
+            "hasPhoto": note.hasPhoto && note.photoSyncedAt != nil,
         ]
+    }
+
+    // MARK: - Delete
+
+    // Deletes a note's backup document and its photo document, for
+    // when a note that was ever backed up gets deleted locally. A
+    // delete on a document that was never actually written is a
+    // harmless no-op, so this doesn't need to track "was it really
+    // synced" separately.
+    func delete(_ note: Note) {
+        guard let uid = note.ownerUID else { return }
+        let noteID = note.id.uuidString
+        let mayHavePhotoBackup = note.hasPhoto || note.photoSyncedAt != nil
+        Task {
+            do {
+                try await db.collection("users").document(uid).collection("notes").document(noteID).delete()
+                #if DEBUG
+                print("NoteSyncService: deleted note \(noteID)")
+                #endif
+            } catch {
+                #if DEBUG
+                logFirestoreError(error, while: "deleting note \(noteID)")
+                #endif
+            }
+
+            guard mayHavePhotoBackup else { return }
+            do {
+                try await photoStore.delete(ownerUID: uid, noteID: noteID)
+            } catch {
+                #if DEBUG
+                logFirestoreError(error, while: "deleting photo \(noteID)")
+                #endif
+            }
+        }
     }
 
     // MARK: - Sharing
 
-    // Toggles sharedWithFriends for a single note (from the composer's
-    // switch is a plain property set, this is for changing it after
-    // the fact, from the per-note share sheet). Clears syncedAt first
-    // so the note shows as pending until the write confirms, then
-    // waits for the upload so the caller can revert its UI on
-    // failure. A draft is never set to shared.
+    // Toggles sharedWithFriends for an existing note, from the
+    // per-note share sheet (the composer just sets the property
+    // directly before its first upload). Clears syncedAt first so the
+    // note shows as pending until the write confirms, then waits for
+    // the upload so the caller can revert its UI on failure. A draft
+    // is never set to shared.
     func updateSharedWithFriends(_ isShared: Bool, for note: Note) async throws {
         guard !note.isDraft else { return }
         let previous = note.sharedWithFriends
@@ -91,8 +172,11 @@ final class NoteSyncService {
 
     // Sets sharedWithFriends on every non-draft note at once, for the
     // Settings "Share all my past notes" / "Stop sharing all notes"
-    // buttons. Firestore batches cap at 500 writes, so notes are
-    // uploaded in chunks.
+    // buttons. Every note's full document is rewritten, which also
+    // fixes old backups that never had the sharedWithFriends field.
+    // Photos are synced first, a note whose photo fails is left
+    // pending instead of being written. Firestore batches cap at 500
+    // writes, so notes are uploaded in chunks.
     func setSharedWithFriendsForAllNotes(_ isShared: Bool, context: ModelContext) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
@@ -114,7 +198,18 @@ final class NoteSyncService {
         var updated = 0
         var failed = 0
 
-        for chunk in notes.chunked(into: 500) {
+        var ready: [Note] = []
+        for note in notes {
+            guard let noteUID = note.ownerUID else { continue }
+            do {
+                try await syncPhoto(for: note, ownerUID: noteUID)
+                ready.append(note)
+            } catch {
+                failed += 1
+            }
+        }
+
+        for chunk in ready.chunked(into: 500) {
             let batch = db.batch()
             for note in chunk {
                 guard let noteUID = note.ownerUID else { continue }
@@ -139,6 +234,26 @@ final class NoteSyncService {
         #if DEBUG
         print("NoteSyncService: setSharedWithFriendsForAllNotes(\(isShared)) - " +
             "updated \(updated), failed \(failed)")
+        #endif
+    }
+
+    // MARK: - Photo backfill
+
+    // For notes that were backed up before photo sync existed: clears
+    // syncedAt on every note that has a local photo but no photo
+    // backup, so syncPending uploads the photo and rewrites the note
+    // with hasPhoto. The caller guards this to run only once.
+    func queuePhotosForBackfill(context: ModelContext) {
+        let descriptor = FetchDescriptor<Note>(predicate: #Predicate {
+            $0.photoFileName != nil && $0.syncedAt != nil && $0.photoSyncedAt == nil
+        })
+        guard let notes = try? context.fetch(descriptor) else { return }
+
+        for note in notes { note.syncedAt = nil }
+        try? context.save()
+
+        #if DEBUG
+        print("NoteSyncService: photo backfill queued \(notes.count) note(s)")
         #endif
     }
 
@@ -192,7 +307,10 @@ final class NoteSyncService {
 
     // Fetches users/{uid}/notes once (no listener) and inserts any
     // document that isn't already a local note. Run after sign-in so a
-    // reinstall gets every previously backed-up note back.
+    // reinstall gets every previously backed-up note back. A note with
+    // hasPhoto also gets its photo document downloaded into Documents.
+    // If that download fails the note is skipped, not inserted, so the
+    // next restore retries it instead of losing the photo for good.
     func restore(context: ModelContext) async {
         guard !isRestoring, let uid = Auth.auth().currentUser?.uid else { return }
         isRestoring = true
@@ -234,12 +352,28 @@ final class NoteSyncService {
                 continue
             }
 
-            let note = Note(text: text)
+            var restoredPhotoFileName: String?
+            if data["hasPhoto"] as? Bool == true {
+                do {
+                    if let photoData = try await photoStore.download(ownerUID: uid, noteID: document.documentID) {
+                        restoredPhotoFileName = try FileManager.writePhotoData(photoData)
+                    }
+                } catch {
+                    failed += 1
+                    #if DEBUG
+                    logFirestoreError(error, while: "restoring photo for note \(document.documentID)")
+                    #endif
+                    continue
+                }
+            }
+
+            let note = Note(text: text, photoFileName: restoredPhotoFileName)
             note.id = uuid
             note.createdAt = createdAtTimestamp.dateValue()
             note.isDraft = isDraft
             note.ownerUID = uid
             note.syncedAt = Date()
+            note.photoSyncedAt = restoredPhotoFileName == nil ? nil : Date()
             note.sharedWithFriends = isDraft ? false : (data["sharedWithFriends"] as? Bool ?? false)
             context.insert(note)
 

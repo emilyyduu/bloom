@@ -18,6 +18,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
+    @AppStorage("hasBackfilledPhotoSync") private var hasBackfilledPhotoSync = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -89,18 +90,28 @@ struct ContentView: View {
             friendService.startListening()
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
             await StreakSyncService.shared.sync(context: context)
-            await NoteSyncService.shared.restore(context: context)
-            await NoteSyncService.shared.syncPending(context: context)
+            await restoreAndSyncNotes()
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Task {
                 await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
                 await StreakSyncService.shared.sync(context: context)
-                await NoteSyncService.shared.restore(context: context)
-                await NoteSyncService.shared.syncPending(context: context)
+                await restoreAndSyncNotes()
             }
         }
+    }
+
+    // Restore first so reinstalled notes exist, then the one-time photo
+    // backfill (which skips notes restore just gave a photo backup),
+    // then upload whatever is still pending.
+    private func restoreAndSyncNotes() async {
+        await NoteSyncService.shared.restore(context: context)
+        if !hasBackfilledPhotoSync {
+            NoteSyncService.shared.queuePhotosForBackfill(context: context)
+            hasBackfilledPhotoSync = true
+        }
+        await NoteSyncService.shared.syncPending(context: context)
     }
 }
 

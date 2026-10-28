@@ -18,10 +18,18 @@ final class Note {
     var syncedAt: Date?
     var ownerUID: String?
 
+    // Like syncedAt but for the photo backup at users/{ownerUID}/photos.
+    // nil means the local photo (if any) still needs uploading, or a
+    // removed photo still needs its backup deleted. Cleared whenever
+    // the local photo is replaced or removed.
+    var photoSyncedAt: Date?
+
     // Whether accepted friends can read this note's backup copy.
     // Always false for drafts, the security rules reject a shared
-    // draft outright.
-    var sharedWithFriends: Bool
+    // draft outright. The default must be declared here, not just
+    // set in init(), so SwiftData's lightweight migration has a
+    // value to backfill onto existing rows for this new attribute.
+    var sharedWithFriends: Bool = false
 
     var journal: Journal?
     var mediaLogEntry: MediaLogEntry?
@@ -33,6 +41,7 @@ final class Note {
         self.createdAt = Date()
         self.isDraft = true
         self.syncedAt = nil
+        self.photoSyncedAt = nil
         self.ownerUID = nil
         self.sharedWithFriends = false
     }

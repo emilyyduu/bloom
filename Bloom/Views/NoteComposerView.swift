@@ -11,8 +11,11 @@ struct NoteComposerView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
-    private let draft: Note?
-    private let originalText: String
+    // Both are @State, not just a stored let, because picking a
+    // different draft from the nested Drafts sheet loads it into this
+    // same composer instead of opening a second one.
+    @State private var draft: Note?
+    @State private var originalText: String
 
     @State private var text: String
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -22,15 +25,20 @@ struct NoteComposerView: View {
     @State private var isPhotoRemoved = false
     @State private var isShowingDiscardConfirmation = false
     @State private var isShowingDeleteConfirmation = false
+    @State private var isShowingDraftsSheet = false
+    @State private var pendingDraftSelection: Note?
+    @State private var isShowingSaveDraftFirstDialog = false
+
+    @Query(filter: #Predicate<Note> { $0.isDraft }) private var allDrafts: [Note]
 
     // Starts from the "Share new notes with friends" setting, so a
     // note only needs the switch flipped by hand when it should
     // differ from that default. Prefills text and photo when editing
     // an existing draft.
     init(draft: Note? = nil) {
-        self.draft = draft
         let initialText = draft?.text ?? ""
-        originalText = initialText
+        _draft = State(initialValue: draft)
+        _originalText = State(initialValue: initialText)
         _text = State(initialValue: initialText)
         _isSharedWithFriends = State(initialValue: UserDefaults.standard.bool(forKey: "shareNewNotesWithFriends"))
 
@@ -41,6 +49,12 @@ struct NoteComposerView: View {
 
     private var isEditingDraft: Bool { draft != nil }
     private var hasPhotoChanged: Bool { hasPickedNewPhoto || isPhotoRemoved }
+
+    // Excludes the draft currently open in this composer, since picking
+    // it from its own Drafts list would be a no-op.
+    private var availableDraftsCount: Int {
+        allDrafts.filter { $0.id != draft?.id }.count
+    }
 
     // A draft being edited compares against what it started with; a
     // brand new note counts any text or photo as unsaved.
@@ -115,8 +129,12 @@ struct NoteComposerView: View {
                         .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 ToolbarItem(placement: .bottomBar) {
-                    Button("Save as Draft") { save(asDraft: true) }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    HStack {
+                        draftsButton
+                        Spacer()
+                        Button("Save as Draft") { save(asDraft: true) }
+                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }
             }
             .task(id: selectedPhotoItem) {
@@ -143,7 +161,83 @@ struct NoteComposerView: View {
                 Button("Delete", role: .destructive) { deleteDraft() }
                 Button("Cancel", role: .cancel) {}
             }
+            .confirmationDialog(
+                "Save this note as a draft first?",
+                isPresented: $isShowingSaveDraftFirstDialog,
+                titleVisibility: .visible
+            ) {
+                Button("Save Draft") {
+                    persistCurrentNote(asDraft: true)
+                    if let pendingDraftSelection {
+                        loadDraft(pendingDraftSelection)
+                    }
+                }
+                Button("Discard", role: .destructive) {
+                    if let pendingDraftSelection {
+                        loadDraft(pendingDraftSelection)
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDraftSelection = nil
+                }
+            }
+            .sheet(isPresented: $isShowingDraftsSheet) {
+                DraftsView(excludedDraft: draft) { selected in
+                    isShowingDraftsSheet = false
+                    handleDraftSelection(selected)
+                }
+            }
         }
+    }
+
+    // Visible even at zero drafts, so it's always findable; the count
+    // badge is an addition, not the only way to tell drafts exist.
+    private var draftsButton: some View {
+        Button {
+            isShowingDraftsSheet = true
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "doc.text")
+                if availableDraftsCount > 0 {
+                    Text("\(availableDraftsCount)")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(4)
+                        .background(Circle().fill(Color.red))
+                        .offset(x: 10, y: -10)
+                }
+            }
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("Drafts")
+        .accessibilityValue("\(availableDraftsCount) draft\(availableDraftsCount == 1 ? "" : "s")")
+    }
+
+    // Picking a draft while the current note has unsaved changes asks
+    // first, since loading the new draft overwrites what's on screen.
+    private func handleDraftSelection(_ selected: Note) {
+        if hasUnsavedChanges {
+            pendingDraftSelection = selected
+            isShowingSaveDraftFirstDialog = true
+        } else {
+            loadDraft(selected)
+        }
+    }
+
+    private func loadDraft(_ newDraft: Note) {
+        draft = newDraft
+        originalText = newDraft.text
+        text = newDraft.text
+        selectedPhotoItem = nil
+        hasPickedNewPhoto = false
+        isPhotoRemoved = false
+        if let photo = newDraft.photo, let data = photo.jpegData(compressionQuality: 0.9) {
+            selectedPhotoData = data
+        } else {
+            selectedPhotoData = nil
+        }
+        pendingDraftSelection = nil
     }
 
     private func handleCancel() {
@@ -161,14 +255,15 @@ struct NoteComposerView: View {
         isPhotoRemoved = true
     }
 
-    private func save(asDraft: Bool) {
+    @discardableResult
+    private func persistCurrentNote(asDraft: Bool) -> Note {
         var photoFileName = draft?.photoFileName
 
         if hasPhotoChanged {
             if let oldFileName = draft?.photoFileName {
                 try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(oldFileName))
             }
-            photoFileName = selectedPhotoData.flatMap { try? writePhotoToDisk($0) }
+            photoFileName = selectedPhotoData.flatMap { try? FileManager.writePhotoData($0) }
         }
 
         let note: Note
@@ -176,6 +271,10 @@ struct NoteComposerView: View {
             note = draft
             note.text = text
             note.photoFileName = photoFileName
+            // A replaced photo is uploaded again over the old one, a
+            // removed photo has its backup deleted. Either way the
+            // sync service has to see the photo as not yet synced.
+            if hasPhotoChanged { note.photoSyncedAt = nil }
         } else {
             note = Note.createDraft(in: context, text: text, photoFileName: photoFileName)
         }
@@ -202,7 +301,11 @@ struct NoteComposerView: View {
         }
 
         NoteSyncService.shared.upload(note)
+        return note
+    }
 
+    private func save(asDraft: Bool) {
+        persistCurrentNote(asDraft: asDraft)
         dismiss()
         if asDraft {
             DraftSaveBanner.shared.show()
@@ -211,24 +314,34 @@ struct NoteComposerView: View {
 
     private func deleteDraft() {
         guard let draft else { return }
+        NoteSyncService.shared.delete(draft)
         if let fileName = draft.photoFileName {
             try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
         }
-        NoteSyncService.shared.delete(draft)
         context.delete(draft)
         try? context.save()
         dismiss()
     }
-
-    private func writePhotoToDisk(_ data: Data) throws -> String {
-        let fileName = "\(UUID().uuidString).jpg"
-        let url = FileManager.documentsDirectory.appendingPathComponent(fileName)
-        try data.write(to: url)
-        return fileName
-    }
 }
 
 #Preview("New Note") {
+    NoteComposerView()
+        .modelContainer(PreviewContainer.shared)
+}
+
+#Preview("Dark") {
+    NoteComposerView()
+        .modelContainer(PreviewContainer.shared)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Accessibility 5") {
+    NoteComposerView()
+        .modelContainer(PreviewContainer.shared)
+        .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Landscape", traits: .landscapeLeft) {
     NoteComposerView()
         .modelContainer(PreviewContainer.shared)
 }

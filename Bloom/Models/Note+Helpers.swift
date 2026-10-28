@@ -42,4 +42,12 @@ extension FileManager {
     static var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
+
+    // Saves photo bytes into Documents under a fresh name and returns
+    // that file name, ready to store in Note.photoFileName.
+    static func writePhotoData(_ data: Data) throws -> String {
+        let fileName = "\(UUID().uuidString).jpg"
+        try data.write(to: documentsDirectory.appendingPathComponent(fileName))
+        return fileName
+    }
 }
