@@ -34,6 +34,10 @@ struct SettingsView: View {
     // Per account, see AccountDefaults.
     @AppStorage private var shareNewNotesWithFriends: Bool
     @AppStorage private var hasShownShareNewNotesConfirmation: Bool
+    // Which friend activity may show a banner while Bloom is open.
+    @AppStorage private var bannerFriendRequests: Bool
+    @AppStorage private var bannerFriendNotes: Bool
+    @AppStorage private var bannerComments: Bool
     @State private var isShowingShareNewNotesConfirmation = false
     @State private var isShowingShareAllConfirmation = false
     @State private var isShowingStopSharingAllConfirmation = false
@@ -47,6 +51,9 @@ struct SettingsView: View {
     @State private var reminderErrorMessage: String?
 
     init() {
+        _bannerFriendRequests = AppStorage(wrappedValue: true, AccountDefaults.key(AccountDefaults.bannerFriendRequestsBase))
+        _bannerFriendNotes = AppStorage(wrappedValue: true, AccountDefaults.key(AccountDefaults.bannerFriendNotesBase))
+        _bannerComments = AppStorage(wrappedValue: true, AccountDefaults.key(AccountDefaults.bannerCommentsBase))
         _shareNewNotesWithFriends = AppStorage(
             wrappedValue: false, AccountDefaults.key(AccountDefaults.shareNewNotesBase)
         )
@@ -93,6 +100,16 @@ struct SettingsView: View {
                 #endif
             } header: {
                 SectionHeader("Notifications")
+            }
+
+            Section {
+                Toggle("Friend requests", isOn: $bannerFriendRequests)
+                Toggle("Friends\u{2019} new notes", isOn: $bannerFriendNotes)
+                Toggle("Comments on my notes", isOn: $bannerComments)
+            } header: {
+                SectionHeader("Banners")
+            } footer: {
+                Text("Banners appear at the top while Bloom is open. The notifications screen always shows everything.")
             }
 
             Section {

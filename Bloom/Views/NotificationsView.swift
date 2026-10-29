@@ -1,13 +1,21 @@
 import SwiftUI
 
-// The bell screen: friend requests still waiting on a response.
-// Friends' shared notes live in each friend's own FriendJournalView
-// now, not here, so this no longer reads the old sharedNotes
-// collection.
+// The bell screen: friend requests still waiting on a response, then
+// the live activity feed. The feed is a list bound to ActivityStore's
+// array, so new items appear as they arrive.
 struct NotificationsView: View {
     @StateObject private var friendService = FriendService.shared
+    @StateObject private var activity = ActivityStore.shared
     @Environment(\.dismiss) private var dismiss
     @State private var errorMessage: String?
+    @State private var destination: ActivityDestination?
+    // What was unread when the screen opened, so the "New" markers stay
+    // visible while it is open even though lastSeen moves to now.
+    @State private var seenCutoff = Date()
+
+    private var isEmpty: Bool {
+        friendService.pendingIncoming.isEmpty && activity.items.isEmpty
+    }
 
     var body: some View {
         NavigationStack {
@@ -27,18 +35,40 @@ struct NotificationsView: View {
                     }
                 }
 
-                if let errorMessage {
-                    Section {
-                        FormErrorText(message: errorMessage)
+                if !activity.items.isEmpty {
+                    Section("Activity") {
+                        ForEach(activity.items) { item in
+                            Button {
+                                if let target = ActivityDestination(item: item) { destination = target }
+                            } label: {
+                                ActivityRow(item: item, isUnread: item.createdAt > seenCutoff)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                }
+
+                if let message = errorMessage ?? activity.errorMessage {
+                    Section {
+                        FormErrorText(message: message)
+                    }
+                }
+
+                Section {
+                    EmptyView()
+                } footer: {
+                    Text("Updates appear while Bloom is open.")
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .overlay {
-                if friendService.pendingIncoming.isEmpty {
+                if activity.isLoading && isEmpty && activity.errorMessage == nil {
+                    ProgressView("Loading")
+                } else if isEmpty && activity.errorMessage == nil {
                     ContentUnavailableView(
                         "Nothing new",
                         systemImage: "bell",
-                        description: Text("Friend requests will show up here.")
+                        description: Text("Friend requests and activity will show up here.")
                     )
                 }
             }
@@ -49,6 +79,18 @@ struct NotificationsView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .sheet(item: $destination) { destination in
+                ActivityDestinationSheet(destination: destination)
+            }
+            .onAppear {
+                seenCutoff = activity.lastSeen
+                ActivityRouter.shared.isFeedOpen = true
+                activity.markAllSeen()
+            }
+            .onDisappear { ActivityRouter.shared.isFeedOpen = false }
+            // Items that arrive while the screen is open are seen too,
+            // so the bell badge doesn't grow behind it.
+            .onChange(of: activity.items.count) { _, _ in activity.markAllSeen() }
         }
     }
 

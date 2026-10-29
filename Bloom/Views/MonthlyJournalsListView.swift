@@ -112,6 +112,8 @@ private struct MonthDetailView: View {
 private struct MonthlyJournalNoteRow: View {
     let note: Note
 
+    @State private var detail: NoteDetailRequest?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
@@ -121,6 +123,13 @@ private struct MonthlyJournalNoteRow: View {
                 if note.isPinned {
                     PinIndicator()
                 }
+                Spacer()
+                CommentBubbleButton(
+                    ownerUID: note.ownerUID,
+                    noteID: note.id.uuidString,
+                    isEnabled: note.sharedWithFriends,
+                    action: { detail = .mine(note, focusComments: true) }
+                )
             }
             if !note.text.isEmpty {
                 Text(note.text)
@@ -141,7 +150,11 @@ private struct MonthlyJournalNoteRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .notePinActions(note)
+        .onTapGesture { detail = .mine(note) }
+        .sheet(item: $detail) { request in
+            NoteDetailSheet(request: request)
+        }
+        .noteActions(note)
     }
 }
 
