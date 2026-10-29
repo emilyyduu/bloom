@@ -108,6 +108,20 @@ enum ActivityWriter {
         }
     }
 
+    // My reply to someone's comment, to that person. Type comment, preview
+    // "replied: " then the start of my text. Refused by the rules when
+    // they aren't my friend, which is fine.
+    static func replied(commentID: String, authorUID: String, toUID: String, noteOwnerUID: String, noteID: String, text: String) async {
+        guard authorUID != toUID, !toUID.hasPrefix("sample-") else { return }
+        do {
+            try await db.collection("users").document(toUID).collection("activity")
+                .document("reply_\(commentID)")
+                .setData(data(kind: .comment, fromUID: authorUID, noteOwnerUID: noteOwnerUID, noteID: noteID, preview: "replied: \(text)"))
+        } catch {
+            log(error, "telling \(toUID) about my reply")
+        }
+    }
+
     // My reaction on someone else's note, to the note's owner. The id is
     // fixed per note and reactor, so changing my reaction overwrites it.
     static func reacted(noteID: String, reactorUID: String, noteOwnerUID: String) async {
@@ -332,6 +346,10 @@ final class LiveBannerCenter: ObservableObject {
             case .note:
                 show(LiveBanner(text: "\(name) shared a note", systemImage: "note.text", destination: destination))
             case .comment:
+                if let preview = item.preview, preview.hasPrefix("replied: ") {
+                    show(LiveBanner(text: "\(name) \(preview)", systemImage: "arrowshape.turn.up.left", destination: destination))
+                    return
+                }
                 let preview = item.preview.map { ": \($0)" } ?? ""
                 show(LiveBanner(text: "\(name) commented\(preview)", systemImage: "bubble.left", destination: destination))
             case .reaction:

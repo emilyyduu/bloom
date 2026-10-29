@@ -4,7 +4,8 @@ import FirebaseFirestore
 
 // One comment on a shared note, stored at
 // users/{ownerUID}/notes/{noteId}/comments/{commentId} with exactly
-// authorUID, text and createdAt. Comments never touch SwiftData.
+// authorUID, text and createdAt, plus replyToUID and replyToCommentId
+// when it is a reply. Comments never touch SwiftData.
 struct NoteComment: Identifiable, Equatable {
     static let maxLength = 500
 
@@ -12,6 +13,69 @@ struct NoteComment: Identifiable, Equatable {
     let authorUID: String
     let text: String
     let createdAt: Date
+    // The person replied to, and the top level comment the reply hangs
+    // under (one level of threading). Both nil for a top level comment.
+    var replyToUID: String? = nil
+    var replyToCommentId: String? = nil
+
+    var isReply: Bool { replyToCommentId != nil }
+}
+
+// Who a reply is addressed to. threadID is always the top level comment,
+// toUID is the author of the comment that was tapped. mention is the
+// "@username " text put into the field (empty if the username is unknown).
+struct CommentReplyTarget: Equatable {
+    let threadID: String
+    let toUID: String
+    let toName: String
+    let mention: String
+}
+
+// A top level comment with its replies, oldest first. A reply whose
+// parent was deleted is shown as a top level comment with parentDeleted.
+struct CommentThread: Identifiable {
+    let top: NoteComment
+    let parentDeleted: Bool
+    let replies: [NoteComment]
+
+    var id: String { top.id }
+
+    static func threads(from comments: [NoteComment]) -> [CommentThread] {
+        let sorted = comments.sorted { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }
+        let byID = Dictionary(sorted.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
+        // The comment a reply belongs under, or nil when it stands alone
+        // (not a reply, parent deleted, or a malformed chain).
+        func threadID(for comment: NoteComment) -> String? {
+            guard var current = comment.replyToCommentId, byID[current] != nil, current != comment.id else { return nil }
+            var hops = 0
+            while let next = byID[current]?.replyToCommentId, byID[next] != nil, hops < 5 {
+                current = next
+                hops += 1
+            }
+            // Only a comment that is itself top level can hold replies.
+            guard let parent = byID[current], !isChild(parent) else { return nil }
+            return current
+        }
+        func isChild(_ comment: NoteComment) -> Bool {
+            guard let parentID = comment.replyToCommentId else { return false }
+            return byID[parentID] != nil
+        }
+
+        var repliesByThread: [String: [NoteComment]] = [:]
+        var tops: [NoteComment] = []
+        for comment in sorted {
+            if let id = threadID(for: comment) {
+                repliesByThread[id, default: []].append(comment)
+            } else {
+                tops.append(comment)
+            }
+        }
+        return tops.map { top in
+            let deleted = top.replyToCommentId.map { byID[$0] == nil } ?? false
+            return CommentThread(top: top, parentDeleted: deleted, replies: repliesByThread[top.id] ?? [])
+        }
+    }
 }
 
 // The live comments of one note, owned per sheet so nothing is shared
@@ -107,27 +171,43 @@ final class NoteCommentsListener: ObservableObject {
         guard let authorUID = data["authorUID"] as? String,
               let text = data["text"] as? String,
               let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() else { return nil }
-        return NoteComment(id: document.documentID, authorUID: authorUID, text: text, createdAt: createdAt)
+        return NoteComment(
+            id: document.documentID,
+            authorUID: authorUID,
+            text: text,
+            createdAt: createdAt,
+            replyToUID: data["replyToUID"] as? String,
+            replyToCommentId: data["replyToCommentId"] as? String
+        )
     }
 
-    // Writes the comment. The listener shows it straight away from the
-    // local cache, a thrown error means the write was refused.
-    func send(_ text: String, authorUID: String) async throws {
+    // Writes the comment, or a reply when replyTo is set. The listener
+    // shows it straight away from the local cache, a thrown error means
+    // the write was refused.
+    func send(_ text: String, authorUID: String, replyTo: CommentReplyTarget? = nil) async throws {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= NoteComment.maxLength else { return }
 
         if isSample {
-            comments.append(NoteComment(id: UUID().uuidString, authorUID: authorUID, text: trimmed, createdAt: Date()))
+            comments.append(NoteComment(
+                id: UUID().uuidString, authorUID: authorUID, text: trimmed, createdAt: Date(),
+                replyToUID: replyTo?.toUID, replyToCommentId: replyTo?.threadID
+            ))
             return
         }
         guard let collection else { return }
         let commentRef = collection.document()
+        var data: [String: Any] = [
+            "authorUID": authorUID,
+            "text": trimmed,
+            "createdAt": Timestamp(date: Date()),
+        ]
+        if let replyTo {
+            data["replyToUID"] = replyTo.toUID
+            data["replyToCommentId"] = replyTo.threadID
+        }
         do {
-            try await commentRef.setData([
-                "authorUID": authorUID,
-                "text": trimmed,
-                "createdAt": Timestamp(date: Date()),
-            ])
+            try await commentRef.setData(data)
         } catch {
             #if DEBUG
             logFirestoreError(error, while: "sending a comment. Permission denied here means the comments rules aren't published")
@@ -135,9 +215,20 @@ final class NoteCommentsListener: ObservableObject {
             throw error
         }
 
-        // Tell the note's owner, unless it's my own note. Best effort.
-        if let ownerUID, let noteID, ownerUID != authorUID {
-            let commentID = commentRef.documentID
+        let commentID = commentRef.documentID
+        if let replyTo {
+            // A reply tells the person replied to, and only them, unless
+            // that is me. Best effort.
+            if let ownerUID, let noteID, replyTo.toUID != authorUID {
+                Task {
+                    await ActivityWriter.replied(
+                        commentID: commentID, authorUID: authorUID, toUID: replyTo.toUID,
+                        noteOwnerUID: ownerUID, noteID: noteID, text: trimmed
+                    )
+                }
+            }
+        } else if let ownerUID, let noteID, ownerUID != authorUID {
+            // Tell the note's owner, unless it's my own note. Best effort.
             Task {
                 await ActivityWriter.commented(
                     commentID: commentID, authorUID: authorUID, noteOwnerUID: ownerUID, noteID: noteID, text: trimmed
@@ -165,6 +256,11 @@ final class NoteCommentsListener: ObservableObject {
     private static let sampleComments: [NoteComment] = [
         NoteComment(id: "sample-comment-1", authorUID: "sample-priya", text: "Love this one.", createdAt: Date().addingTimeInterval(-7200)),
         NoteComment(id: "sample-comment-2", authorUID: "sample-tom", text: "Same, we should go again soon.", createdAt: Date().addingTimeInterval(-3600)),
+        NoteComment(
+            id: "sample-comment-3", authorUID: "sample-priya", text: "@tom Yes please, next weekend?",
+            createdAt: Date().addingTimeInterval(-1800),
+            replyToUID: "sample-tom", replyToCommentId: "sample-comment-2"
+        ),
     ]
     #endif
 }

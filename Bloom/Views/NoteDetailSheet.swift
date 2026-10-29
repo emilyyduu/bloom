@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Combine
 import FirebaseAuth
 
 // What a detail sheet was asked to show: one of my own notes, or a
@@ -259,6 +260,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var listener = NoteCommentsListener()
     @StateObject private var reactions = NoteReactionsListener()
+    @StateObject private var draft = CommentDraft()
     @FocusState private var isInputFocused: Bool
 
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
@@ -337,7 +339,9 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                         ownerUID: ownerUID,
                         isOwner: isOwner,
                         commentsEnabled: commentsEnabled,
-                        onShare: onShare
+                        onShare: onShare,
+                        draft: draft,
+                        focusInput: { isInputFocused = true }
                     )
                     .id("comments")
                 }
@@ -347,7 +351,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
             .scrollDismissesKeyboard(.interactively)
             .safeAreaInset(edge: .bottom) {
                 if commentsEnabled {
-                    CommentInputBar(listener: listener, isFocused: $isInputFocused)
+                    CommentInputBar(listener: listener, draft: draft, isFocused: $isInputFocused)
                 }
             }
             .task {
@@ -381,7 +385,9 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                         ownerUID: ownerUID,
                         isOwner: isOwner,
                         commentsEnabled: commentsEnabled,
-                        onShare: onShare
+                        onShare: onShare,
+                        draft: draft,
+                        focusInput: { isInputFocused = true }
                     )
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -389,7 +395,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                 .scrollDismissesKeyboard(.interactively)
 
                 if commentsEnabled {
-                    CommentInputBar(listener: listener, isFocused: $isInputFocused)
+                    CommentInputBar(listener: listener, draft: draft, isFocused: $isInputFocused)
                 }
             }
         }
@@ -430,6 +436,8 @@ private struct CommentsSection: View {
     let isOwner: Bool
     let commentsEnabled: Bool
     let onShare: (() -> Void)?
+    @ObservedObject var draft: CommentDraft
+    let focusInput: () -> Void
 
     @State private var commentToDelete: NoteComment?
     @State private var errorMessage: String?
@@ -464,11 +472,12 @@ private struct CommentsSection: View {
                 case .loaded where listener.comments.isEmpty:
                     notice("No comments yet", systemImage: "bubble.left")
                 case .loaded:
-                    ForEach(listener.comments) { comment in
-                        CommentRow(
-                            comment: comment,
-                            canDelete: isOwner || comment.authorUID == myUID,
-                            onDelete: { commentToDelete = comment }
+                    ForEach(CommentThread.threads(from: listener.comments)) { thread in
+                        CommentThreadView(
+                            thread: thread,
+                            canDelete: { isOwner || $0.authorUID == myUID },
+                            onDelete: { commentToDelete = $0 },
+                            onReply: { startReply(to: $0, threadID: $1) }
                         )
                     }
                 }
@@ -514,6 +523,21 @@ private struct CommentsSection: View {
             .padding(.vertical, 8)
     }
 
+    // The reply hangs under the top level comment, but is addressed to
+    // whoever wrote the comment that was tapped.
+    private func startReply(to comment: NoteComment, threadID: String) {
+        Task {
+            let profile = await UserProfileCache.shared.profile(uid: comment.authorUID)
+            draft.startReply(CommentReplyTarget(
+                threadID: threadID,
+                toUID: comment.authorUID,
+                toName: profile?.shownName ?? "Someone",
+                mention: profile.map { "@\($0.username) " } ?? ""
+            ))
+            focusInput()
+        }
+    }
+
     private func delete(_ comment: NoteComment) {
         errorMessage = nil
         Task {
@@ -526,14 +550,84 @@ private struct CommentsSection: View {
     }
 }
 
+// A top level comment with its replies indented underneath, a thin line
+// on their left.
+private struct CommentThreadView: View {
+    let thread: CommentThread
+    let canDelete: (NoteComment) -> Bool
+    let onDelete: (NoteComment) -> Void
+    let onReply: (NoteComment, _ threadID: String) -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    // Less indent at the largest sizes so the text keeps its width.
+    private var indent: CGFloat { dynamicTypeSize.isAccessibilitySize ? 8 : 18 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            row(thread.top, parentDeleted: thread.parentDeleted)
+
+            if !thread.replies.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(thread.replies) { reply in
+                        row(reply, parentDeleted: false)
+                    }
+                }
+                .padding(.leading, 12)
+                .overlay(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color(.separator))
+                        .frame(width: 2)
+                        .accessibilityHidden(true)
+                }
+                .padding(.leading, indent)
+            }
+        }
+    }
+
+    private func row(_ comment: NoteComment, parentDeleted: Bool) -> some View {
+        CommentRow(
+            comment: comment,
+            parentDeleted: parentDeleted,
+            canDelete: canDelete(comment),
+            onDelete: { onDelete(comment) },
+            onReply: { onReply(comment, thread.id) }
+        )
+    }
+}
+
 private struct CommentRow: View {
     let comment: NoteComment
+    let parentDeleted: Bool
     let canDelete: Bool
     let onDelete: () -> Void
+    let onReply: () -> Void
 
     @State private var author: FirestoreUser?
+    @State private var repliedTo: FirestoreUser?
 
     private var name: String { author?.shownName ?? "Someone" }
+    private var repliedToName: String { repliedTo?.shownName ?? "Someone" }
+
+    // The text with a leading @username in bold as well as coloured.
+    private var styledText: AttributedString {
+        var attributed = AttributedString(comment.text)
+        guard comment.isReply, comment.text.hasPrefix("@") else { return attributed }
+        let mention = String(comment.text.prefix { !$0.isWhitespace })
+        if let range = attributed.range(of: mention) {
+            attributed[range].font = .body.bold()
+            attributed[range].foregroundColor = .accentColor
+        }
+        return attributed
+    }
+
+    private var spokenText: String {
+        var spoken = comment.isReply && comment.replyToUID != nil
+            ? "Reply from \(name) to \(repliedToName): \(comment.text)"
+            : "\(name): \(comment.text)"
+        if parentDeleted { spoken += ". In reply to a deleted comment" }
+        return spoken
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -542,25 +636,43 @@ private struct CommentRow: View {
                 name: name,
                 hasAvatar: author?.hasAvatar ?? false,
                 avatarUpdatedAt: author?.avatarUpdatedAt,
-                size: 36,
+                size: comment.isReply && !parentDeleted ? 28 : 36,
                 relativeTo: .body
             )
             .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(name)
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(name)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        Text(comment.createdAt, format: .relative(presentation: .named))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if parentDeleted {
+                        Text("In reply to a deleted comment")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(styledText)
+                        .font(.body)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(spokenText)
+
+                Button(action: onReply) {
+                    Text("Reply")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                    Text(comment.createdAt, format: .relative(presentation: .named))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
-                Text(comment.text)
-                    .font(.body)
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Reply to \(name)")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
 
             if canDelete {
                 Button(role: .destructive, action: onDelete) {
@@ -574,6 +686,10 @@ private struct CommentRow: View {
         .task(id: comment.authorUID) {
             author = await UserProfileCache.shared.profile(uid: comment.authorUID)
         }
+        .task(id: comment.replyToUID) {
+            guard let uid = comment.replyToUID else { return }
+            repliedTo = await UserProfileCache.shared.profile(uid: uid)
+        }
     }
 }
 
@@ -581,13 +697,19 @@ private struct CommentRow: View {
 // text nears 500 characters, and Send. A failed send puts the text back.
 private struct CommentInputBar: View {
     @ObservedObject var listener: NoteCommentsListener
+    @ObservedObject var draft: CommentDraft
     var isFocused: FocusState<Bool>.Binding
 
-    @State private var text = ""
     @State private var errorMessage: String?
 
+    private var text: String { draft.text }
     private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canSend: Bool { !trimmed.isEmpty }
+    // A reply that is only the prefilled @username says nothing yet.
+    private var canSend: Bool {
+        guard !trimmed.isEmpty else { return false }
+        if let reply = draft.reply, !reply.mention.isEmpty, text == reply.mention { return false }
+        return true
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -597,8 +719,26 @@ private struct CommentInputBar: View {
                     .foregroundStyle(.red)
             }
 
+            if let reply = draft.reply {
+                HStack(spacing: 8) {
+                    Text("Replying to \(reply.toName)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityLabel("Replying to \(reply.toName)")
+                    Button {
+                        draft.cancelReply()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Cancel reply")
+                }
+            }
+
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("Add a comment", text: $text, axis: .vertical)
+                TextField("Add a comment", text: $draft.text, axis: .vertical)
                     .lineLimit(1...4)
                     .focused(isFocused)
                     .padding(.horizontal, 12)
@@ -627,9 +767,9 @@ private struct CommentInputBar: View {
         .padding(.vertical, 8)
         .background(.bar)
         // Cut by whole characters so an emoji is never split.
-        .onChange(of: text) { _, newValue in
+        .onChange(of: draft.text) { _, newValue in
             if newValue.count > NoteComment.maxLength {
-                text = String(newValue.prefix(NoteComment.maxLength))
+                draft.text = String(newValue.prefix(NoteComment.maxLength))
             }
         }
     }
@@ -637,15 +777,53 @@ private struct CommentInputBar: View {
     private func send() {
         guard canSend, let uid = Auth.auth().currentUser?.uid else { return }
         let sending = text
-        text = ""
+        let sendingReply = draft.reply
+        draft.text = ""
+        draft.clearReply()
         errorMessage = nil
         Task {
             do {
-                try await listener.send(sending, authorUID: uid)
+                try await listener.send(sending, authorUID: uid, replyTo: sendingReply)
             } catch {
-                if text.isEmpty { text = sending }
+                if draft.text.isEmpty {
+                    draft.text = sending
+                    if draft.reply == nil { draft.restoreReply(sendingReply) }
+                }
                 errorMessage = "Couldn\u{2019}t send your comment. Try again."
             }
         }
     }
+}
+
+// The text in the comment field and who it replies to, shared by the
+// Reply buttons in the list and the field at the bottom.
+@MainActor
+private final class CommentDraft: ObservableObject {
+    @Published var text = ""
+    @Published private(set) var reply: CommentReplyTarget?
+
+    // Fills the field with the mention. An empty field or one that still
+    // starts with the previous mention swaps it, anything else gets the
+    // mention put in front of what was typed.
+    func startReply(_ target: CommentReplyTarget) {
+        if let old = reply?.mention, !old.isEmpty, text.hasPrefix(old) {
+            text = target.mention + text.dropFirst(old.count)
+        } else if text.isEmpty {
+            text = target.mention
+        } else if !target.mention.isEmpty {
+            text = target.mention + text
+        }
+        reply = target
+        AccessibilityNotification.Announcement("Replying to \(target.toName)").post()
+    }
+
+    // Removes the mention only while it is still exactly what was prefilled.
+    func cancelReply() {
+        if let reply, !reply.mention.isEmpty, text == reply.mention { text = "" }
+        reply = nil
+    }
+
+    func clearReply() { reply = nil }
+
+    func restoreReply(_ target: CommentReplyTarget?) { reply = target }
 }

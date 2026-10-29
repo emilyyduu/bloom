@@ -166,6 +166,8 @@ struct ActivityRow: View {
         switch item.kind {
         case .note: return "\(name) shared a note"
         case .comment:
+            // A reply's preview already starts with "replied: ".
+            if let preview = item.preview, preview.hasPrefix("replied: ") { return "\(name) \(preview)" }
             if let preview = item.preview, !preview.isEmpty { return "\(name) commented: \(preview)" }
             return "\(name) commented"
         case .reaction: return "\(name) reacted to your note"
