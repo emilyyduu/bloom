@@ -187,18 +187,32 @@ private struct ViewerNoteDetail: View {
     private var noteBody: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let author {
-                HStack(spacing: 12) {
-                    AvatarView(user: author, size: 44, relativeTo: .body)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(author.shownName)
-                            .font(.headline)
-                        Text("@\(author.username)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                // Pushes onto the sheet's own stack, so Back returns to the note.
+                NavigationLink {
+                    FriendProfileView(friend: author)
+                } label: {
+                    HStack(spacing: 12) {
+                        AvatarView(user: author, size: 44, relativeTo: .body)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(author.shownName)
+                                .font(.headline)
+                            Text("@\(author.username)")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote)
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
                     }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
+                .accessibilityHint("Opens their profile")
             }
 
             if !note.text.isEmpty {
@@ -237,6 +251,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @StateObject private var listener = NoteCommentsListener()
+    @StateObject private var reactions = NoteReactionsListener()
     @FocusState private var isInputFocused: Bool
 
     private var isCompactHeight: Bool { verticalSizeClass == .compact }
@@ -277,15 +292,21 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
             }
         }
         .onAppear { attach() }
-        .onDisappear { listener.stop() }
+        .onDisappear {
+            listener.stop()
+            reactions.stop()
+        }
         .onChange(of: commentsEnabled) { _, _ in attach() }
     }
 
+    // Reactions follow the same rule as comments: shared, posted notes only.
     private func attach() {
         if commentsEnabled, !noteID.isEmpty, !ownerUID.isEmpty {
             listener.start(ownerUID: ownerUID, noteID: noteID)
+            reactions.start(ownerUID: ownerUID, noteID: noteID)
         } else {
             listener.stop()
+            reactions.stop()
         }
     }
 
@@ -296,6 +317,9 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     noteBody()
+                    if commentsEnabled {
+                        ReactionsSection(listener: reactions)
+                    }
                     CommentsSection(
                         listener: listener,
                         ownerUID: ownerUID,
@@ -328,9 +352,14 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     private var landscapeLayout: some View {
         AnyLayout(HStackLayout(alignment: .top, spacing: 0)) {
             ScrollView {
-                noteBody()
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 24) {
+                    noteBody()
+                    if commentsEnabled {
+                        ReactionsSection(listener: reactions)
+                    }
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             VStack(spacing: 0) {

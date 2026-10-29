@@ -54,9 +54,6 @@ final class NoteSyncService {
         Task {
             do {
                 try await uploadNote(note)
-                #if DEBUG
-                print("NoteSyncService: uploaded note \(note.id.uuidString)")
-                #endif
             } catch {
                 #if DEBUG
                 logFirestoreError(error, while: "uploading note \(note.id.uuidString)")
@@ -82,6 +79,11 @@ final class NoteSyncService {
         try await db.collection("users").document(uid)
             .collection("notes").document(note.id.uuidString)
             .setData(data)
+
+        #if DEBUG
+        print("uploaded \(note.id.uuidString) shared=\(data["sharedWithFriends"] as? Bool ?? false) " +
+            "at \(Date().formatted(date: .omitted, time: .standard))")
+        #endif
 
         note.syncedAt = Date()
         try? note.modelContext?.save()
@@ -339,6 +341,9 @@ final class NoteSyncService {
         } catch {
             note.sharedWithFriends = previous
             try? note.modelContext?.save()
+            #if DEBUG
+            logFirestoreError(error, while: "sharing note \(note.id.uuidString) (shared=\(isShared))")
+            #endif
             throw error
         }
     }
@@ -410,7 +415,13 @@ final class NoteSyncService {
 
             do {
                 try await batch.commit()
-                for note in chunk { note.syncedAt = Date() }
+                for note in chunk {
+                    note.syncedAt = Date()
+                    #if DEBUG
+                    print("uploaded \(note.id.uuidString) shared=\(note.sharedWithFriends) " +
+                        "at \(Date().formatted(date: .omitted, time: .standard))")
+                    #endif
+                }
                 updated += chunk.count
             } catch {
                 failed += chunk.count

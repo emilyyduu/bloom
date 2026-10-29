@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var isShowingNotifications = false
     @State private var noteDetail: NoteDetailRequest?
     @State private var selectedFriendForJournal: FirestoreUser?
+    @State private var isOnScreen = false
 
     #if DEBUG
     @AppStorage("gardenSampleDataEnabled") private var isSampleDataEnabled = false
@@ -66,6 +67,14 @@ struct HomeView: View {
         return friendService.friends
     }
 
+    private func loadState(for friend: FirestoreUser) -> FriendJournalService.TileLoadState {
+        #if DEBUG
+        if isSampleDataEnabled { return .loaded }
+        #endif
+        guard let id = friend.id else { return .loaded }
+        return friendJournalService.loadState(for: id)
+    }
+
     private var displayedLatestNoteByFriend: [String: FriendNote] {
         #if DEBUG
         if isSampleDataEnabled { return Self.sampleLatestNoteByFriend }
@@ -94,12 +103,12 @@ struct HomeView: View {
                 return (friend, note)
             }
             .sorted { $0.1.createdAt > $1.1.createdAt }
-            .map { FriendTileItem(id: $0.0.id ?? $0.0.username, friend: $0.0, note: $0.1) }
+            .map { FriendTileItem(id: $0.0.id ?? $0.0.username, friend: $0.0, note: $0.1, loadState: .loaded) }
 
         let withoutShare = displayedFriends
             .filter { ($0.id).map { latest[$0] == nil } ?? true }
             .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
-            .map { FriendTileItem(id: $0.id ?? $0.username, friend: $0, note: nil) }
+            .map { FriendTileItem(id: $0.id ?? $0.username, friend: $0, note: nil, loadState: loadState(for: $0)) }
 
         return withShare + withoutShare
     }
@@ -124,6 +133,10 @@ struct HomeView: View {
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 24)
+                }
+                .refreshable {
+                    friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
+                    await friendJournalService.refreshLatestNotes(for: friendUIDsForTileRefresh)
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -249,9 +262,21 @@ struct HomeView: View {
     private var friendsGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: minFriendTileWidth), spacing: 12)], spacing: 12) {
             ForEach(sortedFriendTiles) { tile in
-                FriendTile(friend: tile.friend, sharedNote: tile.note) {
-                    selectedFriendForJournal = tile.friend
-                }
+                FriendTile(
+                    friend: tile.friend,
+                    sharedNote: tile.note,
+                    loadState: tile.loadState,
+                    onRetry: { if let uid = tile.friend.id { friendJournalService.retry(uid) } },
+                    onOpenNote: {
+                        // The tile already loaded this note, so the sheet reuses it.
+                        guard let note = tile.note, let uid = tile.friend.id else {
+                            selectedFriendForJournal = tile.friend
+                            return
+                        }
+                        noteDetail = .friend(note, ownerUID: uid, author: tile.friend)
+                    },
+                    onOpenProfile: { selectedFriendForJournal = tile.friend }
+                )
             }
         }
     }
@@ -307,6 +332,7 @@ struct FriendTileItem: Identifiable {
     let id: String
     let friend: FirestoreUser
     let note: FriendNote?
+    let loadState: FriendJournalService.TileLoadState
 }
 
 // MARK: - Date and time helpers
@@ -486,10 +512,80 @@ private struct TimelineRow: View {
 private struct FriendTile: View {
     let friend: FirestoreUser
     let sharedNote: FriendNote?
-    let onTap: () -> Void
+    let loadState: FriendJournalService.TileLoadState
+    let onRetry: () -> Void
+    let onOpenNote: () -> Void
+    let onOpenProfile: () -> Void
+
+    private static let tilePadding: CGFloat = 12
+    private static let minHitSize: CGFloat = 44
+
+    @ScaledMetric(relativeTo: .caption) private var avatarSize: CGFloat = 24
+
+    // The avatar button is at least 44 by 44 and centred on where the
+    // small avatar sits, so its box reaches inside the tile padding.
+    private var avatarHitSize: CGFloat { max(Self.minHitSize, avatarSize) }
+    private var avatarInset: CGFloat { Self.tilePadding + avatarSize / 2 - avatarHitSize / 2 }
+
+    private var isFailed: Bool { sharedNote == nil && loadState == .failed }
 
     var body: some View {
-        Button(action: onTap) {
+        if isFailed {
+            failedTile
+        } else {
+            loadedTile
+        }
+    }
+
+    // A load that failed says so and offers Retry. It never reads as
+    // "Nothing shared yet", since that would be a guess.
+    private var failedTile: some View {
+        VStack(spacing: 8) {
+            AvatarView(user: friend, size: 40)
+            Text(friend.shownName)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .multilineTextAlignment(.center)
+            Text("Couldn\u{2019}t load")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Button("Retry", action: onRetry)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .frame(minHeight: 44)
+        }
+        .padding(Self.tilePadding)
+        .frame(maxWidth: .infinity, minHeight: 140)
+        .background(background)
+        .overlay(border)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Open profile", onOpenProfile)
+    }
+
+    private var loadedTile: some View {
+        // The tile button fills the tile. The avatar button sits above it
+        // in the ZStack, so a tap on the avatar never also opens the note.
+        ZStack(alignment: .bottomTrailing) {
+            tileButton
+
+            if sharedNote != nil {
+                Button(action: onOpenProfile) {
+                    AvatarView(user: friend, size: 24, relativeTo: .caption)
+                        .frame(minWidth: Self.minHitSize, minHeight: Self.minHitSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, avatarInset)
+                .padding(.bottom, avatarInset)
+                // Read once: the tile offers "Open profile" as an action.
+                .accessibilityHidden(true)
+            }
+        }
+    }
+
+    private var tileButton: some View {
+        Button(action: sharedNote != nil ? onOpenNote : onOpenProfile) {
             Group {
                 if let sharedNote {
                     sharedContent(sharedNote)
@@ -497,15 +593,16 @@ private struct FriendTile: View {
                     emptyContent
                 }
             }
-            .padding(12)
+            .padding(Self.tilePadding)
             .frame(maxWidth: .infinity, minHeight: 140, alignment: sharedNote != nil ? .topLeading : .center)
             .background(background)
             .overlay(border)
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(sharedNote != nil ? "Opens the note" : "Opens their profile")
+        .accessibilityAction(named: "Open profile", onOpenProfile)
     }
 
     @ViewBuilder
@@ -532,7 +629,9 @@ private struct FriendTile: View {
                     .font(.caption)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                AvatarView(user: friend, size: 24, relativeTo: .caption)
+                // The real avatar is the button layered above the tile.
+                Color.clear
+                    .frame(width: avatarSize, height: avatarSize)
             }
         }
     }
@@ -549,7 +648,7 @@ private struct FriendTile: View {
                     .foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.center)
-            Text("Nothing shared yet")
+            Text(loadState == .loading ? "Loading" : "Nothing shared yet")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -570,10 +669,14 @@ private struct FriendTile: View {
 
     private var accessibilityLabel: String {
         guard let sharedNote else {
-            return "\(friend.shownName), nothing shared yet"
+            return loadState == .loading ? "\(friend.shownName), loading" : "\(friend.shownName), nothing shared yet"
         }
+        let firstWords = sharedNote.text.split(whereSeparator: \.isWhitespace).prefix(8).joined(separator: " ")
+        let summary = !firstWords.isEmpty ? firstWords
+            : sharedNote.hasAudio == true ? "voice memo"
+            : sharedNote.hasPhoto ? "photo" : ""
         return "\(friend.shownName), shared \(longDateString(sharedNote.createdAt)) at " +
-            "\(timeString(sharedNote.createdAt)), \(sharedNote.text)"
+            "\(timeString(sharedNote.createdAt))" + (summary.isEmpty ? "" : ", \(summary)")
     }
 }
 

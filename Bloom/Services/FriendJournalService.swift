@@ -22,18 +22,35 @@ struct FriendNote: Codable, Identifiable {
     var audioSeconds: Int?
 }
 
-// Fetches, per accepted friend, the single most recent note they've
-// shared, for Home's friend tiles. A plain fetch rather than a live
-// listener since a tile preview only needs to be refreshed when Home
-// appears or the app returns to the foreground, not instantly.
+// The single most recent note each accepted friend has shared, for Home's
+// friend tiles. One live snapshot listener per friend (at most 20), so a
+// newly shared or unshared note shows up on its own. The listeners live
+// only while Home is on screen: Home calls syncListeners(for:) when it
+// appears and when the friend list changes, and stopAllListeners() when
+// it disappears. refreshLatestNotes(for:) is a safety net for when the
+// app becomes active and for pull to refresh, never the only way in.
 @MainActor
 final class FriendJournalService: ObservableObject {
     static let shared = FriendJournalService()
     private init() {}
 
+    // What a tile knows about a friend's latest note. A friend with
+    // nothing shared is .loaded with no note, which is not the same as
+    // a load that hasn't finished or one that failed.
+    enum TileLoadState {
+        case loading
+        case loaded
+        case failed
+    }
+
+    static let maxListeners = 20
+
     private let db = Firestore.firestore()
 
     @Published private(set) var latestNoteByFriend: [String: FriendNote] = [:]
+    @Published private(set) var loadStateByFriend: [String: TileLoadState] = [:]
+
+    private var listeners: [String: ListenerRegistration] = [:]
 
     // Bumped on sign out so a fetch still in flight for the previous
     // account can't write its results into the next account's tiles.
@@ -41,21 +58,123 @@ final class FriendJournalService: ObservableObject {
 
     func reset() {
         generation += 1
+        stopAllListeners()
         latestNoteByFriend = [:]
+        loadStateByFriend = [:]
     }
 
+    func loadState(for uid: String) -> TileLoadState {
+        loadStateByFriend[uid] ?? .loading
+    }
+
+    // MARK: Listeners
+
+    // Makes the set of listeners match the friend list: new friends get
+    // one, friends who left lose theirs and their tile data. Safe to call
+    // as often as needed, a friend who already has a listener is skipped.
+    // A friend whose listener failed is left alone until retry(uid).
+    func syncListeners(for friendUIDs: [String]) {
+        let wanted = Array(friendUIDs.prefix(Self.maxListeners))
+
+        for uid in Array(listeners.keys) where !wanted.contains(uid) {
+            listeners[uid]?.remove()
+            listeners[uid] = nil
+        }
+        for uid in Array(latestNoteByFriend.keys) where !friendUIDs.contains(uid) {
+            latestNoteByFriend[uid] = nil
+        }
+        for uid in Array(loadStateByFriend.keys) where !friendUIDs.contains(uid) {
+            loadStateByFriend[uid] = nil
+        }
+
+        for uid in wanted where listeners[uid] == nil && loadStateByFriend[uid] != .failed {
+            attach(to: uid)
+        }
+    }
+
+    func stopAllListeners() {
+        for listener in listeners.values { listener.remove() }
+        listeners = [:]
+    }
+
+    // The tile's Retry button.
+    func retry(_ uid: String) {
+        guard listeners[uid] == nil else { return }
+        attach(to: uid)
+    }
+
+    private func attach(to uid: String) {
+        guard listeners[uid] == nil else { return }
+        let startedGeneration = generation
+        // Whatever the tile already shows stays until the first answer.
+        if loadStateByFriend[uid] != .loaded { loadStateByFriend[uid] = .loading }
+
+        // includeMetadataChanges so the move from the cache to the server
+        // is seen, otherwise a friend with nothing shared could never get
+        // past an empty cache answer.
+        listeners[uid] = latestNoteQuery(for: uid)
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
+                guard let self, startedGeneration == self.generation, self.listeners[uid] != nil else { return }
+
+                if let error {
+                    // Firestore ends a listener that errored, so drop ours.
+                    self.listeners[uid]?.remove()
+                    self.listeners[uid] = nil
+                    self.loadStateByFriend[uid] = .failed
+                    #if DEBUG
+                    logFriendNotesError(error, while: "listening to \(uid)'s latest shared note")
+                    #endif
+                    return
+                }
+                guard let snapshot else { return }
+
+                let notes = snapshot.decoded(as: FriendNote.self)
+                #if DEBUG
+                print("FriendJournalService: tile listener fired for \(uid), \(snapshot.documents.count) document(s), " +
+                    "fromCache \(snapshot.metadata.isFromCache), at \(Date().formatted(date: .omitted, time: .standard))")
+                #endif
+
+                // An empty answer from the cache only means nothing is
+                // cached yet. Wait for the server before saying nothing
+                // is shared.
+                if snapshot.documents.isEmpty, snapshot.metadata.isFromCache, self.loadStateByFriend[uid] != .loaded {
+                    return
+                }
+
+                self.latestNoteByFriend[uid] = notes.first
+                self.loadStateByFriend[uid] = .loaded
+            }
+    }
+
+    private func latestNoteQuery(for uid: String) -> Query {
+        db.collection("users").document(uid).collection("notes")
+            .whereField("sharedWithFriends", isEqualTo: true)
+            .order(by: "createdAt", descending: true)
+            .limit(to: 1)
+    }
+
+    // MARK: Safety net
+
+    // For when the app becomes active and for pull to refresh. Listeners
+    // keep the tiles current on their own, so this only re-attaches the
+    // ones that failed, and fetches once for friends past the cap, who
+    // have no listener.
     func refreshLatestNotes(for friendUIDs: [String]) async {
         let startedGeneration = generation
-        for uid in friendUIDs {
+
+        for uid in friendUIDs.prefix(Self.maxListeners) where loadStateByFriend[uid] == .failed {
+            retry(uid)
+        }
+
+        for uid in friendUIDs.dropFirst(Self.maxListeners) {
             do {
-                let snapshot = try await db.collection("users").document(uid).collection("notes")
-                    .whereField("sharedWithFriends", isEqualTo: true)
-                    .order(by: "createdAt", descending: true)
-                    .limit(to: 1)
-                    .getDocuments()
+                let snapshot = try await latestNoteQuery(for: uid).getDocuments()
                 guard startedGeneration == generation else { return }
                 latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first
+                loadStateByFriend[uid] = .loaded
             } catch {
+                guard startedGeneration == generation else { return }
+                loadStateByFriend[uid] = .failed
                 #if DEBUG
                 logFriendNotesError(error, while: "fetching \(uid)'s latest shared note")
                 #endif

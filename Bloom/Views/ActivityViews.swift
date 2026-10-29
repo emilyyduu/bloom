@@ -168,6 +168,7 @@ struct ActivityRow: View {
         case .comment:
             if let preview = item.preview, !preview.isEmpty { return "\(name) commented: \(preview)" }
             return "\(name) commented"
+        case .reaction: return "\(name) reacted to your note"
         case .accepted: return "\(name) accepted your request"
         }
     }

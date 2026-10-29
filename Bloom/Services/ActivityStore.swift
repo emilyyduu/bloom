@@ -13,6 +13,7 @@ struct ActivityItem: Identifiable, Equatable {
     enum Kind: String {
         case note
         case comment
+        case reaction
         case accepted
     }
 
@@ -104,6 +105,19 @@ enum ActivityWriter {
                 .setData(data(kind: .comment, fromUID: authorUID, noteOwnerUID: noteOwnerUID, noteID: noteID, preview: text))
         } catch {
             log(error, "telling \(noteOwnerUID) about my comment")
+        }
+    }
+
+    // My reaction on someone else's note, to the note's owner. The id is
+    // fixed per note and reactor, so changing my reaction overwrites it.
+    static func reacted(noteID: String, reactorUID: String, noteOwnerUID: String) async {
+        guard reactorUID != noteOwnerUID, !noteOwnerUID.hasPrefix("sample-") else { return }
+        do {
+            try await db.collection("users").document(noteOwnerUID).collection("activity")
+                .document("reaction_\(noteID)_\(reactorUID)")
+                .setData(data(kind: .reaction, fromUID: reactorUID, noteOwnerUID: noteOwnerUID, noteID: noteID))
+        } catch {
+            log(error, "telling \(noteOwnerUID) about my reaction")
         }
     }
 
@@ -206,7 +220,8 @@ final class ActivityStore: ObservableObject {
         let base: String
         switch item.kind {
         case .note: base = AccountDefaults.bannerFriendNotesBase
-        case .comment: base = AccountDefaults.bannerCommentsBase
+        // Reactions share the comments toggle rather than adding a new one.
+        case .comment, .reaction: base = AccountDefaults.bannerCommentsBase
         case .accepted: base = AccountDefaults.bannerFriendRequestsBase
         }
         guard AccountDefaults.isBannerEnabled(base) else { return }
@@ -232,7 +247,7 @@ enum ActivityDestination: Identifiable {
         switch item.kind {
         case .accepted:
             self = .friend(uid: item.fromUID)
-        case .note, .comment:
+        case .note, .comment, .reaction:
             guard let noteOwnerUID = item.noteOwnerUID, let noteID = item.noteID else { return nil }
             self = .note(ownerUID: noteOwnerUID, noteID: noteID, focusComments: item.kind == .comment)
         }
@@ -283,6 +298,8 @@ final class LiveBannerCenter: ObservableObject {
             case .comment:
                 let preview = item.preview.map { ": \($0)" } ?? ""
                 show(LiveBanner(text: "\(name) commented\(preview)", systemImage: "bubble.left", destination: destination))
+            case .reaction:
+                show(LiveBanner(text: "\(name) reacted to your note", systemImage: "face.smiling", destination: destination))
             case .accepted:
                 show(LiveBanner(text: "\(name) accepted your request", systemImage: "person.badge.plus", destination: destination))
             }
