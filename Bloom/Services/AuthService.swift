@@ -40,6 +40,7 @@ final class AuthService: ObservableObject {
     // Local notes need no clearing here, each account has its own store.
     func resetInMemoryAccountState() {
         FriendService.shared.stopListening()
+        CircleStore.shared.stopListening()
         GardenService.shared.stopListening()
         SharedNotesStore.shared.stopListening()
         FriendJournalService.shared.reset()

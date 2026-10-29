@@ -1,6 +1,6 @@
 import Foundation
 
-// How healthy a plant in the Shared Circle Garden looks, based purely
+// How healthy a plant in the Shared Garden looks, based purely
 // on how long it's been since that person last logged a note.
 enum PlantState: Equatable {
     case blooming

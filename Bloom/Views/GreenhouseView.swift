@@ -4,9 +4,36 @@ import SwiftUI
 // a small, non-interactive preview sits in the card below, and tapping
 // it opens a full screen interactive version.
 struct GreenhouseView: View {
+    // Where the Greenhouse can push to.
+    private enum Route: Hashable, Identifiable {
+        case circles
+        case circle(String)
+
+        var id: String {
+            switch self {
+            case .circles: return "circles"
+            case .circle(let id): return "circle-\(id)"
+            }
+        }
+    }
+
+    // What decides who is in the garden, so the listeners are only touched
+    // when the people really change.
+    private struct GardenKey: Equatable {
+        let uids: [String]
+        let isReady: Bool
+        let isSample: Bool
+    }
+
+    // All friends shows this many, by name. Circles are how to choose.
+    private static let allFriendsLimit = CircleLimits.maxMembers
+
     @StateObject private var gardenService = GardenService.shared
+    @StateObject private var circleStore = CircleStore.shared
+    @StateObject private var friendService = FriendService.shared
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var isShowingFullScreenGarden = false
+    @State private var route: Route?
 
     // In landscape on iPhone (compact height) the garden card and the
     // streaks list sit side by side instead of one on top of the
@@ -19,13 +46,32 @@ struct GreenhouseView: View {
             : AnyLayout(VStackLayout(spacing: 0))
     }
 
-    #if DEBUG
-    @AppStorage("gardenSampleDataEnabled") private var isSampleDataEnabled = false
-    #endif
+    // MARK: Selection
+
+    private var allFriends: [FirestoreUser] {
+        circleStore.allFriends(real: friendService.friends)
+            .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
+    }
+
+    private var selectedCircle: FriendCircle? { circleStore.gardenCircle }
+    private var selectionName: String { selectedCircle?.name ?? "All friends" }
+
+    // The friends in the garden: the circle's members, or the first 10 by name.
+    private var shownFriends: [FirestoreUser] {
+        if let selectedCircle {
+            return circleStore.members(of: selectedCircle, among: allFriends)
+                .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
+        }
+        return Array(allFriends.prefix(Self.allFriendsLimit))
+    }
+
+    private var gardenKey: GardenKey {
+        GardenKey(uids: shownFriends.compactMap(\.id), isReady: circleStore.isReady, isSample: circleStore.isSampleData)
+    }
 
     private var plants: [GardenPlant] {
         #if DEBUG
-        if isSampleDataEnabled { return Self.samplePlants }
+        if circleStore.isSampleData { return samplePlants(for: shownFriends) }
         #endif
         return gardenService.plants
     }
@@ -38,12 +84,8 @@ struct GreenhouseView: View {
         return [me] + others
     }
 
-    private var showsAddFriendsHint: Bool {
-        #if DEBUG
-        if isSampleDataEnabled { return false }
-        #endif
-        return plants.count <= 1
-    }
+    private var hasNoFriends: Bool { allFriends.isEmpty }
+    private var isSelectedCircleEmpty: Bool { selectedCircle != nil && shownFriends.isEmpty }
 
     private func displayStreak(for plant: GardenPlant) -> Int {
         switch plant.plantState {
@@ -69,17 +111,29 @@ struct GreenhouseView: View {
             .toolbar(.hidden, for: .navigationBar)
             .task {
                 FriendService.shared.startListening()
-                GardenService.shared.startListening()
+                circleStore.startListening()
+            }
+            // Adds listeners for people who joined the selection and removes
+            // them for people who left, the scene and camera stay as they are.
+            .task(id: gardenKey) {
+                guard circleStore.isReady, !circleStore.isSampleData else { return }
+                gardenService.setPeople(friends: shownFriends)
             }
             .fullScreenCover(isPresented: $isShowingFullScreenGarden) {
-                FullScreenGardenView(plants: plants)
+                FullScreenGardenView(plants: plants, selectionName: selectionName)
+            }
+            .navigationDestination(item: $route) { route in
+                switch route {
+                case .circles: CirclesView()
+                case .circle(let id): CircleDetailView(circleID: id)
+                }
             }
         }
     }
 
     private var gardenPane: some View {
         VStack(alignment: .leading, spacing: isCompactHeight ? 10 : 16) {
-            myCirclePill
+            gardenSwitcher
             gardenCard
         }
         .padding(isCompactHeight ? 10 : 16)
@@ -96,8 +150,21 @@ struct GreenhouseView: View {
 
             streaksCard
 
-            if showsAddFriendsHint {
+            if let selectedCircle, isSelectedCircleEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Add people to \(selectedCircle.name)")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Button("Add people") { route = .circle(selectedCircle.id) }
+                        .buttonStyle(.borderedProminent)
+                        .frame(minHeight: 44)
+                }
+            } else if hasNoFriends {
                 Text("Add friends from Profile to grow your shared garden.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else if selectedCircle == nil, allFriends.count > Self.allFriendsLimit {
+                Text("Showing \(Self.allFriendsLimit) of \(allFriends.count) friends. Use circles to choose who appears.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -106,13 +173,39 @@ struct GreenhouseView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var myCirclePill: some View {
-        Text("My Circle")
+    // The current choice with a chevron: All friends, each circle, then
+    // Manage circles. The saved circle is per account.
+    private var gardenSwitcher: some View {
+        Menu {
+            Picker("Garden", selection: Binding<String?>(
+                get: { selectedCircle?.id },
+                set: { circleStore.selectGardenCircle($0) }
+            )) {
+                Text("All friends").tag(String?.none)
+                ForEach(circleStore.circles) { circle in
+                    Text(circle.name).tag(Optional(circle.id))
+                }
+            }
+            Divider()
+            Button("Manage circles") { route = .circles }
+        } label: {
+            HStack(spacing: 6) {
+                Text("Garden: \(selectionName)")
+                    .lineLimit(2)
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .accessibilityHidden(true)
+            }
             .font(.subheadline)
             .fontWeight(.medium)
+            .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
+            .frame(minHeight: 44)
             .background(Color(.secondarySystemBackground), in: Capsule())
+        }
+        .accessibilityLabel("Garden: \(selectionName)")
+        .accessibilityHint("Choose All friends or a circle")
     }
 
     // The real RealityKit garden, shown small and non-interactive
@@ -124,7 +217,7 @@ struct GreenhouseView: View {
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: isCompactHeight ? 260 : .infinity)
             .overlay {
-                GardenRealityView(plants: plants)
+                GardenRealityView(plants: plants, selectionName: selectionName)
                     .padding(8)
             }
             .overlay(alignment: .topTrailing) {
@@ -160,13 +253,23 @@ struct GreenhouseView: View {
     }
 
     #if DEBUG
-    private static let samplePlants: [GardenPlant] = [
-        GardenPlant(id: "sample-blooming-1", username: "Maya", currentStreak: 14, plantState: .blooming),
-        GardenPlant(id: "sample-blooming-2", username: "Theo", currentStreak: 21, plantState: .blooming),
-        GardenPlant(id: "sample-wilting", username: "Priya", currentStreak: 6, plantState: .wilting),
-        GardenPlant(id: "sample-dead", username: "Sam", currentStreak: 2, plantState: .dead),
-        GardenPlant(id: "sample-none", username: "Jordan", currentStreak: 0, plantState: nil),
-    ]
+    // Me and the shown sample friends, with the plant states rotating so
+    // every state appears.
+    private func samplePlants(for friends: [FirestoreUser]) -> [GardenPlant] {
+        let states: [PlantState?] = [.blooming, .wilting, .dead, nil, .blooming]
+        var result = [GardenPlant(id: "sample-me", username: "You", currentStreak: 9, plantState: .blooming, isMe: true)]
+        for (index, friend) in friends.enumerated() {
+            let state = states[index % states.count]
+            result.append(GardenPlant(
+                id: friend.id ?? friend.username,
+                username: friend.username,
+                currentStreak: state == .blooming ? 3 + index * 2 : 0,
+                plantState: state,
+                displayName: friend.shownName
+            ))
+        }
+        return result
+    }
     #endif
 }
 

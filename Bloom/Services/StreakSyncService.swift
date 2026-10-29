@@ -5,7 +5,7 @@ import SwiftData
 
 // Writes the signed-in user's posting streak to Firestore's
 // `streaks/{uid}` document, so friends' GardenService listeners can
-// show it in the Shared Circle Garden. Called after a note is added to
+// show it in the Shared Garden. Called after a note is added to
 // today and when the app returns to the foreground. Does nothing when
 // signed out.
 @MainActor

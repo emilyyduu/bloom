@@ -169,7 +169,7 @@ private struct RequestAvatar: View {
 }
 
 // Reused by NotificationsView so the bell's incoming requests look and
-// behave exactly like the ones in My Circle > Requests.
+// behave exactly like the ones in Friends > Requests.
 struct IncomingRequestRow: View {
     let request: Friendship
     let name: String

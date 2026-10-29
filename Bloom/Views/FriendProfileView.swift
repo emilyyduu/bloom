@@ -96,17 +96,22 @@ final class FriendPinnedListener: ObservableObject {
 
 // A friend's profile: who they are, their pinned notes, and a way into
 // their full journal. Not wrapped in its own NavigationStack, like
-// FriendJournalView, since it's pushed from My Circle and shown in a
+// FriendJournalView, since it's pushed from Friends and shown in a
 // sheet from Home, each caller supplies its own chrome.
 struct FriendProfileView: View {
     let friend: FirestoreUser
 
     @StateObject private var listener = FriendPinnedListener()
+    @ObservedObject private var circleStore = CircleStore.shared
+
+    @State private var isShowingNewCircle = false
+    @State private var alertMessage: String?
 
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 header
+                circleMenu
                 pinnedSection
                 NavigationLink {
                     FriendJournalView(friend: friend)
@@ -128,6 +133,74 @@ struct FriendProfileView: View {
             if let uid = friend.id { listener.start(friendUID: uid) }
         }
         .onDisappear { listener.stop() }
+        .sheet(isPresented: $isShowingNewCircle) {
+            NewCircleSheet(preselected: friend.id.map { [$0] } ?? [])
+        }
+        .alert(
+            "Couldn\u{2019}t change the circle",
+            isPresented: Binding(get: { alertMessage != nil }, set: { if !$0 { alertMessage = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(alertMessage ?? "")
+        }
+        .task { circleStore.startListening() }
+    }
+
+    // MARK: Circles
+
+    // The checkmarks come from the circles already loaded, so showing the
+    // menu never reads Firestore.
+    private var circleMenu: some View {
+        Menu {
+            ForEach(circleStore.circles) { circle in
+                Toggle(circle.name, isOn: Binding(
+                    get: { isIn(circle) },
+                    set: { _ in toggle(circle) }
+                ))
+            }
+            if !circleStore.circles.isEmpty {
+                Divider()
+            }
+            Button {
+                newCircle()
+            } label: {
+                Label("New circle", systemImage: "plus")
+            }
+        } label: {
+            Label("Add to circle", systemImage: "circle.grid.2x2")
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+    }
+
+    private func isIn(_ circle: FriendCircle) -> Bool {
+        guard let id = friend.id else { return false }
+        return circleStore.memberUIDs(of: circle).contains(id)
+    }
+
+    private func toggle(_ circle: FriendCircle) {
+        guard let id = friend.id else { return }
+        if !isIn(circle), !CircleLimits.canAdd(current: circleStore.memberUIDs(of: circle).count) {
+            alertMessage = "\(circle.name) already has \(CircleLimits.maxMembers) people. A circle can have up to \(CircleLimits.maxMembers) people."
+            return
+        }
+        Task {
+            do {
+                try await circleStore.toggle(id, in: circle)
+            } catch {
+                alertMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func newCircle() {
+        guard CircleLimits.canAdd(current: circleStore.circles.count, limit: CircleLimits.maxCircles) else {
+            alertMessage = CircleError.limitOfCircles.localizedDescription
+            return
+        }
+        isShowingNewCircle = true
     }
 
     private var header: some View {

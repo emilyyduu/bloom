@@ -66,6 +66,12 @@ final class NoteSyncService {
     // true before its photo exists. If the photo step throws, the note
     // is not written and syncedAt stays nil, so it retries.
     private func uploadNote(_ note: Note) async throws {
+        // DEBUG sample history notes are local only. Keep them marked as
+        // backed up so syncPending never picks them up.
+        if note.isSample {
+            if note.syncedAt == nil { note.syncedAt = Date() }
+            return
+        }
         guard let uid = note.ownerUID else { return }
 
         try await syncPhoto(for: note, ownerUID: uid)
@@ -376,7 +382,7 @@ final class NoteSyncService {
         guard let uid = Auth.auth().currentUser?.uid, ownsContext(context, uid: uid) else { return }
 
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { !$0.isDraft })
-        guard let notes = try? context.fetch(descriptor), !notes.isEmpty else {
+        guard let notes = (try? context.fetch(descriptor))?.filter({ !$0.isSample }), !notes.isEmpty else {
             #if DEBUG
             print("NoteSyncService: setSharedWithFriendsForAllNotes(\(isShared)) - no notes to update")
             #endif

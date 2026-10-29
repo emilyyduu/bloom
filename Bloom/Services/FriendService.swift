@@ -41,6 +41,17 @@ final class FriendService: ObservableObject {
     @Published var pendingRequesterProfiles: [String: FirestoreUser] = [:]
     @Published var pendingOutgoing: [Friendship] = []
     @Published var pendingRecipientProfiles: [String: FirestoreUser] = [:]
+    // The uids of my accepted friends as the friendship documents say, nil
+    // until both accepted listeners have heard from the server. Unlike
+    // `friends` this doesn't wait for profiles to load and is never a
+    // half answer from the cache, so it is safe to remove people from
+    // circles against.
+    @Published private(set) var confirmedFriendUIDs: Set<String>?
+    private var hasServerSentAnswer = false
+    private var hasServerReceivedAnswer = false
+    // Only ever set from a real snapshot, never from a failed listener.
+    private var answeredSentUIDs: Set<String> = []
+    private var answeredReceivedUIDs: Set<String> = []
 
     private var listenersStarted = false
     // Whether the first incoming-requests snapshot has arrived, so only
@@ -233,6 +244,13 @@ final class FriendService: ObservableObject {
                 #endif
                 let friendships = snapshot?.decoded(as: Friendship.self) ?? []
                 self.sentFriendUIDs = friendships.map(\.toUID)
+                // A failed listener leaves the uids empty, which must never
+                // look like "no friends" to the circles.
+                if let snapshot {
+                    if !snapshot.metadata.isFromCache { self.hasServerSentAnswer = true }
+                    self.answeredSentUIDs = Set(friendships.map(\.toUID))
+                    self.updateConfirmedFriendUIDs()
+                }
                 Task { await self.reloadFriends() }
             }
 
@@ -246,6 +264,11 @@ final class FriendService: ObservableObject {
                 #endif
                 let friendships = snapshot?.decoded(as: Friendship.self) ?? []
                 self.receivedFriendUIDs = friendships.map(\.fromUID)
+                if let snapshot {
+                    if !snapshot.metadata.isFromCache { self.hasServerReceivedAnswer = true }
+                    self.answeredReceivedUIDs = Set(friendships.map(\.fromUID))
+                    self.updateConfirmedFriendUIDs()
+                }
                 Task { await self.reloadFriends() }
             }
     }
@@ -273,6 +296,17 @@ final class FriendService: ObservableObject {
         pendingRecipientProfiles = [:]
         listenersStarted = false
         hasReceivedIncomingSnapshot = false
+        hasServerSentAnswer = false
+        hasServerReceivedAnswer = false
+        answeredSentUIDs = []
+        answeredReceivedUIDs = []
+        confirmedFriendUIDs = nil
+    }
+
+    private func updateConfirmedFriendUIDs() {
+        guard hasServerSentAnswer, hasServerReceivedAnswer else { return }
+        let uids = answeredSentUIDs.union(answeredReceivedUIDs)
+        if confirmedFriendUIDs != uids { confirmedFriendUIDs = uids }
     }
 
     private func reloadFriends() async {

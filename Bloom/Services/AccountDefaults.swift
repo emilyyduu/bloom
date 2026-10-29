@@ -13,8 +13,8 @@ enum AccountDefaults {
     static let shareToCircleConfirmedBase = "hasConfirmedShareToCircle"
     static let pendingDeletionsBase = "pendingNoteDeletions"
 
-    // Whether this account has already seen the one time "Everyone in
-    // your circle can read this note and comment on it" confirmation.
+    // Whether this account has already seen the one time "All your
+    // friends can read this note and comment on it" confirmation.
     static var hasConfirmedShareToCircle: Bool {
         get { UserDefaults.standard.bool(forKey: key(shareToCircleConfirmedBase)) }
         set { UserDefaults.standard.set(newValue, forKey: key(shareToCircleConfirmedBase)) }
@@ -51,6 +51,26 @@ enum AccountDefaults {
             return now
         }
         set { UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: key("activityLastSeen")) }
+    }
+
+    // How the Journals screens order years, months and days. Per account.
+    static var journalSortOrder: JournalSortOrder {
+        get {
+            JournalSortOrder(rawValue: UserDefaults.standard.string(forKey: key("journalSortOrder")) ?? "") ?? .newestFirst
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: key("journalSortOrder")) }
+    }
+
+    // The circle the Greenhouse shows and the circle Home's tiles are
+    // filtered to, by circle id. nil means All friends.
+    static var gardenCircleID: String? {
+        get { UserDefaults.standard.string(forKey: key("gardenCircleID")) }
+        set { UserDefaults.standard.set(newValue, forKey: key("gardenCircleID")) }
+    }
+
+    static var homeCircleFilterID: String? {
+        get { UserDefaults.standard.string(forKey: key("homeCircleFilterID")) }
+        set { UserDefaults.standard.set(newValue, forKey: key("homeCircleFilterID")) }
     }
 
     // Which kinds of activity may show a banner while the app is open.

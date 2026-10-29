@@ -142,7 +142,7 @@ private struct OwnerNoteDetail: View {
             : AnyLayout(HStackLayout(spacing: 8))
         return layout {
             chip(
-                note.sharedWithFriends ? "Shared to circle" : "Only you",
+                note.sharedWithFriends ? "Shared with friends" : "Only you",
                 systemImage: note.sharedWithFriends ? "person.2.fill" : "lock.fill"
             )
             if note.isPinned {
@@ -495,11 +495,11 @@ private struct CommentsSection: View {
     // My own note that isn't shared yet.
     private var disabledState: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Share to circle to let friends comment")
+            Text("Share with friends to let them comment")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             if let onShare {
-                Button("Share to circle", action: onShare)
+                Button("Share with friends", action: onShare)
                     .buttonStyle(.bordered)
                     .frame(minHeight: 44)
             }

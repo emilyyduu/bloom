@@ -14,6 +14,7 @@ struct HomeView: View {
     @StateObject private var friendService = FriendService.shared
     @StateObject private var activity = ActivityStore.shared
     @StateObject private var friendJournalService = FriendJournalService.shared
+    @StateObject private var circleStore = CircleStore.shared
 
     @State private var isShowingComposer = false
     @State private var isShowingAddFriend = false
@@ -61,11 +62,18 @@ struct HomeView: View {
         friendService.pendingIncoming.count + activity.unreadCount
     }
 
-    private var displayedFriends: [FirestoreUser] {
+    // Every friend (or the DEBUG sample friends), before any circle filter.
+    private var allFriends: [FirestoreUser] {
         #if DEBUG
-        if isSampleDataEnabled { return Self.sampleFriends }
+        if isSampleDataEnabled { return SampleCircleData.friends }
         #endif
         return friendService.friends
+    }
+
+    // The tiles shown: everyone, or only the members of the chosen circle.
+    private var displayedFriends: [FirestoreUser] {
+        guard let circle = circleStore.homeFilterCircle else { return allFriends }
+        return circleStore.members(of: circle, among: allFriends)
     }
 
     private func loadState(for friend: FirestoreUser) -> LiveState {
@@ -89,7 +97,7 @@ struct HomeView: View {
         #if DEBUG
         if isSampleDataEnabled { return [] }
         #endif
-        return friendService.friends.compactMap(\.id)
+        return displayedFriends.compactMap(\.id)
     }
 
     // Friends with a share sort newest first; everyone else sorts
@@ -166,6 +174,7 @@ struct HomeView: View {
             }
             .task {
                 friendService.startListening()
+                circleStore.startListening()
             }
             // One tile listener per visible friend, attached while Home is
             // on screen. The id restarts this when the friend list or the
@@ -268,12 +277,42 @@ struct HomeView: View {
             SectionHeader("Friends’ journals")
                 .accessibilityAddTraits(.isHeader)
 
-            if displayedFriends.isEmpty {
+            if allFriends.isEmpty {
                 emptyFriendsState
             } else {
-                friendsGrid
+                if !circleStore.circles.isEmpty {
+                    circleChips
+                }
+                if displayedFriends.isEmpty {
+                    Text("No friends in \(circleStore.homeFilterCircle?.name ?? "this circle") yet")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                } else {
+                    friendsGrid
+                }
             }
         }
+    }
+
+    // All, then one chip per circle. The chosen chip has a checkmark and a
+    // heavier weight as well as a tint. Saved per account.
+    private var circleChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                FilterChip(title: "All", isSelected: circleStore.homeFilterCircle == nil) {
+                    circleStore.selectHomeFilter(nil)
+                }
+                ForEach(circleStore.circles) { circle in
+                    FilterChip(title: circle.name, isSelected: circleStore.homeFilterCircleID == circle.id) {
+                        circleStore.selectHomeFilter(circle.id)
+                    }
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .accessibilityLabel("Filter friends")
     }
 
     private var friendsGrid: some View {
@@ -314,15 +353,9 @@ struct HomeView: View {
     }
 
     #if DEBUG
-    // Four fake friends, one of them with nothing shared, so every
-    // tile state can be checked without writing anything to Firestore.
-    private static let sampleFriends: [FirestoreUser] = [
-        FirestoreUser(id: "sample-allison", username: "allison", displayName: "Allison Chen", usernameLower: "allison", phoneNumber: nil, createdAt: Date()),
-        FirestoreUser(id: "sample-priya", username: "priya", displayName: "Priya Raman", usernameLower: "priya", phoneNumber: nil, createdAt: Date()),
-        FirestoreUser(id: "sample-tom", username: "tom", displayName: "Tom Nguyen", usernameLower: "tom", phoneNumber: nil, createdAt: Date()),
-        FirestoreUser(id: "sample-mei", username: "mei", displayName: "Mei Tanaka", usernameLower: "mei", phoneNumber: nil, createdAt: Date()),
-    ]
-
+    // Sample notes for a few of the sample friends (SampleCircleData has all
+    // 12), the rest have nothing shared, so every tile state can be checked
+    // without writing anything to Firestore.
     private static let sampleLatestNoteByFriend: [String: FriendNote] = [
         "sample-allison": FriendNote(
             id: "sample-note-1",
@@ -348,6 +381,41 @@ struct HomeView: View {
 private struct TileListenerKey: Equatable {
     let uid: String?
     let friendUIDs: [String]
+}
+
+private struct FilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .accessibilityHidden(true)
+                }
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(isSelected ? .bold : .regular)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 44)
+            .background(
+                Capsule().fill(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+            )
+            .overlay(
+                Capsule().strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
 }
 
 struct FriendTileItem: Identifiable {

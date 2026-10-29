@@ -14,7 +14,7 @@ import UIKit
 // icons and other non-text UI components.
 enum Theme {
     enum Colors {
-        // The growth states in the Shared Circle Garden. Each is a
+        // The growth states in the Shared Garden. Each is a
         // dedicated colour rather than a reused system colour (.green,
         // .gray) because the system colours read fine on their own but
         // fail contrast against the pale circle they sit on in light

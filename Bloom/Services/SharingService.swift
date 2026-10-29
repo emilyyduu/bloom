@@ -44,7 +44,7 @@ final class SharingService {
     }
 
     // Listens live for notes shared with the signed-in user by anyone in
-    // their circle, newest first. Returns the ListenerRegistration so
+    // their friends, newest first. Returns the ListenerRegistration so
     // the caller (SharedNotesStore) can detach it on sign out.
     @discardableResult
     func listenForSharedNotes(onChange: @escaping ([SharedNote], Error?) -> Void) -> ListenerRegistration? {

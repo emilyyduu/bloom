@@ -17,6 +17,7 @@ This is a student project, developed in weekly stages as part of a unit assignme
 - **Daisy Chain** — a vertical timeline of the day's notes
 - **Flipbook** — the same notes, swiped through one at a time
 - **Your Journals** — every past day that has at least one note in it
+- **Circles** — named, private groups of up to 10 friends, used to choose who appears in the Greenhouse garden and on Home. Circles never decide who can read a note
 - **Friend search** — find someone by username, or match your phone contacts against registered accounts
 - **Friend requests** — sending one shows as pending until the other person accepts
 - **Sharing** — once a request is accepted, share a note with that friend
@@ -27,7 +28,7 @@ These are described in the project proposal but not built yet:
 
 - Movie and TV logging via TMDB (Week 9)
 - A local evening reminder, later made behaviour-driven based on journaling history (Weeks 9–10)
-- **Shared Circle Garden** — a 3D garden, built with SceneKit, where each friend's plant reflects their posting activity (Weeks 10–11, the project's Wow Factor)
+- **Shared Garden** — a 3D garden, built with SceneKit, where each friend's plant reflects their posting activity (Weeks 10–11, the project's Wow Factor)
 - Photo sharing (currently sharing only copies a note's text)
 
 ## Tech stack
@@ -79,7 +80,7 @@ Bloom/
 | 8 | Friend search (username + contacts), friend requests, sharing |
 | 9 | Media logging (TMDB) + basic local reminder |
 | 10 | Behaviour-driven notifications extension + start of the Wow Factor |
-| 11 | Shared Circle Garden (SceneKit) |
+| 11 | Shared Garden (SceneKit) |
 | 12 | Testing, polish, submission |
 
 ## Author

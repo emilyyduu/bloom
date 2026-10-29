@@ -1,7 +1,7 @@
 import SwiftUI
 import RealityKit
 
-// The Shared Circle Garden, built in code with RealityKit (no Reality
+// The Shared Garden, built in code with RealityKit (no Reality
 // Composer Pro package). Each person gets one plant at a fixed slot
 // around a garden bed; slots are assigned by sorting uids so nobody
 // moves between launches. `isInteractive` controls whether orbit and
@@ -10,6 +10,8 @@ import RealityKit
 // true for the full screen cover.
 struct GardenRealityView: View {
     let plants: [GardenPlant]
+    // The name in the VoiceOver summary: All friends or a circle's name.
+    var selectionName: String = "All friends"
     var isInteractive: Bool = false
     var onSelectPlant: ((GardenPlant) -> Void)?
 
@@ -62,9 +64,9 @@ struct GardenRealityView: View {
     }
 
     private var accessibilitySummary: String {
-        guard let me = plants.first else { return "Garden with no plants yet." }
+        guard let me = plants.first else { return "Garden for \(selectionName) with no plants yet." }
         let count = plants.count
-        var sentences = ["Garden with \(count) plant\(count == 1 ? "" : "s")."]
+        var sentences = ["Garden for \(selectionName) with \(count) plant\(count == 1 ? "" : "s")."]
         sentences.append("You: \(stateWord(me.plantState)).")
         for friend in plants.dropFirst() {
             sentences.append("\(friend.username): \(stateWord(friend.plantState)).")
@@ -78,13 +80,14 @@ struct GardenRealityView: View {
 // tapped.
 struct FullScreenGardenView: View {
     let plants: [GardenPlant]
+    var selectionName: String = "All friends"
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPlant: GardenPlant?
 
     var body: some View {
         NavigationStack {
-            GardenRealityView(plants: plants, isInteractive: true) { plant in
+            GardenRealityView(plants: plants, selectionName: selectionName, isInteractive: true) { plant in
                 selectedPlant = plant
             }
             .background(Color(.systemBackground))
@@ -151,8 +154,10 @@ private struct PlantInfoChip: View {
 // added, restyled or removed by diffing against the previous sync.
 @MainActor
 final class GardenSceneCoordinator {
-    private static let slotCount = 6
-    private static let slotRadius: Float = 0.6
+    // Me and up to 10 friends. The bed has a fixed radius of 1, so the
+    // camera framing never depends on how many plants there are, only the
+    // ring the plants stand on does.
+    private static let maxPlants = GardenService.maxPlants
 
     private var root: Entity?
     private var bedEntity: ModelEntity?
@@ -189,15 +194,16 @@ final class GardenSceneCoordinator {
     func sync(plants: [GardenPlant]) {
         guard let root else { return }
 
-        let capped = Array(plants.prefix(Self.slotCount))
+        let capped = Array(plants.prefix(Self.maxPlants))
         let sortedIDs = capped.map(\.id).sorted()
+        let ringRadius = Self.ringRadius(forCount: capped.count)
         var currentIDs = Set<String>()
 
         for plant in capped {
             currentIDs.insert(plant.id)
             plantLookup[plant.id] = plant
             let slot = sortedIDs.firstIndex(of: plant.id) ?? 0
-            let position = Self.position(forSlot: slot)
+            let position = Self.position(forSlot: slot, of: capped.count, radius: ringRadius)
 
             if let existing = plantEntities[plant.id] {
                 existing.position = position
@@ -237,9 +243,20 @@ final class GardenSceneCoordinator {
         return nil
     }
 
-    private static func position(forSlot slot: Int) -> SIMD3<Float> {
-        let angle = (Float(slot) / Float(slotCount)) * 2 * .pi
-        return SIMD3<Float>(slotRadius * cos(angle), 0, slotRadius * sin(angle))
+    // Wide enough that neighbouring plants (about 0.17 across at their
+    // fullest) keep a gap, small enough to stay well inside the bed.
+    private static func ringRadius(forCount count: Int) -> Float {
+        guard count > 1 else { return 0 }
+        let spacing: Float = 0.34
+        return min(0.7, max(0.3, spacing / (2 * sin(.pi / Float(count)))))
+    }
+
+    // Slots are the sorted user ids spread evenly round the ring, so
+    // nobody trades places between launches. One plant stands in the middle.
+    private static func position(forSlot slot: Int, of count: Int, radius: Float) -> SIMD3<Float> {
+        guard count > 1 else { return .zero }
+        let angle = (Float(slot) / Float(count)) * 2 * .pi
+        return SIMD3<Float>(radius * cos(angle), 0, radius * sin(angle))
     }
 }
 

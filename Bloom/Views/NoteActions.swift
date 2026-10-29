@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import Combine
 
-// The one place a note's actions live: Share to circle or Stop
+// The one place a note's actions live: Share with friends or Stop
 // sharing, Pin or Unpin, Edit and Delete. The detail sheet's three dot
 // menu, a card's press and hold menu and the VoiceOver actions all use
 // this controller and NoteActionButtons, so nothing is duplicated.
@@ -28,11 +28,13 @@ final class NoteActionController: ObservableObject {
 
     var isShared: Bool { note.sharedWithFriends }
     var isPinned: Bool { note.isPinned }
+    // DEBUG sample history notes can't be shared or pinned.
+    var isSample: Bool { note.isSample }
 
     // MARK: Share
 
     func requestShareToggle() {
-        guard !note.isDraft else { return }
+        guard !note.isDraft, !note.isSample else { return }
         if note.sharedWithFriends {
             isShowingStopSharingConfirmation = true
         } else if AccountDefaults.hasConfirmedShareToCircle {
@@ -69,7 +71,7 @@ final class NoteActionController: ObservableObject {
 
     // The existing pin logic, including the limit of three.
     func togglePin() {
-        guard !note.isDraft else { return }
+        guard !note.isDraft, !note.isSample else { return }
         if note.isPinned {
             NoteSyncService.shared.setPinned(false, for: note)
         } else if let context, Note.pinnedCount(in: context) >= Note.pinLimit {
@@ -107,16 +109,18 @@ struct NoteActionButtons: View {
             controller.requestShareToggle()
         } label: {
             Label(
-                controller.isShared ? "Stop sharing" : "Share to circle",
+                controller.isShared ? "Stop sharing" : "Share with friends",
                 systemImage: controller.isShared ? "person.2.slash" : "person.2"
             )
         }
+        .disabled(controller.isSample)
 
         Button {
             controller.togglePin()
         } label: {
             Label(controller.isPinned ? "Unpin" : "Pin to profile", systemImage: controller.isPinned ? "pin.slash" : "pin")
         }
+        .disabled(controller.isSample)
 
         Button {
             controller.edit()
@@ -142,14 +146,14 @@ private struct NoteActionDialogs: ViewModifier {
     func body(content: Content) -> some View {
         content
             .confirmationDialog(
-                "Share to circle?",
+                "Share with friends?",
                 isPresented: $controller.isShowingShareConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Share to circle") { controller.confirmShare() }
+                Button("Share with friends") { controller.confirmShare() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("Everyone in your circle can read this note and comment on it.")
+                Text("All your friends can read this note and comment on it.")
             }
             .confirmationDialog(
                 "Stop sharing?",
@@ -215,7 +219,7 @@ private struct NoteActionsModifier: ViewModifier {
         } else {
             content
                 .contextMenu { NoteActionButtons(controller: controller) }
-                .accessibilityAction(named: Text(controller.isShared ? "Stop sharing" : "Share to circle")) {
+                .accessibilityAction(named: Text(controller.isShared ? "Stop sharing" : "Share with friends")) {
                     controller.requestShareToggle()
                 }
                 .accessibilityAction(named: Text(controller.isPinned ? "Unpin" : "Pin to profile")) {

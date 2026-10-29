@@ -3,7 +3,7 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
-// One person's plant in the Shared Circle Garden.
+// One person's plant in the Shared Garden.
 struct GardenPlant: Identifiable, Equatable {
     let id: String // uid
     let username: String
@@ -21,19 +21,20 @@ struct GardenPlant: Identifiable, Equatable {
     var shownName: String { displayName ?? username }
 }
 
-// Builds the Shared Circle Garden from the signed-in user's own
-// `streaks/{uid}` document plus one for each accepted friend, reusing
-// FriendService's friends list. Every document is its own
-// single-document listener, never a collection query, since a person
-// can only read their own streak document and their friends',
-// individually.
+// Builds the Shared Garden from the signed-in user's own `streaks/{uid}`
+// document plus one for each person the Greenhouse is showing: all friends
+// (the first 10 by name) or the members of the selected circle. Every
+// document is its own single-document listener, never a collection query,
+// since a person can only read their own streak document and their
+// friends', individually.
 @MainActor
 final class GardenService: ObservableObject {
     static let shared = GardenService()
     private init() {}
 
     private let db = Firestore.firestore()
-    private let maxPlants = 6
+    // Me plus up to 10 friends.
+    static let maxPlants = 11
 
     @Published private(set) var plants: [GardenPlant] = []
 
@@ -43,16 +44,13 @@ final class GardenService: ObservableObject {
     private var avatars: [String: (hasAvatar: Bool, updatedAt: Date?)] = [:]
     private var streakSnapshots: [String: (currentStreak: Int, lastPostDate: Date?)] = [:]
     private var listeners: [String: ListenerRegistration] = [:]
-    private var friendsCancellable: AnyCancellable?
 
-    // Safe to call more than once, it only subscribes once.
-    func startListening() {
-        guard friendsCancellable == nil, let myUID = Auth.auth().currentUser?.uid else { return }
-
-        friendsCancellable = FriendService.shared.$friends
-            .sink { [weak self] friends in
-                self?.updatePeople(myUID: myUID, friends: friends)
-            }
+    // Called by the Greenhouse whenever the selection or the friends change.
+    // Listeners are kept for people who stay, removed for people who left and
+    // added for new people, nothing is rebuilt from scratch.
+    func setPeople(friends: [FirestoreUser]) {
+        guard let myUID = Auth.auth().currentUser?.uid else { return }
+        updatePeople(myUID: myUID, friends: friends)
     }
 
     // Detaches every per-person listener and clears what they'd
@@ -61,8 +59,6 @@ final class GardenService: ObservableObject {
     func stopListening() {
         listeners.values.forEach { $0.remove() }
         listeners.removeAll()
-        friendsCancellable?.cancel()
-        friendsCancellable = nil
         orderedUIDs = []
         usernames = [:]
         displayNames = [:]
@@ -76,10 +72,10 @@ final class GardenService: ObservableObject {
         people.append(contentsOf: friends.compactMap { friend in
             friend.id.map { (uid: $0, username: friend.username) }
         })
-        people = Array(people.prefix(maxPlants))
+        people = Array(people.prefix(Self.maxPlants))
 
         orderedUIDs = people.map(\.uid)
-        usernames = Dictionary(uniqueKeysWithValues: people.map { ($0.uid, $0.username) })
+        usernames = Dictionary(people.map { ($0.uid, $0.username) }, uniquingKeysWith: { first, _ in first })
         displayNames = [:]
         avatars = [:]
         for friend in friends {

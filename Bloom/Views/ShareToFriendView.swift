@@ -31,7 +31,7 @@ struct ShareToFriendView: View {
                         ContentUnavailableView(
                             "No friends yet",
                             systemImage: "person.2",
-                            description: Text("Add someone in My Circle before sharing.")
+                            description: Text("Add a friend before sharing.")
                         )
                     }
                 }

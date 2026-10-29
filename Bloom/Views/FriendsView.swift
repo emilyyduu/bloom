@@ -1,6 +1,7 @@
 import SwiftUI
 
-struct MyCircleView: View {
+// The people list: incoming requests, my friends and Add Friend.
+struct FriendsView: View {
     @StateObject private var friendService = FriendService.shared
     @State private var isShowingAddFriend = false
 
@@ -51,7 +52,7 @@ struct MyCircleView: View {
                 )
             }
         }
-        .navigationTitle("My Circle")
+        .navigationTitle("Friends")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -72,6 +73,6 @@ struct MyCircleView: View {
 
 #Preview {
     NavigationStack {
-        MyCircleView()
+        FriendsView()
     }
 }
