@@ -4,8 +4,7 @@ import Combine
 
 // What the journal index needs from a note: when it was written, and
 // whether it belongs in a journal at all (drafts never do). Adopted by my
-// own Note and by a friend's shared FriendNote, so both journals use the
-// same index and the same screens.
+// own Note. Friends' notes are not journaled, they only see today.
 protocol JournalItem: Identifiable {
     var createdAt: Date { get }
     var isJournalEntry: Bool { get }
@@ -19,7 +18,6 @@ extension Note: JournalItem {
     var isJournalEntry: Bool { !isDraft }
 }
 
-extension FriendNote: JournalItem {}
 
 struct JournalMonthKey: Hashable, Comparable, Identifiable {
     let year: Int

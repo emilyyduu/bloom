@@ -143,7 +143,7 @@ struct SettingsView: View {
                 }
                 .disabled(isBulkUpdatingSharing || sharedNotes.isEmpty)
             } footer: {
-                Text("All your friends can read notes you share. You can change this for any note.")
+                Text("Friends see the notes you share from today and your pinned notes. You can change this for any note.")
             }
 
             #if DEBUG
@@ -190,7 +190,7 @@ struct SettingsView: View {
         ) {
             Button("OK") { hasShownShareNewNotesConfirmation = true }
         } message: {
-            Text("All your friends can read notes you share. You can change this for any note.")
+            Text("Friends see the notes you share from today and your pinned notes. You can change this for any note.")
         }
         .confirmationDialog(
             "Share all \(postedNotes.count) note\(postedNotes.count == 1 ? "" : "s")?",
@@ -200,7 +200,7 @@ struct SettingsView: View {
             Button("Share All") { bulkSetSharing(true) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("All your accepted friends will be able to read these notes.")
+            Text("Friends see the notes you share from today and your pinned notes. Older notes stay hidden from them unless you pin them.")
         }
         .confirmationDialog(
             "Stop sharing \(sharedNotes.count) note\(sharedNotes.count == 1 ? "" : "s")?",
@@ -210,7 +210,7 @@ struct SettingsView: View {
             Button("Stop Sharing", role: .destructive) { bulkSetSharing(false) }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your friends will no longer be able to read these notes.")
+            Text("Your friends will no longer see these notes, including any you pinned.")
         }
         .confirmationDialog(
             "Sign out of Bloom?",

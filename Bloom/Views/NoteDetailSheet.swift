@@ -228,7 +228,7 @@ private struct ViewerNoteDetail: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Loaded the same way the friend journal does.
+            // Loaded the same way the friend's today view does.
             if note.hasPhoto, let noteID = note.id {
                 FriendNotePhoto(friendUID: ownerUID, noteID: noteID)
             }

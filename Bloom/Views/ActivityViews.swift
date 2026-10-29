@@ -139,6 +139,11 @@ struct ActivityDestinationSheet: View {
             let snapshot = try await Firestore.firestore().collection("users").document(ownerUID)
                 .collection("notes").document(noteID).getDocument()
             guard snapshot.exists, let note = try? snapshot.data(as: FriendNote.self) else { return gone }
+            // Friends see only today's notes and pinned ones, so an older
+            // note opened from a notification shows no content.
+            guard FriendDay().contains(note.createdAt) || note.pinnedAt != nil else {
+                return .unavailable("This note is from an earlier day")
+            }
             let author = await UserProfileCache.shared.profile(uid: ownerUID)
             return .note(.friend(note, ownerUID: ownerUID, author: author, focusComments: focusComments))
         } catch {

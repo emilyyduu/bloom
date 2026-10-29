@@ -186,7 +186,7 @@ struct NoteComposerView: View {
                     Section {
                         Toggle("Share with friends", isOn: $isSharedWithFriends)
                     } footer: {
-                        Text("All your friends can read notes you share. This does not apply to drafts.")
+                        Text("Friends see the notes you share from today and your pinned notes. This does not apply to drafts.")
                     }
                 }
 

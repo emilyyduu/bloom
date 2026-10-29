@@ -1,30 +1,23 @@
 import SwiftUI
 
-// The journal flow, shared by my journals and a friend's:
-// years, then a year's months, then a month's calendar, then a day's chain.
-// Every level is pushed onto the one NavigationStack that already holds the
-// screen, so each has a back button. The links use destination closures, not
-// values, because the Profile stack is bound to a typed path that can't hold
-// journal values. The screens only know a JournalIndex
-// and a JournalSource, so the same code serves my SwiftData notes and a
-// friend's shared notes.
+// The journal flow, for my own journals only (friends see just today's
+// notes, see FriendTodayView): years, then a year's months, then a month's
+// calendar, then a day's chain. Every level is pushed onto the one
+// NavigationStack that already holds the screen, so each has a back button.
+// The links use destination closures, not values, because the Profile stack
+// is bound to a typed path that can't hold journal values. The screens only
+// know a JournalIndex and a JournalSource.
 
-// What differs between my journal and a friend's: who owns it (nil for
-// mine), how a note opens in the detail sheet, and the card a note shows on
-// the day's chain.
+// How a note opens in the detail sheet, and the card a note shows on the
+// day's chain.
 struct JournalSource<Item: JournalItem, Card: View> {
-    let owner: FirestoreUser?
-    // Only my own journals can have custom covers.
-    var canEditCovers: Bool { owner == nil }
     let request: (Item, _ focusComments: Bool) -> NoteDetailRequest
     let card: (Item, _ onComment: @escaping () -> Void, _ onTap: @escaping () -> Void) -> Card
 
     init(
-        owner: FirestoreUser? = nil,
         request: @escaping (Item, Bool) -> NoteDetailRequest,
         @ViewBuilder card: @escaping (Item, @escaping () -> Void, @escaping () -> Void) -> Card
     ) {
-        self.owner = owner
         self.request = request
         self.card = card
     }
@@ -33,7 +26,7 @@ struct JournalSource<Item: JournalItem, Card: View> {
 // MARK: - Years
 
 // The first level: a shelf of year books, newest first, each with its note
-// count. My books can have a photo cover, a friend's never do.
+// count. My books can have a photo cover.
 struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
     let title: String
     @ObservedObject var model: JournalModel<Item>
@@ -47,10 +40,6 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if let owner = source.owner {
-                    JournalOwnerHeader(owner: owner)
-                }
-
                 JournalShelf(header: "Years", minimumBookWidth: 150) {
                     ForEach(model.index.years, id: \.self) { year in
                         let key = JournalCoverStore.yearKey(year)
@@ -58,13 +47,13 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
                             title: JournalFormat.year(year),
                             spokenName: "\(JournalFormat.year(year)) journal",
                             count: model.index.count(in: year),
-                            accent: source.canEditCovers ? covers.accent(for: key, automaticIndex: year) : Theme.Covers.accent(year),
-                            coverImage: source.canEditCovers ? covers.image(for: key) : nil,
+                            accent: covers.accent(for: key, automaticIndex: year),
+                            coverImage: covers.image(for: key),
                             hint: "Opens the year"
                         ) {
                             JournalYearScreen(year: year, model: model, source: source)
                         }
-                        .journalCoverMenu(key: key, canEdit: source.canEditCovers, editor: editor, covers: covers) {
+                        .journalCoverMenu(key: key, canEdit: true, editor: editor, covers: covers) {
                             editingYear = CoverYear(id: year)
                         }
                     }
@@ -124,10 +113,6 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
         let months = model.index.months(in: year)
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if let owner = source.owner {
-                    JournalOwnerHeader(owner: owner)
-                }
-
                 JournalShelf(header: "Months", minimumBookWidth: 100) {
                     ForEach(months) { month in
                         let key = JournalCoverStore.monthKey(month)
@@ -135,16 +120,14 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
                             title: JournalFormat.monthOnly(month.date()),
                             spokenName: "\(JournalFormat.monthYear(month.date())) journal",
                             count: model.index.count(in: month),
-                            accent: source.canEditCovers
-                                ? covers.accent(for: key, automaticIndex: month.year * 12 + month.month)
-                                : Theme.Covers.accent(month.year * 12 + month.month),
-                            coverImage: source.canEditCovers ? covers.image(for: key) : nil,
+                            accent: covers.accent(for: key, automaticIndex: month.year * 12 + month.month),
+                            coverImage: covers.image(for: key),
                             isCompact: true,
                             hint: "Opens the month"
                         ) {
                             JournalMonthScreen(month: month, model: model, source: source)
                         }
-                        .journalCoverMenu(key: key, canEdit: source.canEditCovers, editor: editor, covers: covers) {
+                        .journalCoverMenu(key: key, canEdit: true, editor: editor, covers: covers) {
                             editingMonth = month
                         }
                     }
@@ -157,10 +140,8 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
         .navigationTitle(JournalFormat.year(year))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if source.canEditCovers {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Edit cover") { isEditingCover = true }
-                }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Edit cover") { isEditingCover = true }
             }
         }
         .overlay {
@@ -186,28 +167,6 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
                 isCompact: true
             )
         }
-    }
-}
-
-// A friend's avatar and name, at the top of each level of their journal.
-struct JournalOwnerHeader: View {
-    let owner: FirestoreUser
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AvatarView(user: owner, size: 48, relativeTo: .title)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(owner.shownName)
-                    .font(.headline)
-                Text("@\(owner.username)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -237,9 +196,6 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
         let noteCount = model.index.count(in: month)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let owner = source.owner {
-                    JournalOwnerHeader(owner: owner)
-                }
                 monthControls
 
                 Text(noteCount == 0
@@ -267,10 +223,8 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if source.canEditCovers {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Edit cover") { isEditingCover = true }
-                }
+            ToolbarItem(placement: .primaryAction) {
+                Button("Edit cover") { isEditingCover = true }
             }
         }
         .sheet(isPresented: $isEditingCover) {
@@ -528,9 +482,6 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
         let items = model.index.items(on: day)
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                if let owner = source.owner {
-                    JournalOwnerHeader(owner: owner)
-                }
                 header(count: items.count)
 
                 if items.isEmpty {

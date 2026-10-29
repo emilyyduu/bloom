@@ -197,6 +197,14 @@ struct HomeView: View {
                 friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
                 Task { await friendJournalService.refreshLatestNotes(for: friendUIDsForTileRefresh) }
             }
+            // Midnight while Home is open: syncListeners notices the new
+            // day and restarts every tile for it.
+            .task {
+                for await _ in NotificationCenter.default.notifications(named: .NSCalendarDayChanged) {
+                    guard isOnScreen else { continue }
+                    friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
+                }
+            }
         }
     }
 
@@ -273,7 +281,7 @@ struct HomeView: View {
 
     private var friendsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader("Friends’ journals")
+            SectionHeader("Friends’ notes today")
                 .accessibilityAddTraits(.isHeader)
 
             if allFriends.isEmpty {
@@ -485,7 +493,7 @@ private struct FriendTile: View {
     }
 
     // A load that failed says so and offers Retry. It never reads as
-    // "Nothing shared yet", since that would be a guess.
+    // "Nothing shared today", since that would be a guess.
     private var failedTile: some View {
         VStack(spacing: 8) {
             AvatarView(user: friend, size: 40)
@@ -555,13 +563,11 @@ private struct FriendTile: View {
     @ViewBuilder
     private func sharedContent(_ note: FriendNote) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(shortDateString(note.createdAt))
-                Spacer()
-                Text(timeString(note.createdAt))
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+            // Always from today, so the time is enough.
+            Text(timeString(note.createdAt))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .trailing)
 
             Text(note.text)
                 .font(.subheadline)
@@ -595,7 +601,7 @@ private struct FriendTile: View {
                     .foregroundStyle(.secondary)
             }
             .multilineTextAlignment(.center)
-            Text(loadState == .loading ? "Loading" : "Nothing shared yet")
+            Text(loadState == .loading ? "Loading" : "Nothing shared today")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -616,13 +622,13 @@ private struct FriendTile: View {
 
     private var accessibilityLabel: String {
         guard let sharedNote else {
-            return loadState == .loading ? "\(friend.shownName), loading" : "\(friend.shownName), nothing shared yet"
+            return loadState == .loading ? "\(friend.shownName), loading" : "\(friend.shownName), nothing shared today"
         }
         let firstWords = sharedNote.text.split(whereSeparator: \.isWhitespace).prefix(8).joined(separator: " ")
         let summary = !firstWords.isEmpty ? firstWords
             : sharedNote.hasAudio == true ? "voice memo"
             : sharedNote.hasPhoto ? "photo" : ""
-        return "\(friend.shownName), shared \(longDateString(sharedNote.createdAt)) at " +
+        return "\(friend.shownName), shared today at " +
             "\(timeString(sharedNote.createdAt))" + (summary.isEmpty ? "" : ", \(summary)")
     }
 }

@@ -153,7 +153,7 @@ private struct NoteActionDialogs: ViewModifier {
                 Button("Share with friends") { controller.confirmShare() }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text("All your friends can read this note and comment on it.")
+                Text("Friends see the notes you share from today and your pinned notes. They can comment on this note.")
             }
             .confirmationDialog(
                 "Stop sharing?",

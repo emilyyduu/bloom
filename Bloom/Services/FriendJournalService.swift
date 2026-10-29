@@ -22,13 +22,39 @@ struct FriendNote: Codable, Identifiable {
     var audioSeconds: Int?
 }
 
-// The single most recent note each accepted friend has shared, for Home's
-// friend tiles. One live snapshot listener per friend (at most 20), so a
-// newly shared or unshared note shows up on its own. The listeners live
-// only while Home is on screen: Home calls syncListeners(for:) when it
-// appears and when the friend list changes, and stopAllListeners() when
-// it disappears. refreshLatestNotes(for:) is a safety net for when the
-// app becomes active and for pull to refresh, never the only way in.
+// "Today" for what friends can see of each other's notes: the viewer's
+// current calendar day, from the start of today up to the start of
+// tomorrow. Computed fresh each time so it follows the device clock.
+struct FriendDay: Equatable {
+    let start: Date
+    let end: Date
+
+    init(containing date: Date = Date(), calendar: Calendar = .current) {
+        start = calendar.startOfDay(for: date)
+        end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
+    }
+
+    func contains(_ date: Date) -> Bool { date >= start && date < end }
+
+    // The one query every "shared today" screen uses: it reuses the
+    // composite index (sharedWithFriends ascending, createdAt descending).
+    func sharedNotesQuery(friendUID: String, db: Firestore = Firestore.firestore()) -> Query {
+        db.collection("users").document(friendUID).collection("notes")
+            .whereField("sharedWithFriends", isEqualTo: true)
+            .whereField("createdAt", isGreaterThanOrEqualTo: Timestamp(date: start))
+            .whereField("createdAt", isLessThan: Timestamp(date: end))
+            .order(by: "createdAt", descending: true)
+    }
+}
+
+// The single most recent note each accepted friend has shared today, for
+// Home's friend tiles. One live snapshot listener per friend (at most 20),
+// so a newly shared or unshared note shows up on its own. The listeners
+// live only while Home is on screen: Home calls syncListeners(for:) when it
+// appears, when the friend list changes and when the day changes, and
+// stopAllListeners() when it disappears. refreshLatestNotes(for:) is a
+// safety net for when the app becomes active and for pull to refresh,
+// never the only way in.
 @MainActor
 final class FriendJournalService: ObservableObject {
     static let shared = FriendJournalService()
@@ -46,6 +72,10 @@ final class FriendJournalService: ObservableObject {
     private var listeners: [String: ListenerRegistration] = [:]
     private var timeouts: [String: LiveTimeout] = [:]
 
+    // The day the current listeners were attached for. When the calendar
+    // day moves on, syncListeners drops them and starts again.
+    private var attachedDay: FriendDay?
+
     // Bumped on sign out so a fetch still in flight for the previous
     // account can't write its results into the next account's tiles.
     private var generation = 0
@@ -55,6 +85,7 @@ final class FriendJournalService: ObservableObject {
         stopAllListeners()
         latestNoteByFriend = [:]
         loadStateByFriend = [:]
+        attachedDay = nil
     }
 
     func loadState(for uid: String) -> LiveState {
@@ -67,8 +98,11 @@ final class FriendJournalService: ObservableObject {
     // one, friends who left lose theirs and their tile data. Safe to call
     // as often as needed, a friend who already has a listener is skipped.
     // A friend whose listener ended in a final error state is left alone
-    // until retry(uid).
+    // until retry(uid). If the calendar day changed since the listeners
+    // were attached, everything restarts for the new day.
     func syncListeners(for friendUIDs: [String]) {
+        rolloverIfNeeded()
+
         let wanted = Array(friendUIDs.prefix(Self.maxListeners))
         LiveLog.event("tile", "syncListeners wanted=\(wanted.count) have=\(listeners.count)", path: "users/*/notes", generation: generation)
 
@@ -85,6 +119,19 @@ final class FriendJournalService: ObservableObject {
         for uid in wanted where listeners[uid] == nil && (loadStateByFriend[uid].map { !$0.isFinal || $0 == .loaded } ?? true) {
             attach(to: uid)
         }
+    }
+
+    // A new day means yesterday's tile notes are no longer visible: drop
+    // the listeners and the data so the tiles show loading, then the next
+    // attach asks for the new day.
+    private func rolloverIfNeeded() {
+        let today = FriendDay()
+        defer { attachedDay = today }
+        guard let attachedDay, attachedDay != today else { return }
+        LiveLog.event("tile", "day changed, restarting", path: "users/*/notes", generation: generation)
+        for uid in Array(listeners.keys) { detach(uid) }
+        latestNoteByFriend = [:]
+        loadStateByFriend = [:]
     }
 
     // Removes every listener and returns the tiles to a clean state:
@@ -117,7 +164,8 @@ final class FriendJournalService: ObservableObject {
     private func attach(to uid: String) {
         guard listeners[uid] == nil else { return }
         let startedGeneration = generation
-        let path = "users/\(uid)/notes (latest shared)"
+        let day = FriendDay()
+        let path = "users/\(uid)/notes (latest shared today)"
         LiveLog.event("tile", "attach", path: path, generation: startedGeneration)
         // Whatever the tile already shows stays until the first answer.
         if loadStateByFriend[uid] != .loaded { loadStateByFriend[uid] = .loading }
@@ -134,7 +182,7 @@ final class FriendJournalService: ObservableObject {
         // includeMetadataChanges so the move from the cache to the server
         // is seen, otherwise a friend with nothing shared could never get
         // past an empty cache answer.
-        listeners[uid] = latestNoteQuery(for: uid)
+        listeners[uid] = latestNoteQuery(for: uid, day: day)
             .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
                 guard let self, startedGeneration == self.generation, self.listeners[uid] != nil else {
                     LiveLog.event("tile", "callback DISCARDED (stale generation or removed)", path: path, generation: startedGeneration)
@@ -146,6 +194,9 @@ final class FriendJournalService: ObservableObject {
                     // Firestore ends a listener that errored, so drop ours.
                     self.detach(uid)
                     self.loadStateByFriend[uid] = LiveState(error: error)
+                    #if DEBUG
+                    logFriendNotesError(error, while: "listening to \(uid)'s latest shared note today")
+                    #endif
                     return
                 }
                 guard let snapshot else { return }
@@ -161,16 +212,14 @@ final class FriendJournalService: ObservableObject {
                 }
 
                 self.timeouts[uid]?.cancel()
-                self.latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first
+                self.latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first { day.contains($0.createdAt) }
                 self.loadStateByFriend[uid] = .loaded
             }
     }
 
-    private func latestNoteQuery(for uid: String) -> Query {
-        db.collection("users").document(uid).collection("notes")
-            .whereField("sharedWithFriends", isEqualTo: true)
-            .order(by: "createdAt", descending: true)
-            .limit(to: 1)
+    // Today only, newest first, one note.
+    private func latestNoteQuery(for uid: String, day: FriendDay = FriendDay()) -> Query {
+        day.sharedNotesQuery(friendUID: uid, db: db).limit(to: 1)
     }
 
     // MARK: Safety net
@@ -188,45 +237,35 @@ final class FriendJournalService: ObservableObject {
 
         for uid in friendUIDs.dropFirst(Self.maxListeners) {
             do {
-                let snapshot = try await latestNoteQuery(for: uid).getDocuments()
+                let day = FriendDay()
+                let snapshot = try await latestNoteQuery(for: uid, day: day).getDocuments()
                 guard startedGeneration == generation else { return }
-                latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first
+                latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first { day.contains($0.createdAt) }
                 loadStateByFriend[uid] = .loaded
             } catch {
                 guard startedGeneration == generation else { return }
                 loadStateByFriend[uid] = LiveState(error: error)
                 #if DEBUG
-                logFriendNotesError(error, while: "fetching \(uid)'s latest shared note")
+                logFriendNotesError(error, while: "fetching \(uid)'s latest shared note today")
                 #endif
             }
         }
     }
 }
 
-// One friend's shared journal: their notes with sharedWithFriends ==
-// true, newest first, the most recent 500. Owned per screen rather than as
-// a singleton, so nothing is shared between friends: start() resets
-// every property, and the listener lives only between FriendJournalView's
-// onAppear and onDisappear. Months and counts come from what is loaded,
-// hitLimit says there may be older notes that were not.
+// One friend's shared notes from today, for FriendTodayView. Owned per
+// screen rather than as a singleton, so nothing is shared between friends:
+// start() resets every property, and the listener lives only between the
+// screen's onAppear and onDisappear. refreshDayIfNeeded() restarts it when
+// the calendar day has moved on, so the screen rolls over at midnight.
 @MainActor
-final class FriendJournalListener: ObservableObject {
-    enum LoadState {
-        case loading
-        case loaded
-        case permissionDenied
-        // Any other error, most often a missing composite index.
-        case failed
-    }
-
-    static let limit = 500
-
+final class FriendTodayListener: ObservableObject {
     @Published private(set) var notes: [FriendNote] = []
-    @Published private(set) var state: LoadState = .loading
-    @Published private(set) var hitLimit = false
+    @Published private(set) var state: LiveState = .loading
+    @Published private(set) var day = FriendDay()
 
-    private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
+    private let timeout = LiveTimeout()
     private var friendUID: String?
 
     func start(friendUID: String) {
@@ -234,69 +273,73 @@ final class FriendJournalListener: ObservableObject {
         self.friendUID = friendUID
         notes = []
         state = .loading
-        hitLimit = false
-
-        // DEBUG sample friends are never looked up in Firestore.
-        #if DEBUG
-        if friendUID.hasPrefix("sample-") {
-            notes = SampleCircleData.journalNotes(for: friendUID)
-            state = .loaded
-            return
-        }
-        #endif
-        attach()
+        day = FriendDay()
+        attach(friendUID: friendUID, day: day)
     }
 
     func stop() {
         listener?.remove()
         listener = nil
+        timeout.cancel()
     }
 
-    private func attach() {
+    // The Retry button, and the day change.
+    func restart() {
         guard let friendUID else { return }
-        listener?.remove()
+        start(friendUID: friendUID)
+    }
 
-        listener = db.collection("users").document(friendUID).collection("notes")
-            .whereField("sharedWithFriends", isEqualTo: true)
-            .order(by: "createdAt", descending: true)
-            .limit(to: Self.limit)
-            .addSnapshotListener { [weak self] snapshot, error in
-                guard let self, self.friendUID == friendUID else { return }
+    func refreshDayIfNeeded() {
+        guard friendUID != nil, FriendDay() != day else { return }
+        restart()
+    }
+
+    private func attach(friendUID: String, day: FriendDay) {
+        let path = "users/\(friendUID)/notes (shared today)"
+        LiveLog.event("today", "attach", path: path)
+
+        timeout.start { [weak self] in
+            guard let self, self.friendUID == friendUID, self.state == .loading else { return }
+            LiveLog.event("today", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
+            self.stop()
+            self.state = .failed
+        }
+
+        listener = day.sharedNotesQuery(friendUID: friendUID)
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
+                guard let self, self.friendUID == friendUID, self.day == day, self.listener != nil else { return }
 
                 if let error {
-                    let nsError = error as NSError
-                    let isDenied = nsError.domain == FirestoreErrorDomain
-                        && nsError.code == FirestoreErrorCode.permissionDenied.rawValue
-                    self.state = isDenied ? .permissionDenied : .failed
+                    LiveLog.error("today", path: path, error: error)
+                    self.stop()
+                    self.state = LiveState(error: error)
                     #if DEBUG
-                    logFriendNotesError(error, while: "listening to \(friendUID)'s shared notes")
+                    logFriendNotesError(error, while: "listening to \(friendUID)'s notes shared today")
                     #endif
                     return
                 }
+                guard let snapshot else { return }
 
-                let fetched = snapshot?.decoded(as: FriendNote.self) ?? []
-                self.notes = fetched
-                self.hitLimit = (snapshot?.documents.count ?? 0) >= Self.limit
-                self.state = .loaded
+                LiveLog.snapshot("today", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
-                #if DEBUG
-                let documentCount = snapshot?.documents.count ?? 0
-                print("FriendJournalListener: \(friendUID) returned \(documentCount) document(s) " +
-                    "(limit \(Self.limit)), \(fetched.count) decoded, " +
-                    "\(fetched.filter(\.hasPhoto).count) with a photo. " +
-                    "Query: users/\(friendUID)/notes where sharedWithFriends == true, createdAt descending, " +
-                    "so every document counted here has sharedWithFriends true.")
-                if documentCount != fetched.count {
-                    print("FriendJournalListener: \(documentCount - fetched.count) document(s) failed to decode")
+                // An empty cache answer only means nothing is cached yet.
+                if snapshot.documents.isEmpty, snapshot.metadata.isFromCache, self.state != .loaded {
+                    return
                 }
-                #endif
+
+                self.timeout.cancel()
+                // The query is newest first, the chain reads oldest first.
+                self.notes = snapshot.decoded(as: FriendNote.self)
+                    .filter { day.contains($0.createdAt) }
+                    .sorted { $0.createdAt < $1.createdAt }
+                self.state = .loaded
             }
     }
 }
 
 #if DEBUG
-// This query (sharedWithFriends ascending, createdAt descending)
-// needs a composite index. A failed precondition error here means
+// These queries (sharedWithFriends ascending, createdAt descending)
+// need a composite index. A failed precondition error here means
 // that index doesn't exist yet in Firestore, surface it rather than
 // restructuring the query to avoid needing one.
 private func logFriendNotesError(_ error: Error, while action: String) {

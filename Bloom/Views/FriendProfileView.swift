@@ -95,8 +95,8 @@ final class FriendPinnedListener: ObservableObject {
 }
 
 // A friend's profile: who they are, their pinned notes, and a way into
-// their full journal. Not wrapped in its own NavigationStack, like
-// FriendJournalView, since it's pushed from Friends and shown in a
+// the notes they shared today. Not wrapped in its own NavigationStack, like
+// FriendTodayView, since it's pushed from Friends and shown in a
 // sheet from Home, each caller supplies its own chrome.
 struct FriendProfileView: View {
     let friend: FirestoreUser
@@ -114,9 +114,11 @@ struct FriendProfileView: View {
                 circleMenu
                 pinnedSection
                 NavigationLink {
-                    FriendJournalView(friend: friend)
+                    FriendTodayView(friend: friend)
                 } label: {
-                    Label("View journal", systemImage: "book")
+                    // Wraps onto more lines at large text sizes.
+                    Label("View \(friend.shownName)\u{2019}s notes", systemImage: "note.text")
+                        .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -294,7 +296,7 @@ struct FriendProfileView: View {
 
 // A friend's pinned note: date, text, and the photo if it has one,
 // loaded through the same FriendNotePhoto and FriendPhotoCache the
-// friend journal uses.
+// friend's today view uses.
 private struct FriendPinnedNoteCard: View {
     let friend: FirestoreUser
     let note: FriendNote
