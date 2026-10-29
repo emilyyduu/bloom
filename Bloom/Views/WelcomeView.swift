@@ -5,6 +5,7 @@ import SwiftUI
 struct WelcomeView: View {
     @State private var isShowingSignUp = false
     @State private var isShowingLogIn = false
+    @State private var isShowingAbout = false
 
     var body: some View {
         ScrollView {
@@ -25,6 +26,10 @@ struct WelcomeView: View {
                 Button("Log In") { isShowingLogIn = true }
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity)
+
+                Button("About Bloom") { isShowingAbout = true }
+                    .font(.footnote)
+                    .frame(minHeight: 44)
             }
             .padding(32)
             .frame(maxWidth: 500)
@@ -32,6 +37,16 @@ struct WelcomeView: View {
         }
         .sheet(isPresented: $isShowingSignUp) { SignUpView() }
         .sheet(isPresented: $isShowingLogIn) { LogInView() }
+        .sheet(isPresented: $isShowingAbout) {
+            NavigationStack {
+                AboutView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { isShowingAbout = false }
+                        }
+                    }
+            }
+        }
     }
 }
 

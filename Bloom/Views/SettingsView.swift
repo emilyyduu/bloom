@@ -77,9 +77,9 @@ struct SettingsView: View {
                     SettingsRowLabel("Privacy", subtitle: "Sharing, permissions and backup", systemImage: "hand.raised")
                 }
                 NavigationLink {
-                    SettingsAboutView()
+                    AboutView()
                 } label: {
-                    SettingsRowLabel("About", subtitle: "Version and acknowledgements", systemImage: "info.circle")
+                    SettingsRowLabel("About", subtitle: AppInfo.versionLine, systemImage: "info.circle")
                 }
             }
 
