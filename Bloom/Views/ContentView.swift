@@ -17,6 +17,7 @@ struct ContentView: View {
     @StateObject private var draftSaveBanner = DraftSaveBanner.shared
     @StateObject private var linkCoordinator = ProfileLinkCoordinator.shared
     @StateObject private var router = ActivityRouter.shared
+    @StateObject private var activity = ActivityStore.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
@@ -117,7 +118,13 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
+        // The app icon badge follows requests waiting plus unread activity.
+        .onChange(of: friendService.pendingIncoming.count + activity.unreadCount) { _, count in
+            NotificationBadge.shared.update(unread: count)
+        }
         .task {
+            // A tapped system banner may be waiting for this screen.
+            router.markReady()
             friendService.startListening()
             ActivityStore.shared.startListening()
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)

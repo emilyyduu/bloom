@@ -294,12 +294,18 @@ enum ActivityDestination: Identifiable {
     }
 
     init?(item: ActivityItem) {
-        switch item.kind {
+        self.init(kind: item.kind, fromUID: item.fromUID, noteOwnerUID: item.noteOwnerUID, noteID: item.noteID)
+    }
+
+    // Shared with tapped system notifications, which carry the same fields.
+    init?(kind: ActivityItem.Kind, fromUID: String, noteOwnerUID: String?, noteID: String?) {
+        switch kind {
         case .accepted:
-            self = .friend(uid: item.fromUID)
+            guard !fromUID.isEmpty else { return nil }
+            self = .friend(uid: fromUID)
         case .note, .comment, .reaction:
-            guard let noteOwnerUID = item.noteOwnerUID, let noteID = item.noteID else { return nil }
-            self = .note(ownerUID: noteOwnerUID, noteID: noteID, focusComments: item.kind == .comment)
+            guard let noteOwnerUID, let noteID else { return nil }
+            self = .note(ownerUID: noteOwnerUID, noteID: noteID, focusComments: kind == .comment)
         }
     }
 }
@@ -315,9 +321,33 @@ final class ActivityRouter: ObservableObject {
     // would only repeat what the list shows.
     var isFeedOpen = false
 
+    // False until the signed in UI (ContentView) is on screen, so a tapped
+    // system banner on a cold launch waits for somewhere to present.
+    private var isReady = false
+    private var pending: (destination: ActivityDestination, date: Date)?
+
+    // From a tapped system banner. Held for up to 5 minutes if the signed
+    // in UI isn't up yet (a cold launch, or signed out until sign in).
+    func open(_ destination: ActivityDestination) {
+        if isReady {
+            self.destination = destination
+        } else {
+            pending = (destination, Date())
+        }
+    }
+
+    func markReady() {
+        isReady = true
+        guard let pending else { return }
+        self.pending = nil
+        if Date().timeIntervalSince(pending.date) < 300 { destination = pending.destination }
+    }
+
     func reset() {
         destination = nil
         isFeedOpen = false
+        isReady = false
+        pending = nil
     }
 }
 

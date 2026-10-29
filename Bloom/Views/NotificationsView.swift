@@ -20,6 +20,8 @@ struct NotificationsView: View {
     var body: some View {
         NavigationStack {
             List {
+                PhoneAlertsCard()
+
                 if !friendService.pendingIncoming.isEmpty {
                     Section("Requests") {
                         ForEach(friendService.pendingIncoming) { request in
@@ -90,8 +92,13 @@ struct NotificationsView: View {
                 seenCutoff = activity.lastSeen
                 ActivityRouter.shared.isFeedOpen = true
                 activity.markAllSeen()
+                NotificationBadge.shared.feedOpened()
             }
-            .onDisappear { ActivityRouter.shared.isFeedOpen = false }
+            .onDisappear {
+                ActivityRouter.shared.isFeedOpen = false
+                NotificationBadge.shared.feedClosed()
+            }
+            .refreshesNotificationPermission()
             // Items that arrive while the screen is open are seen too,
             // so the bell badge doesn't grow behind it.
             .onChange(of: activity.items.count) { _, _ in activity.markAllSeen() }

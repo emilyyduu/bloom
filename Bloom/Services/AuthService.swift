@@ -51,6 +51,7 @@ final class AuthService: ObservableObject {
         ActivityStore.shared.stopListening()
         LiveBannerCenter.shared.reset()
         ActivityRouter.shared.reset()
+        NotificationBadge.shared.clear()
         CommentCounts.shared.reset()
         ReactionCounts.shared.reset()
         Task { await UserProfileCache.shared.reset() }

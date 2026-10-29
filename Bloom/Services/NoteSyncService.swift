@@ -62,6 +62,12 @@ final class NoteSyncService {
         }
     }
 
+    // The same upload, awaited, for a notification action that must
+    // finish its work before the app can be suspended again.
+    func uploadAndWait(_ note: Note) async throws {
+        try await uploadNote(note)
+    }
+
     // The photo goes first so a note is never written with hasPhoto
     // true before its photo exists. If the photo step throws, the note
     // is not written and syncedAt stays nil, so it retries.

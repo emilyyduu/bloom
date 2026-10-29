@@ -25,6 +25,7 @@ struct SettingsView: View {
     #if DEBUG
     @AppStorage("gardenSampleDataEnabled") private var isGardenSampleDataEnabled = false
     @State private var sampleHistoryMessage: String?
+    @State private var testBannerMessage: String?
     #endif
 
     @Query(filter: #Predicate<Note> { $0.syncedAt == nil }) private var unsyncedNotes: [Note]
@@ -93,6 +94,7 @@ struct SettingsView: View {
                         handleReminderToggle(isEnabled)
                     }
                 FormErrorText(message: reminderErrorMessage)
+                PhoneAlertsSettingsRows()
 
                 #if DEBUG
                 Button("Send Test Notification (5s)") {
@@ -160,6 +162,14 @@ struct SettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                ForEach(DebugBanner.Kind.allCases, id: \.self) { kind in
+                    Button("Send test: \(kind.rawValue)") { sendTestBanner(kind) }
+                }
+                if let testBannerMessage {
+                    Text(testBannerMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             } header: {
                 SectionHeader("Debug")
             }
@@ -173,6 +183,7 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .refreshesNotificationPermission()
         .alert(
             "Share new notes with friends",
             isPresented: $isShowingShareNewNotesConfirmation
@@ -254,6 +265,16 @@ struct SettingsView: View {
             }
         }
     }
+
+    #if DEBUG
+    // Each test uses my newest posted note where it needs one.
+    private func sendTestBanner(_ kind: DebugBanner.Kind) {
+        let latestNoteID = postedNotes.max(by: { $0.createdAt < $1.createdAt })?.id.uuidString
+        Task {
+            testBannerMessage = await DebugBanner.schedule(kind, latestNoteID: latestNoteID)
+        }
+    }
+    #endif
 
     private func backUpNow() {
         guard !isBackingUp else { return }

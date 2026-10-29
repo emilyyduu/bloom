@@ -128,6 +128,14 @@ final class NoteReactionsListener: ObservableObject {
         return reactions.first { $0.id == uid }?.kind
     }
 
+    // For one off writes with no listener, such as a notification action:
+    // points toggle() at a note without attaching anything. With no
+    // reactions loaded, toggle always sets, never removes.
+    func prepareForOneOffWrite(ownerUID: String, noteID: String) {
+        self.ownerUID = ownerUID
+        self.noteID = noteID
+    }
+
     // Starting the note that is already running does nothing, so the
     // sheet can call this from more than one place.
     func start(ownerUID: String, noteID: String) {

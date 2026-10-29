@@ -4,6 +4,8 @@ import FirebaseCore
 
 @main
 struct BloomApp: App {
+    // Sets the notification delegate and registers the categories at launch.
+    @UIApplicationDelegateAdaptor(NotificationAppDelegate.self) private var appDelegate
     @StateObject private var authService = AuthService.shared
     @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
 
