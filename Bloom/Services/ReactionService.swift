@@ -47,6 +47,54 @@ struct NoteReaction: Identifiable, Equatable {
     let createdAt: Date
 }
 
+// How many reactions a card that isn't showing live data has, loaded
+// lazily with a count aggregate and cached for the session, like
+// CommentCounts. A failed count is simply absent. The selected card's live
+// listener keeps its note's number current.
+@MainActor
+final class ReactionCounts: ObservableObject {
+    static let shared = ReactionCounts()
+    private init() {}
+
+    @Published private(set) var counts: [String: Int] = [:]
+    private var inFlight: Set<String> = []
+
+    private static func key(ownerUID: String, noteID: String) -> String { "\(ownerUID)/\(noteID)" }
+
+    func count(ownerUID: String?, noteID: String?) -> Int? {
+        guard let ownerUID, let noteID else { return nil }
+        return counts[Self.key(ownerUID: ownerUID, noteID: noteID)]
+    }
+
+    func ensure(ownerUID: String?, noteID: String?) async {
+        guard let ownerUID, let noteID, !ownerUID.hasPrefix("sample-") else { return }
+        let key = Self.key(ownerUID: ownerUID, noteID: noteID)
+        guard counts[key] == nil, !inFlight.contains(key) else { return }
+        inFlight.insert(key)
+        defer { inFlight.remove(key) }
+
+        do {
+            let query = Firestore.firestore().collection("users").document(ownerUID)
+                .collection("notes").document(noteID).collection("reactions").count
+            let snapshot = try await query.getAggregation(source: .server)
+            counts[key] = snapshot.count.intValue
+        } catch {
+            #if DEBUG
+            logFirestoreError(error, while: "counting reactions on \(noteID)")
+            #endif
+        }
+    }
+
+    func set(_ count: Int, ownerUID: String, noteID: String) {
+        counts[Self.key(ownerUID: ownerUID, noteID: noteID)] = count
+    }
+
+    func reset() {
+        counts = [:]
+        inFlight = []
+    }
+}
+
 // The live reactions of one note, owned per sheet so nothing is shared
 // between notes, like NoteCommentsListener. One listener on the
 // reactions subcollection with no filter or orderBy, so no index is
@@ -124,6 +172,7 @@ final class NoteReactionsListener: ObservableObject {
 
             self.reactions = snapshot.documents.compactMap(Self.reaction(from:))
             self.state = .loaded
+            ReactionCounts.shared.set(self.reactions.count, ownerUID: ownerUID, noteID: noteID)
         }
     }
 

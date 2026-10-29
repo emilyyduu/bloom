@@ -13,6 +13,15 @@ import SwiftUI
 // room, otherwise they drop to a second row, and at accessibility
 // text sizes the rows are always stacked.
 struct NoteToolsBar<Trailing: View>: View {
+    // .regular is the composer's bar, pinned above the keyboard. .compact
+    // is the small row inside a Today's Notes card: no bar background or
+    // side padding, and hints that say "Replace ..." because every tool
+    // there changes a note that is already posted.
+    enum Style {
+        case regular
+        case compact
+    }
+
     let hasPhoto: Bool
     let hasVoiceMemo: Bool
     let hasMedia: Bool
@@ -20,18 +29,21 @@ struct NoteToolsBar<Trailing: View>: View {
     let onChoosePhoto: () -> Void
     let onVoiceMemo: () -> Void
     let onMedia: () -> Void
+    var style: Style = .regular
     @ViewBuilder let trailing: () -> Trailing
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var isCompact: Bool { style == .compact }
 
     var body: some View {
         VStack(spacing: 0) {
             Divider()
             rows
-                .padding(.horizontal)
+                .padding(.horizontal, isCompact ? 0 : 16)
                 .padding(.vertical, 4)
         }
-        .background(.bar)
+        .background { if !isCompact { Rectangle().fill(.bar) } }
     }
 
     @ViewBuilder
@@ -63,7 +75,9 @@ struct NoteToolsBar<Trailing: View>: View {
         HStack(spacing: 8) {
             NoteToolButton(
                 title: "Take photo",
-                hint: hasPhoto ? "Replace photo with a new picture" : "Opens the camera",
+                hint: hasPhoto
+                    ? (isCompact ? "Replace photo" : "Replace photo with a new picture")
+                    : "Opens the camera",
                 symbol: "camera",
                 attachedSymbol: "camera.fill",
                 isAttached: hasPhoto,
@@ -80,7 +94,7 @@ struct NoteToolsBar<Trailing: View>: View {
             NoteToolButton(
                 title: "Voice memo",
                 hint: hasVoiceMemo
-                    ? "Record a new voice memo"
+                    ? (isCompact ? "Replace voice memo" : "Record a new voice memo")
                     : "Record a voice memo of up to \(VoiceMemoRecorder.limitSeconds) seconds",
                 symbol: "mic",
                 attachedSymbol: "mic.fill",
@@ -89,7 +103,9 @@ struct NoteToolsBar<Trailing: View>: View {
             )
             NoteToolButton(
                 title: "Movie or show",
-                hint: hasMedia ? "Change movie or show" : "Search for a movie or show to add",
+                hint: hasMedia
+                    ? (isCompact ? "Opens the movie or show. Use Edit to replace it" : "Change movie or show")
+                    : "Search for a movie or show to add",
                 symbol: "film",
                 attachedSymbol: "film.fill",
                 isAttached: hasMedia,
@@ -107,7 +123,8 @@ extension NoteToolsBar where Trailing == EmptyView {
         onTakePhoto: @escaping () -> Void,
         onChoosePhoto: @escaping () -> Void,
         onVoiceMemo: @escaping () -> Void,
-        onMedia: @escaping () -> Void
+        onMedia: @escaping () -> Void,
+        style: Style = .regular
     ) {
         self.init(
             hasPhoto: hasPhoto,
@@ -117,6 +134,7 @@ extension NoteToolsBar where Trailing == EmptyView {
             onChoosePhoto: onChoosePhoto,
             onVoiceMemo: onVoiceMemo,
             onMedia: onMedia,
+            style: style,
             trailing: { EmptyView() }
         )
     }

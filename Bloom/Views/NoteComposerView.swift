@@ -39,11 +39,17 @@ struct NoteComposerView: View {
     @State private var isShowingMediaSearch = false
     @State private var isShowingMediaEdit = false
 
+    // The tools row: the library picker, the camera and the recording
+    // sheet. cameraNotice is the inline reason the camera can't open.
+    @State private var isShowingPhotoPicker = false
+    @State private var isShowingCamera = false
+    @State private var isShowingVoiceMemo = false
+    @State private var cameraNotice: CameraNotice?
+
     // The voice memo for this note. Files recorded in this session that
     // aren't saved onto a note yet are tracked, so re-recording,
     // deleting or discarding never leaves a stray file, and an existing
     // draft's own file is never removed until the note is saved.
-    @StateObject private var recorder = VoiceMemoRecorder()
     @State private var audioDraft: AudioDraft?
     @State private var originalAudio: AudioDraft?
     @State private var sessionAudioFiles: Set<String> = []
@@ -89,7 +95,7 @@ struct NoteComposerView: View {
     // A voice memo alone is enough to save or post, text is optional.
     private var canSave: Bool {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return (hasText || audioDraft != nil) && !recorder.isRecording
+        return hasText || audioDraft != nil
     }
 
     // Editing a note that is already posted: same fields, but it can
@@ -111,10 +117,14 @@ struct NoteComposerView: View {
     private var hasUnsavedChanges: Bool {
         if isEditingDraft {
             return text != originalText || hasPhotoChanged || mediaDraft != originalMediaDraft
-                || audioDraft != originalAudio || recorder.isRecording
+                || audioDraft != originalAudio
         }
         return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || selectedPhotoData != nil || mediaDraft != nil || audioDraft != nil || recorder.isRecording
+            || selectedPhotoData != nil || mediaDraft != nil || audioDraft != nil
+    }
+
+    private var hasAttachments: Bool {
+        selectedPhotoData != nil || audioDraft != nil || mediaDraft != nil || cameraNotice != nil
     }
 
     var body: some View {
@@ -129,48 +139,42 @@ struct NoteComposerView: View {
                     SectionHeader("What's happening?")
                 }
 
-                voiceMemoSection
-
-                Section {
-                    if let mediaDraft {
-                        MediaDraftCard(
-                            draft: mediaDraft,
-                            onEdit: { isShowingMediaEdit = true },
-                            onRemove: { self.mediaDraft = nil }
-                        )
-                    } else {
-                        Button {
-                            isShowingMediaSearch = true
-                        } label: {
-                            Label("Log a movie or show", systemImage: "film")
+                // What is attached to this note. Removing needs no
+                // confirmation, nothing changes on the note until it is
+                // saved, so Cancel brings the old attachments back.
+                if hasAttachments {
+                    Section {
+                        if let cameraNotice {
+                            CameraNoticeRow(notice: cameraNotice) { self.cameraNotice = nil }
                         }
-                        .accessibilityHint("Search for a movie or show to add to this note")
-                    }
-                } header: {
-                    SectionHeader("Movie or show")
-                }
 
-                Section {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        Label(
-                            selectedPhotoData == nil ? "Add a photo" : "Change photo",
-                            systemImage: "photo"
-                        )
-                    }
-
-                    if let selectedPhotoData, let uiImage = UIImage(data: selectedPhotoData) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxHeight: 200)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                        Button("Remove Photo", role: .destructive) {
-                            removePhoto()
+                        if let selectedPhotoData, let uiImage = UIImage(data: selectedPhotoData) {
+                            PhotoAttachmentRow(
+                                image: uiImage,
+                                onTakePhoto: takePhoto,
+                                onChoosePhoto: { isShowingPhotoPicker = true },
+                                onRemove: removePhoto
+                            )
                         }
+
+                        if let audioDraft {
+                            VoiceMemoAttachmentRow(
+                                fileName: audioDraft.fileName,
+                                seconds: audioDraft.seconds,
+                                onDelete: deleteAudio
+                            )
+                        }
+
+                        if let mediaDraft {
+                            MediaDraftCard(
+                                draft: mediaDraft,
+                                onEdit: { isShowingMediaEdit = true },
+                                onRemove: { self.mediaDraft = nil }
+                            )
+                        }
+                    } header: {
+                        SectionHeader("Attachments")
                     }
-                } header: {
-                    SectionHeader("Photo")
                 }
 
                 // Sharing never applies to a draft, so the switch only
@@ -195,8 +199,9 @@ struct NoteComposerView: View {
                 }
             }
             .navigationTitle(isEditingPosted ? "Edit Note" : (isEditingDraft ? "Edit Draft" : "New Note"))
-            // A posted note has no Drafts button or Save as Draft.
-            .toolbar(isEditingPosted ? .hidden : .automatic, for: .bottomBar)
+            // Pinned above the keyboard, and above the home indicator
+            // when the keyboard is down.
+            .safeAreaInset(edge: .bottom, spacing: 0) { toolsBar }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { handleCancel() }
@@ -205,27 +210,41 @@ struct NoteComposerView: View {
                     Button(isEditingPosted ? "Save" : "Add to Today") { save(asDraft: false) }
                         .disabled(!canSave)
                 }
-                ToolbarItem(placement: .bottomBar) {
-                    HStack {
-                        draftsButton
-                        Spacer()
-                        Button("Save as Draft") { save(asDraft: true) }
-                            .disabled(!canSave)
-                    }
-                }
             }
+            .photosPicker(isPresented: $isShowingPhotoPicker, selection: $selectedPhotoItem, matching: .images)
             .task(id: selectedPhotoItem) {
                 guard let selectedPhotoItem else { return }
-                guard let data = try? await selectedPhotoItem.loadTransferable(type: Data.self) else { return }
-                selectedPhotoData = data
-                hasPickedNewPhoto = true
-                isPhotoRemoved = false
+                guard let data = try? await selectedPhotoItem.loadTransferable(type: Data.self) else {
+                    cameraNotice = .couldntUsePhoto
+                    self.selectedPhotoItem = nil
+                    return
+                }
+                setPhoto(data)
+                // Cleared so the same photo can be picked again later.
+                self.selectedPhotoItem = nil
             }
-            .onChange(of: recorder.finished) { _, memo in
-                if let memo { handleRecorded(memo) }
+            .fullScreenCover(isPresented: $isShowingCamera) {
+                CameraPicker(
+                    onCapture: { image in
+                        isShowingCamera = false
+                        // The same path as a photo from the library.
+                        if let data = image.jpegData(compressionQuality: 0.9) {
+                            setPhoto(data)
+                        } else {
+                            cameraNotice = .couldntUsePhoto
+                        }
+                    },
+                    onCancel: { isShowingCamera = false },
+                    onFailure: {
+                        isShowingCamera = false
+                        cameraNotice = .couldntUsePhoto
+                    }
+                )
+                .ignoresSafeArea()
             }
-            // Never leave a recording running or half finished behind.
-            .onDisappear { recorder.stop(because: .discard) }
+            .sheet(isPresented: $isShowingVoiceMemo) {
+                VoiceMemoSheet { handleRecorded($0) }
+            }
             .interactiveDismissDisabled(hasUnsavedChanges)
             .confirmationDialog(
                 "Discard changes?",
@@ -290,70 +309,53 @@ struct NoteComposerView: View {
 
     // MARK: - Voice memo
 
-    private var voiceMemoSection: some View {
-        Section {
-            if recorder.permission == .denied {
-                VStack(spacing: 8) {
-                    Text("Microphone access is off")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Text("Turn it on in Settings to record voice memos.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button("Open Settings") { recorder.openSettings() }
-                        .buttonStyle(.bordered)
-                        .frame(minHeight: 44)
-                }
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-            } else if recorder.isRecording {
-                HStack {
-                    Image(systemName: "record.circle")
-                        .foregroundStyle(.red)
-                        .accessibilityHidden(true)
-                    Text("\(AudioPlayerView.format(recorder.elapsed)) of \(AudioPlayerView.format(TimeInterval(VoiceMemoRecorder.limitSeconds)))")
-                        .monospacedDigit()
-                        .accessibilityLabel("Recording, \(Int(recorder.elapsed)) seconds of \(VoiceMemoRecorder.limitSeconds)")
-                    Spacer()
-                    Button("Stop", systemImage: "stop.circle.fill") {
-                        recorder.stop()
-                    }
-                    .buttonStyle(.borderless)
-                    .frame(minHeight: 44)
-                    .accessibilityLabel("Stop recording")
-                }
-            } else if let audioDraft {
-                AudioPlayerView(source: .local(FileManager.audioDirectory.appendingPathComponent(audioDraft.fileName)),
-                                seconds: audioDraft.seconds)
-                    .id(audioDraft.fileName)
-                HStack(spacing: 16) {
-                    Button("Re-record", systemImage: "mic") { startRecording() }
-                        .frame(minHeight: 44)
-                        .accessibilityLabel("Re-record voice memo")
-                    Button("Delete", systemImage: "trash", role: .destructive) { deleteAudio() }
-                        .frame(minHeight: 44)
-                        .accessibilityLabel("Delete voice memo")
-                }
-                .buttonStyle(.borderless)
-            } else {
-                Button("Record", systemImage: "mic") { startRecording() }
-                    .frame(minHeight: 44)
-                    .accessibilityLabel("Record voice memo")
-                    .accessibilityHint("Records up to \(VoiceMemoRecorder.limitSeconds) seconds")
-            }
+    // MARK: - Tools row
 
-            if let message = recorder.message {
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+    // Drafts and Save as Draft sit at the right end of the row, or on a
+    // second row when there isn't room. A posted note has neither.
+    private var toolsBar: some View {
+        NoteToolsBar(
+            hasPhoto: selectedPhotoData != nil,
+            hasVoiceMemo: audioDraft != nil,
+            hasMedia: mediaDraft != nil,
+            onTakePhoto: takePhoto,
+            onChoosePhoto: { isShowingPhotoPicker = true },
+            onVoiceMemo: { isShowingVoiceMemo = true },
+            onMedia: { isShowingMediaSearch = true }
+        ) {
+            if !isEditingPosted {
+                HStack(spacing: 8) {
+                    draftsButton
+                    Button("Save as Draft") { save(asDraft: true) }
+                        .lineLimit(1)
+                        .frame(minHeight: 44)
+                        .disabled(!canSave)
+                }
             }
-        } header: {
-            SectionHeader("Voice memo")
         }
     }
 
-    private func startRecording() {
-        Task { await recorder.start() }
+    // Checks the camera first, so the system prompt only ever appears
+    // after a tap, and shows the reason inline when it can't open.
+    private func takePhoto() {
+        cameraNotice = nil
+        Task {
+            switch await CameraAccess.prepare() {
+            case .ready:
+                isShowingCamera = true
+            case .blocked(let notice):
+                cameraNotice = notice
+                AccessibilityNotification.Announcement(notice.message).post()
+            }
+        }
+    }
+
+    // A chosen or captured photo replaces the current one.
+    private func setPhoto(_ data: Data) {
+        selectedPhotoData = data
+        hasPickedNewPhoto = true
+        isPhotoRemoved = false
+        cameraNotice = nil
     }
 
     // A finished recording replaces whatever memo the note had.
@@ -379,20 +381,6 @@ struct NoteComposerView: View {
             try? FileManager.default.removeItem(at: FileManager.audioDirectory.appendingPathComponent(fileName))
         }
         sessionAudioFiles = []
-    }
-
-    // Makes the note's memo match the composer. The old file goes, and
-    // audioSyncedAt stays as it was when the memo was removed, so the
-    // sync service deletes the old backup too.
-    private func syncAudio(for note: Note) {
-        let newName = audioDraft?.fileName
-        if note.audioFileName != newName {
-            note.deleteAudioFile()
-            note.audioFileName = newName
-            note.audioSeconds = audioDraft?.seconds
-            if newName != nil { note.audioSyncedAt = nil }
-        }
-        if let newName { sessionAudioFiles.remove(newName) }
     }
 
     // A short scrolling row above the note text. Each button names its
@@ -527,32 +515,24 @@ struct NoteComposerView: View {
 
     @discardableResult
     private func persistCurrentNote(asDraft: Bool) -> Note {
-        var photoFileName = draft?.photoFileName
-
-        if hasPhotoChanged {
-            if let oldFileName = draft?.photoFileName {
-                try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(oldFileName))
-            }
-            photoFileName = selectedPhotoData.flatMap { try? FileManager.writePhotoData($0) }
-        }
-
         let wasPosted = isEditingPosted
         let note: Note
         if let draft {
             note = draft
             note.text = text
-            note.photoFileName = photoFileName
-            // A replaced photo is uploaded again over the old one, a
-            // removed photo has its backup deleted. Either way the
-            // sync service has to see the photo as not yet synced.
-            if hasPhotoChanged { note.photoSyncedAt = nil }
         } else {
-            note = Note.createDraft(in: context, text: text, photoFileName: photoFileName)
+            note = Note.createDraft(in: context, text: text)
         }
 
+        // A replaced photo is uploaded again over the old one, a removed
+        // photo has its backup deleted.
+        if hasPhotoChanged { NoteAttachmentEditing.setPhoto(selectedPhotoData, on: note) }
+
         note.isDraft = asDraft
-        syncMediaEntry(for: note)
-        syncAudio(for: note)
+        NoteAttachmentEditing.setMedia(mediaDraft, on: note, in: context)
+        NoteAttachmentEditing.setAudio(fileName: audioDraft?.fileName, seconds: audioDraft?.seconds, on: note)
+        // The memo is on the note now, so it is no longer a stray file.
+        if let name = audioDraft?.fileName { sessionAudioFiles.remove(name) }
 
         if !asDraft && !wasPosted {
             note.createdAt = Date()
@@ -580,22 +560,6 @@ struct NoteComposerView: View {
 
         NoteSyncService.shared.upload(note)
         return note
-    }
-
-    // Creates, updates or removes the note's movie or show to match what
-    // the composer shows. A note has at most one entry.
-    private func syncMediaEntry(for note: Note) {
-        let existing = note.mediaLogEntry
-        guard let mediaDraft else {
-            existing?.deleteCompletely(in: context)
-            return
-        }
-        if let existing, existing.tmdbID == mediaDraft.tmdbID {
-            existing.apply(mediaDraft)
-        } else {
-            existing?.deleteCompletely(in: context)
-            _ = MediaLogEntry.create(from: mediaDraft, note: note, in: context)
-        }
     }
 
     private func save(asDraft: Bool) {

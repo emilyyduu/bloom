@@ -51,6 +51,7 @@ final class AuthService: ObservableObject {
         LiveBannerCenter.shared.reset()
         ActivityRouter.shared.reset()
         CommentCounts.shared.reset()
+        ReactionCounts.shared.reset()
         Task { await UserProfileCache.shared.reset() }
         Task { await NotificationScheduler.shared.cancelAllReminders() }
     }

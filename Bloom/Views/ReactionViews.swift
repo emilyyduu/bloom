@@ -6,6 +6,8 @@ import FirebaseAuth
 // posted notes have reactions, so the sheet leaves this out otherwise.
 struct ReactionsSection: View {
     @ObservedObject var listener: NoteReactionsListener
+    // On a Today's Notes card the heading is left out to save height.
+    var isCompact = false
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isShowingReactors = false
@@ -20,10 +22,12 @@ struct ReactionsSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Reactions")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
+        VStack(alignment: .leading, spacing: isCompact ? 4 : 12) {
+            if !isCompact {
+                Text("Reactions")
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
+            }
 
             switch listener.state {
             case .loading:

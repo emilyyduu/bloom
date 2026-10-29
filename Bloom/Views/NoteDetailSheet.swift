@@ -16,9 +16,12 @@ struct NoteDetailRequest: Identifiable {
     // The comment bubble opens the sheet at the comments with the
     // field focused, tapping the rest of a card opens it at the top.
     var focusComments = false
+    // Scrolls to the comments without opening the keyboard, for "View all
+    // comments" on a Today's Notes card.
+    var scrollToComments = false
 
-    static func mine(_ note: Note, focusComments: Bool = false) -> NoteDetailRequest {
-        NoteDetailRequest(kind: .mine(note), focusComments: focusComments)
+    static func mine(_ note: Note, focusComments: Bool = false, scrollToComments: Bool = false) -> NoteDetailRequest {
+        NoteDetailRequest(kind: .mine(note), focusComments: focusComments, scrollToComments: scrollToComments)
     }
 
     static func friend(
@@ -49,7 +52,7 @@ struct NoteDetailSheet: View {
     var body: some View {
         switch request.kind {
         case .mine(let note):
-            OwnerNoteDetail(note: note, focusComments: request.focusComments)
+            OwnerNoteDetail(note: note, focusComments: request.focusComments, scrollToComments: request.scrollToComments)
         case .friend(let note, let ownerUID, let author):
             ViewerNoteDetail(note: note, ownerUID: ownerUID, author: author, focusComments: request.focusComments)
         }
@@ -61,15 +64,17 @@ struct NoteDetailSheet: View {
 private struct OwnerNoteDetail: View {
     let note: Note
     let focusComments: Bool
+    let scrollToComments: Bool
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @StateObject private var actions: NoteActionController
 
-    init(note: Note, focusComments: Bool) {
+    init(note: Note, focusComments: Bool, scrollToComments: Bool = false) {
         self.note = note
         self.focusComments = focusComments
+        self.scrollToComments = scrollToComments
         _actions = StateObject(wrappedValue: NoteActionController(note: note))
     }
 
@@ -87,6 +92,7 @@ private struct OwnerNoteDetail: View {
                 isOwner: true,
                 commentsEnabled: note.sharedWithFriends && !note.isDraft,
                 focusComments: focusComments,
+                scrollToComments: scrollToComments,
                 onShare: { actions.requestShareToggle() },
                 noteBody: { noteBody },
                 menu: { menu }
@@ -252,6 +258,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     let isOwner: Bool
     let commentsEnabled: Bool
     let focusComments: Bool
+    var scrollToComments = false
     let onShare: (() -> Void)?
     @ViewBuilder let noteBody: () -> NoteBody
     @ViewBuilder let menu: () -> Menu
@@ -355,10 +362,10 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                 }
             }
             .task {
-                guard focusComments, commentsEnabled else { return }
+                guard focusComments || scrollToComments, commentsEnabled else { return }
                 try? await Task.sleep(for: .milliseconds(350))
                 withAnimation { proxy.scrollTo("comments", anchor: .top) }
-                isInputFocused = true
+                if focusComments { isInputFocused = true }
             }
         }
     }
@@ -523,17 +530,9 @@ private struct CommentsSection: View {
             .padding(.vertical, 8)
     }
 
-    // The reply hangs under the top level comment, but is addressed to
-    // whoever wrote the comment that was tapped.
     private func startReply(to comment: NoteComment, threadID: String) {
         Task {
-            let profile = await UserProfileCache.shared.profile(uid: comment.authorUID)
-            draft.startReply(CommentReplyTarget(
-                threadID: threadID,
-                toUID: comment.authorUID,
-                toName: profile?.shownName ?? "Someone",
-                mention: profile.map { "@\($0.username) " } ?? ""
-            ))
+            await draft.startReply(to: comment, threadID: threadID)
             focusInput()
         }
     }
@@ -596,7 +595,8 @@ private struct CommentThreadView: View {
     }
 }
 
-private struct CommentRow: View {
+// Also used by the Today's Notes cards.
+struct CommentRow: View {
     let comment: NoteComment
     let parentDeleted: Bool
     let canDelete: Bool
@@ -695,10 +695,13 @@ private struct CommentRow: View {
 
 // The field pinned to the bottom: one to four lines, a counter as the
 // text nears 500 characters, and Send. A failed send puts the text back.
-private struct CommentInputBar: View {
+struct CommentInputBar: View {
     @ObservedObject var listener: NoteCommentsListener
     @ObservedObject var draft: CommentDraft
     var isFocused: FocusState<Bool>.Binding
+    // Inside a Today's Notes card the card supplies the padding and
+    // background, so the field doesn't add its own.
+    var isEmbedded = false
 
     @State private var errorMessage: String?
 
@@ -763,9 +766,9 @@ private struct CommentInputBar: View {
                     .accessibilityLabel("\(text.count) of \(NoteComment.maxLength) characters used")
             }
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.horizontal, isEmbedded ? 0 : 16)
+        .padding(.vertical, isEmbedded ? 0 : 8)
+        .background { if !isEmbedded { Rectangle().fill(.bar) } }
         // Cut by whole characters so an emoji is never split.
         .onChange(of: draft.text) { _, newValue in
             if newValue.count > NoteComment.maxLength {
@@ -798,9 +801,21 @@ private struct CommentInputBar: View {
 // The text in the comment field and who it replies to, shared by the
 // Reply buttons in the list and the field at the bottom.
 @MainActor
-private final class CommentDraft: ObservableObject {
+final class CommentDraft: ObservableObject {
     @Published var text = ""
     @Published private(set) var reply: CommentReplyTarget?
+
+    // The reply hangs under the top level comment, but is addressed to
+    // whoever wrote the comment that was tapped.
+    func startReply(to comment: NoteComment, threadID: String) async {
+        let profile = await UserProfileCache.shared.profile(uid: comment.authorUID)
+        startReply(CommentReplyTarget(
+            threadID: threadID,
+            toUID: comment.authorUID,
+            toName: profile?.shownName ?? "Someone",
+            mention: profile.map { "@\($0.username) " } ?? ""
+        ))
+    }
 
     // Fills the field with the mention. An empty field or one that still
     // starts with the previous mention swaps it, anything else gets the

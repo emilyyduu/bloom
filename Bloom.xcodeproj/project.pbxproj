@@ -286,6 +286,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Bloom/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Bloom uses the camera so you can take a photo to add to a note.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom checks your contacts to help you find friends who are already using the app.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bloom records voice memos you attach to your notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -321,6 +322,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Bloom/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Bloom uses the camera so you can take a photo to add to a note.";
 				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom checks your contacts to help you find friends who are already using the app.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bloom records voice memos you attach to your notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
