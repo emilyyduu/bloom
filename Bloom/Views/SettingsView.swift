@@ -24,6 +24,7 @@ struct SettingsView: View {
 
     #if DEBUG
     @AppStorage("gardenSampleDataEnabled") private var isGardenSampleDataEnabled = false
+    @State private var sampleHistoryMessage: String?
     #endif
 
     @Query(filter: #Predicate<Note> { $0.syncedAt == nil }) private var unsyncedNotes: [Note]
@@ -140,12 +141,25 @@ struct SettingsView: View {
                 }
                 .disabled(isBulkUpdatingSharing || sharedNotes.isEmpty)
             } footer: {
-                Text("Everyone in your circle can read notes you share. You can change this for any note.")
+                Text("All your friends can read notes you share. You can change this for any note.")
             }
 
             #if DEBUG
             Section {
                 Toggle("Preview garden with sample data", isOn: $isGardenSampleDataEnabled)
+                Button("Add sample journal history") {
+                    let count = SampleJournalHistory.add(to: context)
+                    sampleHistoryMessage = "Added \(count) sample notes."
+                }
+                Button("Remove sample history", role: .destructive) {
+                    let count = SampleJournalHistory.remove(from: context)
+                    sampleHistoryMessage = "Removed \(count) sample notes."
+                }
+                if let sampleHistoryMessage {
+                    Text(sampleHistoryMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             } header: {
                 SectionHeader("Debug")
             }
@@ -165,7 +179,7 @@ struct SettingsView: View {
         ) {
             Button("OK") { hasShownShareNewNotesConfirmation = true }
         } message: {
-            Text("Everyone in your circle can read notes you share. You can change this for any note.")
+            Text("All your friends can read notes you share. You can change this for any note.")
         }
         .confirmationDialog(
             "Share all \(postedNotes.count) note\(postedNotes.count == 1 ? "" : "s")?",

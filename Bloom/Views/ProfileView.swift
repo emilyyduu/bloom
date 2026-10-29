@@ -4,11 +4,11 @@ import FirebaseAuth
 import FirebaseFirestore
 
 // The Profile tab: who I am, my friend count, quick actions, and the
-// rows that used to be scattered across separate tabs (My Circle,
-// Journals) or missing entirely (Settings).
+// rows that used to be scattered across separate tabs (Friends,
+// Circles, Journals) or missing entirely (Settings).
 struct ProfileView: View {
     private enum Destination: Hashable {
-        case editProfile, myCircle, journals, settings
+        case editProfile, friends, circles, journals, settings
     }
 
     // One sheet(item:) drives every sheet, so they can never be asked to
@@ -121,10 +121,12 @@ struct ProfileView: View {
                         displayName = newDisplayName
                         username = newUsername
                     }
-                case .myCircle:
-                    MyCircleView()
+                case .friends:
+                    FriendsView()
+                case .circles:
+                    CirclesView()
                 case .journals:
-                    MonthlyJournalsListView()
+                    JournalsView()
                 case .settings:
                     SettingsView()
                 }
@@ -189,7 +191,7 @@ struct ProfileView: View {
 
     private var friendsButton: some View {
         Button {
-            path.append(.myCircle)
+            path.append(.friends)
         } label: {
             HStack(spacing: 4) {
                 Text("\(friendCount)")
@@ -202,7 +204,7 @@ struct ProfileView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(friendCount) \(friendCountLabel), opens your circle")
+        .accessibilityLabel("\(friendCount) \(friendCountLabel), opens your friends")
     }
 
     // MARK: - Actions
@@ -290,7 +292,9 @@ struct ProfileView: View {
 
     private var rowsCard: some View {
         VStack(spacing: 0) {
-            row("My Circle", systemImage: "person.2", destination: .myCircle, badge: friendService.pendingIncoming.count)
+            row("Friends", systemImage: "person.2", destination: .friends, badge: friendService.pendingIncoming.count)
+            Divider().padding(.leading, 16)
+            row("Circles", systemImage: "circle.grid.2x2", destination: .circles)
             Divider().padding(.leading, 16)
             row("Your Journals", systemImage: "book.closed", destination: .journals)
             Divider().padding(.leading, 16)

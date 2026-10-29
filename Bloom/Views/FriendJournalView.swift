@@ -1,30 +1,25 @@
 import SwiftUI
 
-// A friend's shared notes, grouped by month and then day like the
-// monthly journals screen, newest first. Reached from a friend row in
-// My Circle or a friend tile on Home. Not wrapped in its own
-// NavigationStack since it's used both pushed (My Circle) and
+// A friend's shared notes, grouped by year, month and day with sticky
+// headers, newest first. Reached from a friend row in
+// Friends or a friend tile on Home. Not wrapped in its own
+// NavigationStack since it's used both pushed (Friends) and
 // sheet-presented (Home), each caller supplies its own chrome.
 struct FriendJournalView: View {
     let friend: FirestoreUser
     @StateObject private var listener = FriendJournalListener()
 
-    private var monthGroups: [FriendMonthGroup] {
-        let calendar = Calendar.current
-
-        let notesByDay = Dictionary(grouping: listener.notes) { calendar.startOfDay(for: $0.createdAt) }
-        let dayGroups = notesByDay.map { day, notes in
-            FriendDayGroup(day: day, notes: notes.sorted { $0.createdAt > $1.createdAt })
+    // One pass into days, then the days (newest first) into years and
+    // months. The notes within a day stay newest first.
+    private var journalGroups: (notesByDay: [JournalDayKey: [FriendNote]], years: [JournalGrouping.Year]) {
+        var notesByDay: [JournalDayKey: [FriendNote]] = [:]
+        for note in listener.notes {
+            notesByDay[JournalDayKey(note.createdAt), default: []].append(note)
         }
-
-        let daysByMonth = Dictionary(grouping: dayGroups) { group in
-            calendar.dateInterval(of: .month, for: group.day)?.start ?? group.day
+        for (day, notes) in notesByDay {
+            notesByDay[day] = notes.sorted { $0.createdAt > $1.createdAt }
         }
-        return daysByMonth
-            .map { monthStart, days in
-                FriendMonthGroup(monthStart: monthStart, days: days.sorted { $0.day > $1.day })
-            }
-            .sorted { $0.monthStart > $1.monthStart }
+        return (notesByDay, JournalGrouping.years(notesByDay.keys.sorted(by: >)))
     }
 
     // Who this journal belongs to, above whichever state is showing.
@@ -95,27 +90,30 @@ struct FriendJournalView: View {
         listener.start(friendUID: uid)
     }
 
+    // Year headers, then month headers, then day headers, each sticky.
     private var journal: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 28) {
-                ForEach(monthGroups) { month in
-                    VStack(alignment: .leading, spacing: 20) {
-                        Text(monthYearString(month.monthStart))
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .accessibilityAddTraits(.isHeader)
-
-                        ForEach(month.days) { day in
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text(dayHeaderString(day.day))
-                                    .font(.headline)
-                                    .accessibilityAddTraits(.isHeader)
-
-                                ForEach(day.notes) { note in
-                                    FriendNoteRow(friend: friend, note: note)
+        let groups = journalGroups
+        return ScrollView {
+            LazyVStack(alignment: .leading, spacing: 28, pinnedViews: .sectionHeaders) {
+                ForEach(groups.years) { year in
+                    Section {
+                        ForEach(year.months) { month in
+                            Section {
+                                ForEach(month.days) { day in
+                                    Section {
+                                        ForEach(groups.notesByDay[day] ?? []) { note in
+                                            FriendNoteRow(friend: friend, note: note)
+                                        }
+                                    } header: {
+                                        stickyHeader(dayHeaderString(day.date()), font: .headline)
+                                    }
                                 }
+                            } header: {
+                                stickyHeader(JournalFormat.monthOnly(month.key.date()), font: .title3)
                             }
                         }
+                    } header: {
+                        stickyHeader(JournalFormat.year(year.year), font: .title2)
                     }
                 }
 
@@ -134,31 +132,21 @@ struct FriendJournalView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.bottom)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
-}
 
-private struct FriendDayGroup: Identifiable {
-    let day: Date
-    let notes: [FriendNote]
-
-    var id: Date { day }
-}
-
-private struct FriendMonthGroup: Identifiable {
-    let monthStart: Date
-    let days: [FriendDayGroup]
-
-    var id: Date { monthStart }
-}
-
-private func monthYearString(_ date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.locale = .current
-    formatter.setLocalizedDateFormatFromTemplate("yMMMM")
-    return formatter.string(from: date)
+    private func stickyHeader(_ title: String, font: Font) -> some View {
+        Text(title)
+            .font(font)
+            .fontWeight(.bold)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 6)
+            .background(.regularMaterial)
+            .accessibilityAddTraits(.isHeader)
+    }
 }
 
 // Same weekday plus day and month header the monthly journals screen uses.
