@@ -2,24 +2,24 @@ import Foundation
 import SwiftUI
 import Combine
 
-// How the Journals screens order years, months and days.
-enum JournalSortOrder: String, CaseIterable, Identifiable {
-    case newestFirst
-    case oldestFirst
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .newestFirst: return "Newest first"
-        case .oldestFirst: return "Oldest first"
-        }
-    }
-
-    func sorted<T: Comparable>(_ values: [T]) -> [T] {
-        self == .newestFirst ? values.sorted(by: >) : values.sorted(by: <)
-    }
+// What the journal index needs from a note: when it was written, and
+// whether it belongs in a journal at all (drafts never do). Adopted by my
+// own Note and by a friend's shared FriendNote, so both journals use the
+// same index and the same screens.
+protocol JournalItem: Identifiable {
+    var createdAt: Date { get }
+    var isJournalEntry: Bool { get }
 }
+
+extension JournalItem {
+    var isJournalEntry: Bool { true }
+}
+
+extension Note: JournalItem {
+    var isJournalEntry: Bool { !isDraft }
+}
+
+extension FriendNote: JournalItem {}
 
 struct JournalMonthKey: Hashable, Comparable, Identifiable {
     let year: Int
@@ -29,6 +29,20 @@ struct JournalMonthKey: Hashable, Comparable, Identifiable {
 
     static func < (lhs: JournalMonthKey, rhs: JournalMonthKey) -> Bool {
         (lhs.year, lhs.month) < (rhs.year, rhs.month)
+    }
+
+    init(year: Int, month: Int) {
+        self.year = year
+        self.month = month
+    }
+
+    init(_ date: Date, calendar: Calendar = .current) {
+        let parts = calendar.dateComponents([.year, .month], from: date)
+        self.init(year: parts.year ?? 0, month: parts.month ?? 1)
+    }
+
+    func date(calendar: Calendar = .current) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? Date()
     }
 }
 
@@ -60,164 +74,123 @@ struct JournalDayKey: Hashable, Comparable, Identifiable {
     }
 }
 
-extension JournalMonthKey {
-    init(_ date: Date, calendar: Calendar = .current) {
-        let parts = calendar.dateComponents([.year, .month], from: date)
-        self.init(year: parts.year ?? 0, month: parts.month ?? 1)
-    }
-
-    func date(calendar: Calendar = .current) -> Date {
-        calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? Date()
-    }
-}
-
-// Every posted note, grouped once by year, month and day. Built in one
-// pass over the notes, so no screen runs a query or a regrouping per row.
-// Drafts never get in. Journals are only this grouping, nothing is stored.
-struct JournalIndex {
-    // Each day's notes, oldest first.
-    private(set) var notesByDay: [JournalDayKey: [Note]] = [:]
-    private(set) var countByMonth: [JournalMonthKey: Int] = [:]
-    private(set) var countByYear: [Int: Int] = [:]
-    private var daysByMonth: [JournalMonthKey: [JournalDayKey]] = [:]
-    private var monthsByYear: [Int: [JournalMonthKey]] = [:]
+// Every journal note, grouped once by year, then month, then day, in a
+// single pass over the notes. Each day holds its notes oldest first. A
+// screen asks the index for what it shows, so no row runs a query or
+// regroups anything. Drafts never get in. Nothing is stored, a journal is
+// only this grouping.
+struct JournalIndex<Item: JournalItem> {
+    private var tree: [Int: [Int: [Int: [Item]]]] = [:]
+    private var yearCounts: [Int: Int] = [:]
+    private var monthCounts: [JournalMonthKey: Int] = [:]
+    // Every day that has notes, oldest first, for jumping to the next or
+    // previous one.
+    private var sortedDays: [JournalDayKey] = []
 
     let calendar: Calendar
 
-    init(notes: [Note], calendar: Calendar = .current) {
+    init(items: [Item], calendar: Calendar = .current) {
         self.calendar = calendar
 
-        for note in notes where !note.isDraft {
-            let key = JournalDayKey(note.createdAt, calendar: calendar)
-            notesByDay[key, default: []].append(note)
-            countByMonth[key.monthKey, default: 0] += 1
-            countByYear[key.year, default: 0] += 1
+        for item in items where item.isJournalEntry {
+            let key = JournalDayKey(item.createdAt, calendar: calendar)
+            tree[key.year, default: [:]][key.month, default: [:]][key.day, default: []].append(item)
+            yearCounts[key.year, default: 0] += 1
+            monthCounts[key.monthKey, default: 0] += 1
         }
-        for (key, dayNotes) in notesByDay {
-            notesByDay[key] = dayNotes.sorted { $0.createdAt < $1.createdAt }
-            daysByMonth[key.monthKey, default: []].append(key)
+        for (year, months) in tree {
+            for (month, days) in months {
+                for (day, dayItems) in days {
+                    tree[year]?[month]?[day] = dayItems.sorted { $0.createdAt < $1.createdAt }
+                    sortedDays.append(JournalDayKey(year: year, month: month, day: day))
+                }
+            }
         }
-        for month in daysByMonth.keys {
-            monthsByYear[month.year, default: []].append(month)
+        sortedDays.sort()
+    }
+
+    var isEmpty: Bool { sortedDays.isEmpty }
+    var totalCount: Int { yearCounts.values.reduce(0, +) }
+
+    // Newest first.
+    var years: [Int] { yearCounts.keys.sorted(by: >) }
+
+    // Only months that have notes, newest first.
+    func months(in year: Int) -> [JournalMonthKey] {
+        (tree[year]?.keys.sorted(by: >) ?? []).map { JournalMonthKey(year: year, month: $0) }
+    }
+
+    // The days of a month that have notes, oldest first.
+    func days(in month: JournalMonthKey) -> [JournalDayKey] {
+        (tree[month.year]?[month.month]?.keys.sorted() ?? []).map {
+            JournalDayKey(year: month.year, month: month.month, day: $0)
         }
     }
 
-    var isEmpty: Bool { notesByDay.isEmpty }
-    var earliestDay: JournalDayKey? { notesByDay.keys.min() }
+    func count(in year: Int) -> Int { yearCounts[year] ?? 0 }
+    func count(in month: JournalMonthKey) -> Int { monthCounts[month] ?? 0 }
+    func count(on day: JournalDayKey) -> Int { tree[day.year]?[day.month]?[day.day]?.count ?? 0 }
 
-    func years(_ order: JournalSortOrder) -> [Int] {
-        order.sorted(Array(countByYear.keys))
+    // How many days of a month have at least one note.
+    func dayCount(in month: JournalMonthKey) -> Int { tree[month.year]?[month.month]?.count ?? 0 }
+
+    // A day's notes, oldest first.
+    func items(on day: JournalDayKey) -> [Item] {
+        tree[day.year]?[day.month]?[day.day] ?? []
     }
 
-    func months(in year: Int, _ order: JournalSortOrder) -> [JournalMonthKey] {
-        order.sorted(monthsByYear[year] ?? [])
+    // The nearest day with notes before or after a day, which need not have
+    // notes itself. nil when there is none.
+    func day(before day: JournalDayKey) -> JournalDayKey? {
+        sortedDays.last { $0 < day }
     }
 
-    func days(in month: JournalMonthKey, _ order: JournalSortOrder) -> [JournalDayKey] {
-        order.sorted(daysByMonth[month] ?? [])
-    }
-
-    func count(on day: JournalDayKey) -> Int { notesByDay[day]?.count ?? 0 }
-
-    func notes(on day: JournalDayKey, _ order: JournalSortOrder) -> [Note] {
-        let notes = notesByDay[day] ?? []
-        return order == .newestFirst ? notes.reversed() : notes
-    }
-
-    // Days with notes between two dates, both included.
-    func days(from start: Date, to end: Date, _ order: JournalSortOrder) -> [JournalDayKey] {
-        let first = JournalDayKey(start, calendar: calendar)
-        let last = JournalDayKey(end, calendar: calendar)
-        return order.sorted(notesByDay.keys.filter { $0 >= first && $0 <= last })
-    }
-
-    func noteCount(in days: [JournalDayKey]) -> Int {
-        days.reduce(0) { $0 + count(on: $1) }
+    func day(after day: JournalDayKey) -> JournalDayKey? {
+        sortedDays.first { $0 > day }
     }
 }
 
-// Days already in display order, grouped into months (and years) without
-// another sort: the days arrive sorted, so equal neighbours belong together.
-enum JournalGrouping {
-    struct Month: Identifiable {
-        let key: JournalMonthKey
-        let days: [JournalDayKey]
-        var id: Int { key.id }
-    }
-
-    struct Year: Identifiable {
-        let year: Int
-        let months: [Month]
-        var id: Int { year }
-    }
-
-    static func months(_ days: [JournalDayKey]) -> [Month] {
-        var result: [Month] = []
-        for day in days {
-            if let last = result.last, last.key == day.monthKey {
-                result[result.count - 1] = Month(key: last.key, days: last.days + [day])
-            } else {
-                result.append(Month(key: day.monthKey, days: [day]))
-            }
-        }
-        return result
-    }
-
-    static func years(_ days: [JournalDayKey]) -> [Year] {
-        var result: [Year] = []
-        for month in months(days) {
-            if let last = result.last, last.year == month.key.year {
-                result[result.count - 1] = Year(year: last.year, months: last.months + [month])
-            } else {
-                result.append(Year(year: month.key.year, months: [month]))
-            }
-        }
-        return result
-    }
-}
-
-// What the Journals screens share: the index, rebuilt when the notes
-// change, and the sort order saved per account.
+// What the journal screens share: the index, rebuilt when the notes change.
 @MainActor
-final class JournalModel: ObservableObject {
-    @Published private(set) var index = JournalIndex(notes: [])
-    @Published var sortOrder: JournalSortOrder {
-        didSet { AccountDefaults.journalSortOrder = sortOrder }
-    }
+final class JournalModel<Item: JournalItem>: ObservableObject {
+    @Published private(set) var index = JournalIndex<Item>(items: [])
 
-    init() {
-        sortOrder = AccountDefaults.journalSortOrder
-    }
-
-    func update(notes: [Note]) {
-        index = JournalIndex(notes: notes)
+    func update(items: [Item]) {
+        index = JournalIndex(items: items)
     }
 }
 
 // Shared date text, locale aware so day and month order follow the user's
 // locale.
 enum JournalFormat {
-    private static func format(_ template: String, _ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.setLocalizedDateFormatFromTemplate(template)
-        return formatter.string(from: date)
+    static func year(_ year: Int) -> String { String(year) }
+
+    // "October 2026"
+    static func monthYear(_ date: Date) -> String {
+        date.formatted(.dateTime.month(.wide).year())
     }
 
-    static func year(_ year: Int) -> String { String(year) }
-    static func monthYear(_ date: Date) -> String { format("yMMMM", date) }
-    static func monthOnly(_ date: Date) -> String { format("MMMM", date) }
-    static func dayMonth(_ date: Date) -> String { format("dMMMM", date) }
+    // "October"
+    static func monthOnly(_ date: Date) -> String {
+        date.formatted(.dateTime.month(.wide))
+    }
 
-    // "Wednesday 14 October", the day header.
+    // "14 October"
+    static func dayMonth(_ date: Date) -> String {
+        date.formatted(.dateTime.day().month(.wide))
+    }
+
+    // "Tuesday 14 October", the day screen's title.
     static func dayHeader(_ date: Date) -> String {
-        let weekday = DateFormatter()
-        weekday.locale = .current
-        weekday.dateFormat = "EEEE"
-        return "\(weekday.string(from: date)) \(dayMonth(date))"
+        "\(date.formatted(.dateTime.weekday(.wide))) \(dayMonth(date))"
     }
 
     static func noteCount(_ count: Int) -> String {
         "\(count) note\(count == 1 ? "" : "s")"
+    }
+
+    // "12 notes on 7 days"
+    static func summary(notes: Int, days: Int) -> String {
+        "\(noteCount(notes)) on \(days) day\(days == 1 ? "" : "s")"
     }
 }
