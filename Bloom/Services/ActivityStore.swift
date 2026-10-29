@@ -1,6 +1,5 @@
 import Foundation
 import Combine
-import UIKit
 import FirebaseAuth
 import FirebaseFirestore
 
@@ -265,21 +264,16 @@ final class ActivityStore: ObservableObject {
     }
 
     private func arrived(_ item: ActivityItem) {
-        // An old item the server delivered late isn't news.
-        guard item.createdAt > lastSeen, Date().timeIntervalSince(item.createdAt) < 600 else { return }
-        let base: String
-        switch item.kind {
-        case .note: base = AccountDefaults.bannerFriendNotesBase
-        // Reactions share the comments toggle rather than adding a new one.
-        case .comment, .reaction: base = AccountDefaults.bannerCommentsBase
-        case .accepted: base = AccountDefaults.bannerFriendRequestsBase
-        }
-        guard AccountDefaults.isBannerEnabled(base) else { return }
-        LiveBannerCenter.shared.show(for: item)
+        // An old item the server delivered late isn't news. Neither is my
+        // own action, or anything while the list that shows it is open.
+        guard item.createdAt > lastSeen, Date().timeIntervalSince(item.createdAt) < 600,
+              item.fromUID != Auth.auth().currentUser?.uid,
+              !ActivityRouter.shared.isFeedOpen else { return }
+        Task { await ActivityNotifier.post(for: item) }
     }
 }
 
-// Where tapping an item, a banner or a request banner goes.
+// Where tapping an item or a system notification goes.
 enum ActivityDestination: Identifiable {
     case feed
     case note(ownerUID: String, noteID: String, focusComments: Bool)
@@ -310,15 +304,15 @@ enum ActivityDestination: Identifiable {
     }
 }
 
-// Presents a destination from the signed in UI, for banner taps.
+// Presents a destination from the signed in UI, for notification taps.
 @MainActor
 final class ActivityRouter: ObservableObject {
     static let shared = ActivityRouter()
     private init() {}
 
     @Published var destination: ActivityDestination?
-    // True while the notifications screen is on screen, where banners
-    // would only repeat what the list shows.
+    // True while the notifications screen is on screen, where a system
+    // notification would only repeat what the list shows.
     var isFeedOpen = false
 
     // False until the signed in UI (ContentView) is on screen, so a tapped
@@ -348,77 +342,5 @@ final class ActivityRouter: ObservableObject {
         isFeedOpen = false
         isReady = false
         pending = nil
-    }
-}
-
-struct LiveBanner: Identifiable {
-    let id = UUID()
-    let text: String
-    let systemImage: String
-    let destination: ActivityDestination
-}
-
-// The banner shown near the top while the app is open. It replaces
-// itself when another arrives and dismisses itself after about 4 seconds.
-@MainActor
-final class LiveBannerCenter: ObservableObject {
-    static let shared = LiveBannerCenter()
-    private init() {}
-
-    @Published private(set) var current: LiveBanner?
-    private var dismissTask: Task<Void, Never>?
-
-    func show(for item: ActivityItem) {
-        guard let destination = ActivityDestination(item: item) else { return }
-        Task {
-            let name = await UserProfileCache.shared.profile(uid: item.fromUID)?.shownName ?? "Someone"
-            switch item.kind {
-            case .note:
-                show(LiveBanner(text: "\(name) shared a note", systemImage: "note.text", destination: destination))
-            case .comment:
-                if let preview = item.preview, preview.hasPrefix("replied: ") {
-                    show(LiveBanner(text: "\(name) \(preview)", systemImage: "arrowshape.turn.up.left", destination: destination))
-                    return
-                }
-                let preview = item.preview.map { ": \($0)" } ?? ""
-                show(LiveBanner(text: "\(name) commented\(preview)", systemImage: "bubble.left", destination: destination))
-            case .reaction:
-                show(LiveBanner(text: "\(name) reacted to your note", systemImage: "face.smiling", destination: destination))
-            case .accepted:
-                show(LiveBanner(text: "\(name) accepted your request", systemImage: "person.badge.plus", destination: destination))
-            }
-        }
-    }
-
-    func showRequest(from uid: String) {
-        guard !uid.isEmpty, AccountDefaults.isBannerEnabled(AccountDefaults.bannerFriendRequestsBase) else { return }
-        Task {
-            let name = await UserProfileCache.shared.profile(uid: uid)?.shownName ?? "Someone"
-            show(LiveBanner(text: "\(name) sent you a friend request", systemImage: "person.crop.circle.badge.plus", destination: .feed))
-        }
-    }
-
-    private func show(_ banner: LiveBanner) {
-        // App open only: nothing is shown, and no system notification
-        // is ever scheduled, when Bloom isn't active.
-        guard UIApplication.shared.applicationState == .active, !ActivityRouter.shared.isFeedOpen else { return }
-        current = banner
-        AccessibilityNotification.Announcement(banner.text).post()
-
-        dismissTask?.cancel()
-        dismissTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(4))
-            guard !Task.isCancelled else { return }
-            self?.current = nil
-        }
-    }
-
-    func dismiss() {
-        dismissTask?.cancel()
-        current = nil
-    }
-
-    func reset() {
-        dismiss()
     }
 }

@@ -3,61 +3,9 @@ import SwiftData
 import FirebaseAuth
 import FirebaseFirestore
 
-// MARK: - Banner
-
-// The banner near the top while the app is open. It is an overlay that
-// only takes up its own rectangle, so it never covers the tab bar or
-// blocks taps anywhere else, and it removes itself after about 4 seconds.
-private struct LiveBannerHost: ViewModifier {
-    @ObservedObject private var center = LiveBannerCenter.shared
-    @ObservedObject private var router = ActivityRouter.shared
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(alignment: .top) {
-                if let banner = center.current {
-                    Button {
-                        router.destination = banner.destination
-                        center.dismiss()
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: banner.systemImage)
-                                .accessibilityHidden(true)
-                            Text(banner.text)
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .lineLimit(3)
-                                .multilineTextAlignment(.leading)
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .frame(minHeight: 44)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal)
-                    .padding(.top, 4)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .accessibilityLabel(banner.text)
-                    .accessibilityHint("Opens it")
-                }
-            }
-            .animation(.easeInOut(duration: 0.25), value: center.current?.id)
-    }
-}
-
-extension View {
-    func liveBanner() -> some View {
-        modifier(LiveBannerHost())
-    }
-}
-
 // MARK: - Destination
 
-// What a feed item or banner opens. A note opens the detail sheet in
+// What a feed item or a tapped notification opens. A note opens the detail sheet in
 // viewer mode (or owner mode when it is a comment on my own note), after
 // fetching the single note document. A note that is gone says so.
 struct ActivityDestinationSheet: View {

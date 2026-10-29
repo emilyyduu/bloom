@@ -36,10 +36,11 @@ struct SettingsView: View {
     // Per account, see AccountDefaults.
     @AppStorage private var shareNewNotesWithFriends: Bool
     @AppStorage private var hasShownShareNewNotesConfirmation: Bool
-    // Which friend activity may show a banner while Bloom is open.
-    @AppStorage private var bannerFriendRequests: Bool
-    @AppStorage private var bannerFriendNotes: Bool
-    @AppStorage private var bannerComments: Bool
+    // Which friend activity is shown as a system notification.
+    @AppStorage private var notifyFriendRequests: Bool
+    @AppStorage private var notifyFriendNotes: Bool
+    @AppStorage private var notifyComments: Bool
+    @AppStorage private var notifyReactions: Bool
     @State private var isShowingShareNewNotesConfirmation = false
     @State private var isShowingShareAllConfirmation = false
     @State private var isShowingStopSharingAllConfirmation = false
@@ -53,9 +54,11 @@ struct SettingsView: View {
     @State private var reminderErrorMessage: String?
 
     init() {
-        _bannerFriendRequests = AppStorage(wrappedValue: true, AccountDefaults.key(AccountDefaults.bannerFriendRequestsBase))
-        _bannerFriendNotes = AppStorage(wrappedValue: true, AccountDefaults.key(AccountDefaults.bannerFriendNotesBase))
-        _bannerComments = AppStorage(wrappedValue: true, AccountDefaults.key(AccountDefaults.bannerCommentsBase))
+        typealias D = AccountDefaults
+        _notifyFriendRequests = AppStorage(wrappedValue: D.notifyDefault(D.notifyFriendRequestsBase), D.key(D.notifyFriendRequestsBase))
+        _notifyFriendNotes = AppStorage(wrappedValue: D.notifyDefault(D.notifyFriendNotesBase), D.key(D.notifyFriendNotesBase))
+        _notifyComments = AppStorage(wrappedValue: D.notifyDefault(D.notifyCommentsBase), D.key(D.notifyCommentsBase))
+        _notifyReactions = AppStorage(wrappedValue: D.notifyDefault(D.notifyReactionsBase), D.key(D.notifyReactionsBase))
         _shareNewNotesWithFriends = AppStorage(
             wrappedValue: false, AccountDefaults.key(AccountDefaults.shareNewNotesBase)
         )
@@ -106,13 +109,14 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Friend requests", isOn: $bannerFriendRequests)
-                Toggle("Friends\u{2019} new notes", isOn: $bannerFriendNotes)
-                Toggle("Comments on my notes", isOn: $bannerComments)
+                Toggle("Friend requests", isOn: $notifyFriendRequests)
+                Toggle("Friends\u{2019} new notes", isOn: $notifyFriendNotes)
+                Toggle("Comments and replies", isOn: $notifyComments)
+                Toggle("Reactions", isOn: $notifyReactions)
             } header: {
-                SectionHeader("Banners")
+                SectionHeader("Friend activity")
             } footer: {
-                Text("Banners appear at the top while Bloom is open. The notifications screen always shows everything.")
+                Text("Show these as notifications on this device")
             }
 
             Section {

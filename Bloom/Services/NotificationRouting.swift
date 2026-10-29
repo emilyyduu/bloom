@@ -6,10 +6,10 @@ import FirebaseAuth
 import FirebaseFirestore
 
 // The routing side of system notifications (the delegate itself is
-// NotificationAppDelegate). Bloom's own in-app banner (LiveBannerCenter)
-// still handles everything while the app is open. Banners delivered while
-// Bloom is closed or in the background (by the demo relay, using
-// xcrun simctl push) come through here when tapped.
+// NotificationAppDelegate). Every friend notification is a system
+// notification: posted locally by ActivityNotifier while Bloom is running,
+// or delivered by the demo relay (xcrun simctl push) while it is closed.
+// Taps on either come through here.
 
 // The keys a delivered notification carries in userInfo. Plain strings,
 // so it can cross from the notification centre's thread to the main actor.
@@ -185,6 +185,7 @@ final class NotificationBadge {
         let delivered = await center.deliveredNotifications()
         let identifiers = delivered.map(\.request.identifier)
             .filter { !$0.hasPrefix(ReminderPlanner.identifierPrefix) }
+        NotificationLog.removed("removeDeliveredNotifications (feed opened)", identifiers: identifiers)
         center.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 }

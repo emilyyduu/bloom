@@ -49,7 +49,6 @@ final class AuthService: ObservableObject {
         NoteSyncService.shared.reset()
         ProfileLinkCoordinator.shared.reset()
         ActivityStore.shared.stopListening()
-        LiveBannerCenter.shared.reset()
         ActivityRouter.shared.reset()
         NotificationBadge.shared.clear()
         CommentCounts.shared.reset()

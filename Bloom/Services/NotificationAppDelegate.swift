@@ -12,21 +12,25 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        NotificationLog.delegateWasSet(self)
         NotificationCategories.register()
+        Task { await NotificationLog.snapshot("launch") }
         return true
     }
 
-    // The daily reminder shows as a banner even with Bloom open. Friend
-    // activity shows nothing while Bloom is active, since the in-app banner
-    // already says it, and a banner otherwise.
+    // A local notification shows as a banner and plays its sound even
+    // while Bloom is open, like any other app's. A remote push (the relay)
+    // while Bloom is active shows nothing, so it isn't doubled up with the
+    // local notification Bloom posts itself when the activity arrives.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        if notification.request.content.categoryIdentifier == NotificationConstants.Category.reminder {
-            return [.banner, .sound]
-        }
-        return UIApplication.shared.applicationState == .active ? [] : [.banner, .sound]
+        let isActive = UIApplication.shared.applicationState == .active
+        let result: UNNotificationPresentationOptions =
+            isActive && notification.request.trigger is UNPushNotificationTrigger ? [] : [.banner, .sound]
+        NotificationLog.willPresent(notification, isActive: isActive, result: result)
+        return result
     }
 
     // A tap on the banner or on one of its buttons. Everything is awaited
@@ -36,6 +40,7 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        NotificationLog.didReceive(response)
         let userInfo = response.notification.request.content.userInfo
         let payload = NotificationPayload(userInfo: userInfo)
         let recipientUID = userInfo[NotificationConstants.Key.recipientUID] as? String

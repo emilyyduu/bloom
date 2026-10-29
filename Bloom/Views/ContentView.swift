@@ -90,7 +90,7 @@ struct ContentView: View {
                     AddByLinkSheet(uid: link.uid)
                 }
         }
-        // Where a tapped banner goes. Its own background view, so it
+        // Where a tapped notification goes. Its own background view, so it
         // has its own presentation slot like the link sheet above.
         .background {
             Color.clear
@@ -102,7 +102,6 @@ struct ContentView: View {
                     }
                 }
         }
-        .liveBanner()
         // Reserves space above the tab bar for the "Saved to Drafts"
         // banner rather than overlaying it, so the tab bar is never
         // covered and its taps are never blocked.
@@ -123,7 +122,7 @@ struct ContentView: View {
             NotificationBadge.shared.update(unread: count)
         }
         .task {
-            // A tapped system banner may be waiting for this screen.
+            // A tapped system notification may be waiting for this screen.
             router.markReady()
             friendService.startListening()
             ActivityStore.shared.startListening()
@@ -134,6 +133,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Task {
+                await NotificationLog.snapshot("became active")
                 await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
                 await StreakSyncService.shared.sync(context: context)
                 await restoreAndSyncNotes()

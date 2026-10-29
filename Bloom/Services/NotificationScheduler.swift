@@ -63,6 +63,7 @@ final class NotificationScheduler {
     func cancelAllReminders() async {
         let pending = await center.pendingNotificationRequests()
         let identifiers = pending.map(\.identifier).filter { $0.hasPrefix(ReminderPlanner.identifierPrefix) }
+        NotificationLog.removed("removePendingNotificationRequests (cancelAllReminders)", identifiers: identifiers)
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
     
@@ -105,7 +106,9 @@ final class NotificationScheduler {
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
         let request = UNNotificationRequest(identifier: day.identifier, content: content, trigger: trigger)
-        center.add(request)
+        center.add(request) { error in
+            Task { @MainActor in NotificationLog.added(request, error: error) }
+        }
     }
 
     private func loggedDates(in context: ModelContext, calendar: Calendar) -> Set<Date> {

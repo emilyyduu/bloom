@@ -94,14 +94,30 @@ enum AccountDefaults {
         set { UserDefaults.standard.set(newValue, forKey: key("homeCircleFilterID")) }
     }
 
-    // Which kinds of activity may show a banner while the app is open.
-    // All on by default. The feed always shows everything.
-    static let bannerFriendRequestsBase = "bannerFriendRequests"
-    static let bannerFriendNotesBase = "bannerFriendNotes"
-    static let bannerCommentsBase = "bannerComments"
+    // Which kinds of activity are shown as system notifications on this
+    // device. All on by default. The feed always shows everything. A choice
+    // made under the old banner keys is still honoured until the new key is
+    // set (reactions used the comments key).
+    static let notifyFriendRequestsBase = "notifyFriendRequests"
+    static let notifyFriendNotesBase = "notifyFriendNotes"
+    static let notifyCommentsBase = "notifyComments"
+    static let notifyReactionsBase = "notifyReactions"
 
-    static func isBannerEnabled(_ base: String) -> Bool {
-        UserDefaults.standard.object(forKey: key(base)) as? Bool ?? true
+    private static let legacyBannerBases = [
+        notifyFriendRequestsBase: "bannerFriendRequests",
+        notifyFriendNotesBase: "bannerFriendNotes",
+        notifyCommentsBase: "bannerComments",
+        notifyReactionsBase: "bannerComments",
+    ]
+
+    // The value to show before the new key has ever been written.
+    static func notifyDefault(_ base: String) -> Bool {
+        guard let legacy = legacyBannerBases[base] else { return true }
+        return UserDefaults.standard.object(forKey: key(legacy)) as? Bool ?? true
+    }
+
+    static func isNotificationEnabled(_ base: String) -> Bool {
+        UserDefaults.standard.object(forKey: key(base)) as? Bool ?? notifyDefault(base)
     }
 
     // Notes whose "shared a note" activity was already written, so a

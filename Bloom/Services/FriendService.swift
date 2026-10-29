@@ -55,7 +55,7 @@ final class FriendService: ObservableObject {
 
     private var listenersStarted = false
     // Whether the first incoming-requests snapshot has arrived, so only
-    // requests that show up after it count as new for the banner.
+    // requests that show up after it count as new for the notification.
     private var hasReceivedIncomingSnapshot = false
     private var incomingRequestsListener: ListenerRegistration?
     private var outgoingRequestsListener: ListenerRegistration?
@@ -215,7 +215,8 @@ final class FriendService: ObservableObject {
 
                 if self.hasReceivedIncomingSnapshot, let snapshot {
                     for change in snapshot.documentChanges where change.type == .added {
-                        LiveBannerCenter.shared.showRequest(from: change.document.data()["fromUID"] as? String ?? "")
+                        let fromUID = change.document.data()["fromUID"] as? String ?? ""
+                        Task { await ActivityNotifier.postRequest(from: fromUID) }
                     }
                 }
                 if snapshot != nil { self.hasReceivedIncomingSnapshot = true }
