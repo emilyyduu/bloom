@@ -122,7 +122,11 @@ private struct MonthlyJournalNoteRow: View {
                     PinIndicator()
                 }
             }
-            Text(note.text)
+            if !note.text.isEmpty {
+                Text(note.text)
+            }
+
+            NoteVoiceMemo(note: note)
 
             if let photo = note.photo {
                 Image(uiImage: photo)

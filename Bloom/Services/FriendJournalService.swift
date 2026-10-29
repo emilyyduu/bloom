@@ -15,6 +15,11 @@ struct FriendNote: Codable, Identifiable {
     // Only set on a note the friend has pinned, nil otherwise and on
     // older documents. Used to order a friend's pinned notes.
     var pinnedAt: Date?
+    // A voice memo exists at users/{friendUID}/audio/{id} when hasAudio
+    // is true. Optional so notes without the fields still decode. The
+    // bytes are only fetched when someone taps play.
+    var hasAudio: Bool?
+    var audioSeconds: Int?
 }
 
 // Fetches, per accepted friend, the single most recent note they've

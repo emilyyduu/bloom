@@ -39,6 +39,16 @@ final class Note {
     var isPinned: Bool = false
     var pinnedAt: Date?
 
+    // An optional voice memo, a small m4a at Documents/audio/<audioFileName>.
+    // audioSyncedAt is the audio counterpart of photoSyncedAt: nil means the
+    // local audio (if any) still needs uploading, or a removed memo still
+    // needs its backup deleted. All three are additive optionals with a
+    // nil default, so SwiftData's lightweight migration needs nothing
+    // from existing rows.
+    var audioFileName: String?
+    var audioSeconds: Int?
+    var audioSyncedAt: Date?
+
     var journal: Journal?
     var mediaLogEntry: MediaLogEntry?
 

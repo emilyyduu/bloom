@@ -39,6 +39,20 @@ struct NoteComposerView: View {
     @State private var isShowingMediaSearch = false
     @State private var isShowingMediaEdit = false
 
+    // The voice memo for this note. Files recorded in this session that
+    // aren't saved onto a note yet are tracked, so re-recording,
+    // deleting or discarding never leaves a stray file, and an existing
+    // draft's own file is never removed until the note is saved.
+    @StateObject private var recorder = VoiceMemoRecorder()
+    @State private var audioDraft: AudioDraft?
+    @State private var originalAudio: AudioDraft?
+    @State private var sessionAudioFiles: Set<String> = []
+
+    private struct AudioDraft: Equatable {
+        let fileName: String
+        let seconds: Int
+    }
+
     @Query(filter: #Predicate<Note> { $0.isDraft }) private var allDrafts: [Note]
 
     // Starts from the "Share new notes with friends" setting, so a
@@ -49,6 +63,9 @@ struct NoteComposerView: View {
         let existingMedia = draft?.mediaLogEntry.map(MediaReviewDraft.init(entry:))
         _mediaDraft = State(initialValue: attaching ?? existingMedia)
         _originalMediaDraft = State(initialValue: existingMedia)
+        let existingAudio = Self.audioDraft(for: draft)
+        _audioDraft = State(initialValue: existingAudio)
+        _originalAudio = State(initialValue: existingAudio)
         let initialText = draft?.text ?? ""
         _draft = State(initialValue: draft)
         _originalText = State(initialValue: initialText)
@@ -58,6 +75,17 @@ struct NoteComposerView: View {
         if let photo = draft?.photo, let data = photo.jpegData(compressionQuality: 0.9) {
             _selectedPhotoData = State(initialValue: data)
         }
+    }
+
+    private static func audioDraft(for note: Note?) -> AudioDraft? {
+        guard let note, note.hasAudio, let fileName = note.audioFileName else { return nil }
+        return AudioDraft(fileName: fileName, seconds: note.audioSeconds ?? 0)
+    }
+
+    // A voice memo alone is enough to save or post, text is optional.
+    private var canSave: Bool {
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasText || audioDraft != nil) && !recorder.isRecording
     }
 
     private var isEditingDraft: Bool { draft != nil }
@@ -74,9 +102,10 @@ struct NoteComposerView: View {
     private var hasUnsavedChanges: Bool {
         if isEditingDraft {
             return text != originalText || hasPhotoChanged || mediaDraft != originalMediaDraft
+                || audioDraft != originalAudio || recorder.isRecording
         }
         return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || selectedPhotoData != nil || mediaDraft != nil
+            || selectedPhotoData != nil || mediaDraft != nil || audioDraft != nil || recorder.isRecording
     }
 
     var body: some View {
@@ -90,6 +119,8 @@ struct NoteComposerView: View {
                 } header: {
                     SectionHeader("What's happening?")
                 }
+
+                voiceMemoSection
 
                 Section {
                     if let mediaDraft {
@@ -161,14 +192,14 @@ struct NoteComposerView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add to Today") { save(asDraft: false) }
-                        .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(!canSave)
                 }
                 ToolbarItem(placement: .bottomBar) {
                     HStack {
                         draftsButton
                         Spacer()
                         Button("Save as Draft") { save(asDraft: true) }
-                            .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .disabled(!canSave)
                     }
                 }
             }
@@ -179,13 +210,21 @@ struct NoteComposerView: View {
                 hasPickedNewPhoto = true
                 isPhotoRemoved = false
             }
+            .onChange(of: recorder.finished) { _, memo in
+                if let memo { handleRecorded(memo) }
+            }
+            // Never leave a recording running or half finished behind.
+            .onDisappear { recorder.stop(because: .discard) }
             .interactiveDismissDisabled(hasUnsavedChanges)
             .confirmationDialog(
                 "Discard changes?",
                 isPresented: $isShowingDiscardConfirmation,
                 titleVisibility: .visible
             ) {
-                Button("Discard", role: .destructive) { dismiss() }
+                Button("Discard", role: .destructive) {
+                    discardSessionAudio()
+                    dismiss()
+                }
                 Button("Keep Editing", role: .cancel) {}
             }
             .confirmationDialog(
@@ -236,6 +275,113 @@ struct NoteComposerView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Voice memo
+
+    private var voiceMemoSection: some View {
+        Section {
+            if recorder.permission == .denied {
+                VStack(spacing: 8) {
+                    Text("Microphone access is off")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("Turn it on in Settings to record voice memos.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Open Settings") { recorder.openSettings() }
+                        .buttonStyle(.bordered)
+                        .frame(minHeight: 44)
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+            } else if recorder.isRecording {
+                HStack {
+                    Image(systemName: "record.circle")
+                        .foregroundStyle(.red)
+                        .accessibilityHidden(true)
+                    Text("\(AudioPlayerView.format(recorder.elapsed)) of \(AudioPlayerView.format(TimeInterval(VoiceMemoRecorder.limitSeconds)))")
+                        .monospacedDigit()
+                        .accessibilityLabel("Recording, \(Int(recorder.elapsed)) seconds of \(VoiceMemoRecorder.limitSeconds)")
+                    Spacer()
+                    Button("Stop", systemImage: "stop.circle.fill") {
+                        recorder.stop()
+                    }
+                    .buttonStyle(.borderless)
+                    .frame(minHeight: 44)
+                    .accessibilityLabel("Stop recording")
+                }
+            } else if let audioDraft {
+                AudioPlayerView(source: .local(FileManager.audioDirectory.appendingPathComponent(audioDraft.fileName)),
+                                seconds: audioDraft.seconds)
+                    .id(audioDraft.fileName)
+                HStack(spacing: 16) {
+                    Button("Re-record", systemImage: "mic") { startRecording() }
+                        .frame(minHeight: 44)
+                        .accessibilityLabel("Re-record voice memo")
+                    Button("Delete", systemImage: "trash", role: .destructive) { deleteAudio() }
+                        .frame(minHeight: 44)
+                        .accessibilityLabel("Delete voice memo")
+                }
+                .buttonStyle(.borderless)
+            } else {
+                Button("Record", systemImage: "mic") { startRecording() }
+                    .frame(minHeight: 44)
+                    .accessibilityLabel("Record voice memo")
+                    .accessibilityHint("Records up to \(VoiceMemoRecorder.limitSeconds) seconds")
+            }
+
+            if let message = recorder.message {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            SectionHeader("Voice memo")
+        }
+    }
+
+    private func startRecording() {
+        Task { await recorder.start() }
+    }
+
+    // A finished recording replaces whatever memo the note had.
+    private func handleRecorded(_ memo: RecordedMemo) {
+        if let old = audioDraft { removeIfSessionFile(old.fileName) }
+        sessionAudioFiles.insert(memo.fileName)
+        audioDraft = AudioDraft(fileName: memo.fileName, seconds: memo.seconds)
+    }
+
+    private func deleteAudio() {
+        if let old = audioDraft { removeIfSessionFile(old.fileName) }
+        audioDraft = nil
+    }
+
+    // Only files recorded in this session are removed right away.
+    private func removeIfSessionFile(_ fileName: String) {
+        guard sessionAudioFiles.remove(fileName) != nil else { return }
+        try? FileManager.default.removeItem(at: FileManager.audioDirectory.appendingPathComponent(fileName))
+    }
+
+    private func discardSessionAudio() {
+        for fileName in sessionAudioFiles {
+            try? FileManager.default.removeItem(at: FileManager.audioDirectory.appendingPathComponent(fileName))
+        }
+        sessionAudioFiles = []
+    }
+
+    // Makes the note's memo match the composer. The old file goes, and
+    // audioSyncedAt stays as it was when the memo was removed, so the
+    // sync service deletes the old backup too.
+    private func syncAudio(for note: Note) {
+        let newName = audioDraft?.fileName
+        if note.audioFileName != newName {
+            note.deleteAudioFile()
+            note.audioFileName = newName
+            note.audioSeconds = audioDraft?.seconds
+            if newName != nil { note.audioSyncedAt = nil }
+        }
+        if let newName { sessionAudioFiles.remove(newName) }
     }
 
     // A short scrolling row above the note text. Each button names its
@@ -338,6 +484,10 @@ struct NoteComposerView: View {
         let existingMedia = newDraft.mediaLogEntry.map(MediaReviewDraft.init(entry:))
         mediaDraft = existingMedia
         originalMediaDraft = existingMedia
+        discardSessionAudio()
+        let existingAudio = Self.audioDraft(for: newDraft)
+        audioDraft = existingAudio
+        originalAudio = existingAudio
         selectedPhotoItem = nil
         hasPickedNewPhoto = false
         isPhotoRemoved = false
@@ -390,6 +540,7 @@ struct NoteComposerView: View {
 
         note.isDraft = asDraft
         syncMediaEntry(for: note)
+        syncAudio(for: note)
 
         if !asDraft {
             note.createdAt = Date()
@@ -442,6 +593,8 @@ struct NoteComposerView: View {
         guard let draft else { return }
         NoteSyncService.shared.delete(draft)
         draft.mediaLogEntry?.deleteCompletely(in: context)
+        draft.deleteAudioFile()
+        discardSessionAudio()
         if let fileName = draft.photoFileName {
             try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
         }

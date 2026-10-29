@@ -239,6 +239,10 @@ private struct FriendPinnedNoteCard: View {
             Text(note.text)
                 .font(.subheadline)
 
+            if let friendUID {
+                FriendVoiceMemo(friendUID: friendUID, note: note)
+            }
+
             if note.hasPhoto, let friendUID, let noteID = note.id {
                 FriendNotePhoto(friendUID: friendUID, noteID: noteID)
             }
@@ -247,10 +251,11 @@ private struct FriendPinnedNoteCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "Pinned by \(friendName), \(note.createdAt.formatted(date: .long, time: .omitted)), \(note.text)"
                 + (note.hasPhoto ? ", has a photo" : "")
+                + (note.hasAudio == true ? ", has a voice memo" : "")
         )
     }
 }

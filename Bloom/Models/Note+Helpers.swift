@@ -23,6 +23,24 @@ extension Note {
         return UIImage(contentsOfFile: url.path)
     }
 
+    var hasAudio: Bool {
+        audioURL != nil
+    }
+
+    // The memo file, only if it still exists on disk.
+    var audioURL: URL? {
+        guard let audioFileName else { return nil }
+        let url = FileManager.audioDirectory.appendingPathComponent(audioFileName)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    // Removes the local memo file. Doesn't touch the fields or the
+    // cloud backup, callers decide that.
+    func deleteAudioFile() {
+        guard let audioFileName else { return }
+        try? FileManager.default.removeItem(at: FileManager.audioDirectory.appendingPathComponent(audioFileName))
+    }
+
     static let pinLimit = 3
 
     // How many posted notes are pinned right now.
@@ -62,6 +80,25 @@ extension Note {
 extension FileManager {
     static var documentsDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    }
+
+    // Documents/audio, where voice memos live as <uuid>.m4a.
+    static var audioDirectory: URL {
+        documentsDirectory.appendingPathComponent("audio", isDirectory: true)
+    }
+
+    // A fresh memo file name, with the audio folder created if needed.
+    static func makeAudioFileName() throws -> String {
+        try FileManager.default.createDirectory(at: audioDirectory, withIntermediateDirectories: true)
+        return "\(UUID().uuidString).m4a"
+    }
+
+    // Saves downloaded memo bytes into Documents/audio and returns the
+    // file name, ready to store in Note.audioFileName.
+    static func writeAudioData(_ data: Data) throws -> String {
+        let fileName = try makeAudioFileName()
+        try data.write(to: audioDirectory.appendingPathComponent(fileName))
+        return fileName
     }
 
     // Saves photo bytes into Documents under a fresh name and returns

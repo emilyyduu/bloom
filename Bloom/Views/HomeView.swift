@@ -390,9 +390,11 @@ private struct TimelineCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 12) {
-                Text(note.text)
-                    .font(.body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !note.text.isEmpty {
+                    Text(note.text)
+                        .font(.body)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 if let photo = note.photo {
                     Image(uiImage: photo)
@@ -403,6 +405,8 @@ private struct TimelineCard: View {
                         .clipped()
                 }
             }
+
+            NoteVoiceMemo(note: note)
 
             HStack {
                 if note.sharedWithFriends {
@@ -494,8 +498,12 @@ struct NoteDetailSheet: View {
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
 
-                    Text(note.text)
-                        .font(.body)
+                    if !note.text.isEmpty {
+                        Text(note.text)
+                            .font(.body)
+                    }
+
+                    NoteVoiceMemo(note: note)
 
                     if let mediaLogEntry = note.mediaLogEntry {
                         MediaLogChip(entry: mediaLogEntry)

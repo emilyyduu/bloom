@@ -17,6 +17,7 @@ final class NoteSyncService {
 
     private let db = Firestore.firestore()
     private let photoStore: PhotoStore = PhotoStores.current
+    private let audioStore: AudioStore = AudioStores.current
 
     private var isRestoring = false
     private var isSyncingPending = false
@@ -71,6 +72,10 @@ final class NoteSyncService {
         guard let uid = note.ownerUID else { return }
 
         try await syncPhoto(for: note, ownerUID: uid)
+        // The memo goes before the note too, so a note is never written
+        // with hasAudio true before its audio exists. If this throws the
+        // note isn't written and syncedAt stays nil, so it retries.
+        try await syncAudio(for: note, ownerUID: uid)
 
         let data = noteData(for: note)
 
@@ -119,6 +124,38 @@ final class NoteSyncService {
         case couldNotCompress
     }
 
+    // Brings the backed-up voice memo in line with the local one, same
+    // pattern as syncPhoto: a new or replaced memo is uploaded over any
+    // old one, a removed one has its backup deleted. A memo over the
+    // size limit is never uploaded.
+    private func syncAudio(for note: Note, ownerUID: String) async throws {
+        let noteID = note.id.uuidString
+
+        do {
+            if let url = note.audioURL {
+                guard note.audioSyncedAt == nil else { return }
+                let data = try Data(contentsOf: url)
+                guard data.count <= AudioLimits.maxBytes else { throw AudioStoreError.tooLarge }
+                try await audioStore.upload(data, ownerUID: ownerUID, noteID: noteID)
+                note.audioSyncedAt = Date()
+                #if DEBUG
+                print("NoteSyncService: uploaded voice memo for \(noteID), \(data.count) bytes")
+                #endif
+            } else if note.audioSyncedAt != nil {
+                try await audioStore.delete(ownerUID: ownerUID, noteID: noteID)
+                note.audioSyncedAt = nil
+                #if DEBUG
+                print("NoteSyncService: deleted voice memo for \(noteID)")
+                #endif
+            }
+        } catch {
+            #if DEBUG
+            logFirestoreError(error, while: "syncing voice memo for note \(noteID). Permission denied here means the audio rules aren't published")
+            #endif
+            throw error
+        }
+    }
+
     // The document carries these seven fields, plus pinnedAt while the
     // note is pinned. A draft is never written as shared or pinned
     // regardless of what is held locally, since the security rules
@@ -128,6 +165,8 @@ final class NoteSyncService {
     // has no pinnedAt.
     private func noteData(for note: Note) -> [String: Any] {
         let isPinned = !note.isDraft && note.isPinned
+        // Like hasPhoto, only true once the memo document really exists.
+        let hasAudio = note.hasAudio && note.audioSyncedAt != nil
         var data: [String: Any] = [
             "text": note.text,
             "createdAt": Timestamp(date: note.createdAt),
@@ -136,7 +175,11 @@ final class NoteSyncService {
             "sharedWithFriends": note.isDraft ? false : note.sharedWithFriends,
             "hasPhoto": note.hasPhoto && note.photoSyncedAt != nil,
             "isPinned": isPinned,
+            "hasAudio": hasAudio,
         ]
+        if hasAudio, let audioSeconds = note.audioSeconds {
+            data["audioSeconds"] = audioSeconds
+        }
         if isPinned {
             data["pinnedAt"] = Timestamp(date: note.pinnedAt ?? Date())
         }
@@ -154,6 +197,7 @@ final class NoteSyncService {
         guard let uid = note.ownerUID else { return }
         let noteID = note.id.uuidString
         let mayHavePhotoBackup = note.hasPhoto || note.photoSyncedAt != nil
+        let mayHaveAudioBackup = note.audioFileName != nil || note.audioSyncedAt != nil
         Task {
             do {
                 try await db.collection("users").document(uid).collection("notes").document(noteID).delete()
@@ -164,6 +208,16 @@ final class NoteSyncService {
                 #if DEBUG
                 logFirestoreError(error, while: "deleting note \(noteID)")
                 #endif
+            }
+
+            if mayHaveAudioBackup {
+                do {
+                    try await audioStore.delete(ownerUID: uid, noteID: noteID)
+                } catch {
+                    #if DEBUG
+                    logFirestoreError(error, while: "deleting voice memo \(noteID)")
+                    #endif
+                }
             }
 
             guard mayHavePhotoBackup else { return }
@@ -251,6 +305,7 @@ final class NoteSyncService {
             guard let noteUID = note.ownerUID else { continue }
             do {
                 try await syncPhoto(for: note, ownerUID: noteUID)
+                try await syncAudio(for: note, ownerUID: noteUID)
                 ready.append(note)
             } catch {
                 failed += 1
@@ -420,7 +475,30 @@ final class NoteSyncService {
                 }
             }
 
+            // Same for a voice memo: a failed download skips the note so
+            // the next restore retries it.
+            var restoredAudioFileName: String?
+            if data["hasAudio"] as? Bool == true {
+                do {
+                    if let audioData = try await audioStore.download(ownerUID: uid, noteID: document.documentID) {
+                        restoredAudioFileName = try FileManager.writeAudioData(audioData)
+                    }
+                } catch {
+                    failed += 1
+                    if let restoredPhotoFileName {
+                        try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(restoredPhotoFileName))
+                    }
+                    #if DEBUG
+                    logFirestoreError(error, while: "restoring voice memo for note \(document.documentID)")
+                    #endif
+                    continue
+                }
+            }
+
             let note = Note(text: text, photoFileName: restoredPhotoFileName)
+            note.audioFileName = restoredAudioFileName
+            note.audioSeconds = restoredAudioFileName == nil ? nil : data["audioSeconds"] as? Int
+            note.audioSyncedAt = restoredAudioFileName == nil ? nil : Date()
             note.id = uuid
             note.createdAt = createdAtTimestamp.dateValue()
             note.isDraft = isDraft

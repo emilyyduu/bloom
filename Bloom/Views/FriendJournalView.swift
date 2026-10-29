@@ -194,6 +194,10 @@ private struct FriendNoteRow: View {
                 .foregroundStyle(.secondary)
             Text(note.text)
 
+            if let friendUID {
+                FriendVoiceMemo(friendUID: friendUID, note: note)
+            }
+
             // Only shared notes ever reach this screen, and only the
             // ones that report a photo are fetched.
             if note.hasPhoto, let friendUID, let noteID = note.id {
@@ -201,10 +205,11 @@ private struct FriendNoteRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "\(friendName), \(dayHeaderString(note.createdAt)) \(timeString(note.createdAt)), \(note.text)"
                 + (note.hasPhoto ? ", has a photo" : "")
+                + (note.hasAudio == true ? ", has a voice memo" : "")
         )
     }
 }

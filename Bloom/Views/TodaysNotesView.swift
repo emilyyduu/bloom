@@ -81,9 +81,13 @@ private struct TodaysNotesPage: View {
                     }
 
                     VStack(spacing: 12) {
-                        Text(note.text)
-                            .font(.title3)
-                            .multilineTextAlignment(.center)
+                        if !note.text.isEmpty {
+                            Text(note.text)
+                                .font(.title3)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        NoteVoiceMemo(note: note)
 
                         if let mediaLogEntry = note.mediaLogEntry {
                             MediaLogChip(entry: mediaLogEntry)

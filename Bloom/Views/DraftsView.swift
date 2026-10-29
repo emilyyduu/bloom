@@ -142,6 +142,7 @@ struct DraftsView: View {
 
     private func delete(_ note: Note) {
         note.mediaLogEntry?.deleteCompletely(in: context)
+        note.deleteAudioFile()
         if let fileName = note.photoFileName {
             try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
         }
@@ -157,9 +158,18 @@ private struct DraftRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(draft.text)
-                    .font(.body)
-                    .lineLimit(3)
+                if !draft.text.isEmpty || draft.audioSeconds == nil {
+                    Text(draft.text)
+                        .font(.body)
+                        .lineLimit(3)
+                }
+                if draft.hasAudio, let seconds = draft.audioSeconds {
+                    Label(AudioPlayerView.format(TimeInterval(seconds)), systemImage: "mic")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Voice memo, \(AudioPlayerView.format(TimeInterval(seconds)))")
+                }
                 Text("Saved \(relativeTime(draft.createdAt))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
