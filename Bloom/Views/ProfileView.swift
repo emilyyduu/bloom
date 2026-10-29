@@ -126,7 +126,14 @@ struct ProfileView: View {
                 case .journals:
                     JournalsView()
                 case .settings:
-                    SettingsView()
+                    SettingsView(
+                        displayName: displayName,
+                        username: username,
+                        isProfileLoading: isLoadingProfile
+                    ) { newDisplayName, newUsername in
+                        displayName = newDisplayName
+                        username = newUsername
+                    }
                 }
             }
             .sheet(item: $activeSheet) { sheet in

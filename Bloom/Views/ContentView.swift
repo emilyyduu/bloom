@@ -20,7 +20,6 @@ struct ContentView: View {
     @StateObject private var activity = ActivityStore.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
-    @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
     // Per account, see AccountDefaults.
     @AppStorage private var hasBackfilledPhotoSync: Bool
 
@@ -126,7 +125,7 @@ struct ContentView: View {
             router.markReady()
             friendService.startListening()
             ActivityStore.shared.startListening()
-            await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
+            await NotificationScheduler.shared.refreshReminders(context: context)
             await StreakSyncService.shared.sync(context: context)
             await restoreAndSyncNotes()
         }
@@ -134,7 +133,7 @@ struct ContentView: View {
             guard newPhase == .active else { return }
             Task {
                 await NotificationLog.snapshot("became active")
-                await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
+                await NotificationScheduler.shared.refreshReminders(context: context)
                 await StreakSyncService.shared.sync(context: context)
                 await restoreAndSyncNotes()
             }

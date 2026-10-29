@@ -3,8 +3,8 @@ import FirebaseAuth
 
 // UserDefaults keys for settings that are about an account's content,
 // namespaced with the uid so one account's choice never applies to
-// another on the same device. Pure device settings (appearance, the
-// daily reminder switch) keep their plain shared keys.
+// another on the same device. Pure device settings (appearance)
+// keep their plain shared key.
 enum AccountDefaults {
     static let shareNewNotesBase = "shareNewNotesWithFriends"
     static let shareNewNotesConfirmationBase = "hasShownShareNewNotesConfirmation"
@@ -118,6 +118,28 @@ enum AccountDefaults {
 
     static func isNotificationEnabled(_ base: String) -> Bool {
         UserDefaults.standard.object(forKey: key(base)) as? Bool ?? notifyDefault(base)
+    }
+
+    // The daily reminder, per account. The switch used to be one shared
+    // device key, so an account that never wrote its own value still reads
+    // that one until it does. The time is minutes after midnight (6:00 pm
+    // by default) and "adapt" picks the time from when the account writes.
+    static let dailyReminderEnabledBase = "dailyReminderEnabled"
+    static let reminderTimeMinutesBase = "reminderTimeMinutes"
+    static let reminderAdaptBase = "reminderAdaptToHabits"
+    static let defaultReminderMinutes = 18 * 60
+
+    static var dailyReminderEnabledDefault: Bool {
+        UserDefaults.standard.bool(forKey: dailyReminderEnabledBase)
+    }
+
+    static var reminderSettings: ReminderSettings {
+        let defaults = UserDefaults.standard
+        return ReminderSettings(
+            isEnabled: defaults.object(forKey: key(dailyReminderEnabledBase)) as? Bool ?? dailyReminderEnabledDefault,
+            minutes: defaults.object(forKey: key(reminderTimeMinutesBase)) as? Int ?? defaultReminderMinutes,
+            adaptsToHabits: defaults.bool(forKey: key(reminderAdaptBase))
+        )
     }
 
     // Notes whose "shared a note" activity was already written, so a

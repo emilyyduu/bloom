@@ -14,13 +14,11 @@ final class NotificationScheduler {
     private init() {}
 
     private let center = UNUserNotificationCenter.current()
-    private let reminderHour = 18
-    private let reminderMinute = 0
-
     static let title = "Bloom"
     static let body = "Anything from today worth keeping?"
 
-    // Only called when the user turns the Daily Reminder toggle on.
+    // Called when the user turns the Daily Reminder on, or taps Turn on
+    // in Notifications settings. Never at launch.
     func requestAuthorization() async -> Bool {
         do {
             return try await center.requestAuthorization(options: [.alert, .sound, .badge])
@@ -30,12 +28,13 @@ final class NotificationScheduler {
     }
 
     // Removes every pending "bloom.reminder." request and, if the
-    // setting is on and permission has been granted, schedules a fresh
-    // 7 day window. Called on launch, on returning to the foreground,
-    // and whenever the setting changes.
-    func refreshReminders(enabled: Bool, context: ModelContext) async {
+    // account's reminder is on and permission has been granted, schedules
+    // a fresh 7 day window at the chosen time (or the habit time when
+    // "Adapt to my habits" is on). Called on launch, on returning to the
+    // foreground, and whenever a reminder setting changes.
+    func refreshReminders(context: ModelContext) async {
         await cancelAllReminders()
-        guard enabled else { return }
+        guard AccountDefaults.reminderSettings.isEnabled else { return }
 
         let settings = await center.notificationSettings()
         guard settings.authorizationStatus == .authorized else { return }
@@ -44,12 +43,18 @@ final class NotificationScheduler {
         // that account is still signed in after the awaits above.
         guard StoreManager.shared.owns(context, uid: Auth.auth().currentUser?.uid) else { return }
 
+        // Read after the awaits so a change made meanwhile is honoured.
+        let reminder = AccountDefaults.reminderSettings
+        guard reminder.isEnabled else { return }
+
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let loggedDates = loggedDates(in: context, calendar: calendar)
+        let noteDates = postedNoteDates(in: context)
+        let loggedDates = Set(noteDates.map { calendar.startOfDay(for: $0) })
+        let minutes = ReminderPlanner.effectiveMinutes(reminder, noteDates: noteDates, calendar: calendar)
 
         for day in ReminderPlanner.reminderDays(from: today, loggedDates: loggedDates, calendar: calendar) {
-            schedule(for: day, calendar: calendar)
+            schedule(for: day, minutes: minutes, calendar: calendar)
         }
     }
 
@@ -90,10 +95,10 @@ final class NotificationScheduler {
         center.add(request)
     }
 
-    private func schedule(for day: ReminderPlanner.ReminderDay, calendar: Calendar) {
+    private func schedule(for day: ReminderPlanner.ReminderDay, minutes: Int, calendar: Calendar) {
         var dateComponents = calendar.dateComponents([.year, .month, .day], from: day.date)
-        dateComponents.hour = reminderHour
-        dateComponents.minute = reminderMinute
+        dateComponents.hour = minutes / 60
+        dateComponents.minute = minutes % 60
 
         let content = UNMutableNotificationContent()
         content.title = Self.title
@@ -111,9 +116,10 @@ final class NotificationScheduler {
         }
     }
 
-    private func loggedDates(in context: ModelContext, calendar: Calendar) -> Set<Date> {
+    // When each posted note was written.
+    private func postedNoteDates(in context: ModelContext) -> [Date] {
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { !$0.isDraft })
         guard let notes = try? context.fetch(descriptor) else { return [] }
-        return Set(notes.map { calendar.startOfDay(for: $0.createdAt) })
+        return notes.map(\.createdAt)
     }
 }

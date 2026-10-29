@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import FirebaseAuth
 
 // Stored with @AppStorage and applied at the app root in BloomApp, so
 // it takes effect everywhere, not just while Settings is on screen.
@@ -18,136 +17,70 @@ enum AppAppearance: String, CaseIterable {
     }
 }
 
+// The Settings home: a grouped list of rows, each opening its own screen
+// (Display, Notifications, Privacy, About), plus Account. Pushed from the
+// Profile tab's NavigationStack.
 struct SettingsView: View {
-    @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
-    @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
+    // What Edit profile needs, loaded by ProfileView.
+    var displayName = ""
+    var username = ""
+    var isProfileLoading = false
+    var onProfileSaved: (_ displayName: String, _ username: String) -> Void = { _, _ in }
 
     #if DEBUG
     @AppStorage("gardenSampleDataEnabled") private var isGardenSampleDataEnabled = false
+    @Query(filter: #Predicate<Note> { !$0.isDraft }) private var postedNotes: [Note]
+    @Environment(\.modelContext) private var context
     @State private var sampleHistoryMessage: String?
     @State private var testBannerMessage: String?
     #endif
 
-    @Query(filter: #Predicate<Note> { $0.syncedAt == nil }) private var unsyncedNotes: [Note]
-    @Query(filter: #Predicate<Note> { !$0.isDraft }) private var postedNotes: [Note]
-    @Query(filter: #Predicate<Note> { !$0.isDraft && $0.sharedWithFriends }) private var sharedNotes: [Note]
-    @State private var isBackingUp = false
-
-    // Per account, see AccountDefaults.
-    @AppStorage private var shareNewNotesWithFriends: Bool
-    @AppStorage private var hasShownShareNewNotesConfirmation: Bool
-    // Which friend activity is shown as a system notification.
-    @AppStorage private var notifyFriendRequests: Bool
-    @AppStorage private var notifyFriendNotes: Bool
-    @AppStorage private var notifyComments: Bool
-    @AppStorage private var notifyReactions: Bool
-    @State private var isShowingShareNewNotesConfirmation = false
-    @State private var isShowingShareAllConfirmation = false
-    @State private var isShowingStopSharingAllConfirmation = false
-    @State private var isBulkUpdatingSharing = false
-
-    @Environment(\.modelContext) private var context
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     @State private var isShowingSignOutConfirmation = false
     @State private var errorMessage: String?
-    @State private var reminderErrorMessage: String?
-
-    init() {
-        typealias D = AccountDefaults
-        _notifyFriendRequests = AppStorage(wrappedValue: D.notifyDefault(D.notifyFriendRequestsBase), D.key(D.notifyFriendRequestsBase))
-        _notifyFriendNotes = AppStorage(wrappedValue: D.notifyDefault(D.notifyFriendNotesBase), D.key(D.notifyFriendNotesBase))
-        _notifyComments = AppStorage(wrappedValue: D.notifyDefault(D.notifyCommentsBase), D.key(D.notifyCommentsBase))
-        _notifyReactions = AppStorage(wrappedValue: D.notifyDefault(D.notifyReactionsBase), D.key(D.notifyReactionsBase))
-        _shareNewNotesWithFriends = AppStorage(
-            wrappedValue: false, AccountDefaults.key(AccountDefaults.shareNewNotesBase)
-        )
-        _hasShownShareNewNotesConfirmation = AppStorage(
-            wrappedValue: false, AccountDefaults.key(AccountDefaults.shareNewNotesConfirmationBase)
-        )
-    }
-
-    private var appearance: Binding<AppAppearance> {
-        Binding(
-            get: { AppAppearance(rawValue: appearanceRawValue) ?? .system },
-            set: { appearanceRawValue = $0.rawValue }
-        )
-    }
-
-    // Notes still waiting on a backup for the signed-in account: ones
-    // not yet stamped with an owner, plus ones already stamped with
-    // this uid. A note left over from a different account on this
-    // device never counts here, syncPending won't touch it either.
-    private var pendingBackupCount: Int {
-        let uid = Auth.auth().currentUser?.uid
-        return unsyncedNotes.filter { $0.ownerUID == nil || $0.ownerUID == uid }.count
-    }
 
     var body: some View {
-        Form {
+        List {
             Section {
-                appearancePicker
+                NavigationLink {
+                    EditProfileView(displayName: displayName, username: username, onSave: onProfileSaved)
+                } label: {
+                    SettingsRowLabel("Edit profile", subtitle: "Name, username and photo", systemImage: "person.crop.circle")
+                }
+                .disabled(isProfileLoading)
+
+                Button(role: .destructive) {
+                    isShowingSignOutConfirmation = true
+                } label: {
+                    SettingsRowLabel("Sign out", systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
+                }
+                .foregroundStyle(.red)
+
+                FormErrorText(message: errorMessage)
             } header: {
-                SectionHeader("Appearance")
+                SectionHeader("Account")
             }
 
             Section {
-                Toggle("Daily Reminder", isOn: $isDailyReminderEnabled)
-                    .onChange(of: isDailyReminderEnabled) { _, isEnabled in
-                        handleReminderToggle(isEnabled)
-                    }
-                FormErrorText(message: reminderErrorMessage)
-                PhoneAlertsSettingsRows()
-
-                #if DEBUG
-                Button("Send Test Notification (5s)") {
-                    NotificationScheduler.shared.sendTestNotification()
+                NavigationLink {
+                    SettingsDisplayView()
+                } label: {
+                    SettingsRowLabel("Display", subtitle: "Appearance and text size", systemImage: "textformat.size")
                 }
-                #endif
-            } header: {
-                SectionHeader("Notifications")
-            }
-
-            Section {
-                Toggle("Friend requests", isOn: $notifyFriendRequests)
-                Toggle("Friends\u{2019} new notes", isOn: $notifyFriendNotes)
-                Toggle("Comments and replies", isOn: $notifyComments)
-                Toggle("Reactions", isOn: $notifyReactions)
-            } header: {
-                SectionHeader("Friend activity")
-            } footer: {
-                Text("Show these as notifications on this device")
-            }
-
-            Section {
-                Text(backupStatusText)
-                    .foregroundStyle(.secondary)
-                Button("Back up now") {
-                    backUpNow()
+                NavigationLink {
+                    SettingsNotificationsView()
+                } label: {
+                    SettingsRowLabel("Notifications", subtitle: "Reminder and friend alerts", systemImage: "bell")
                 }
-                .disabled(isBackingUp || pendingBackupCount == 0)
-            } header: {
-                SectionHeader("Backup")
-            }
-
-            Section {
-                Toggle("Share new notes with friends", isOn: $shareNewNotesWithFriends)
-                    .onChange(of: shareNewNotesWithFriends) { _, isOn in
-                        guard isOn, !hasShownShareNewNotesConfirmation else { return }
-                        isShowingShareNewNotesConfirmation = true
-                    }
-
-                Button("Share all my past notes") {
-                    isShowingShareAllConfirmation = true
+                NavigationLink {
+                    SettingsPrivacyView()
+                } label: {
+                    SettingsRowLabel("Privacy", subtitle: "Sharing, permissions and backup", systemImage: "hand.raised")
                 }
-                .disabled(isBulkUpdatingSharing || postedNotes.isEmpty)
-
-                Button("Stop sharing all notes", role: .destructive) {
-                    isShowingStopSharingAllConfirmation = true
+                NavigationLink {
+                    SettingsAboutView()
+                } label: {
+                    SettingsRowLabel("About", subtitle: "Version and acknowledgements", systemImage: "info.circle")
                 }
-                .disabled(isBulkUpdatingSharing || sharedNotes.isEmpty)
-            } footer: {
-                Text("Friends see the notes you share from today and your pinned notes. You can change this for any note.")
             }
 
             #if DEBUG
@@ -178,44 +111,8 @@ struct SettingsView: View {
                 SectionHeader("Debug")
             }
             #endif
-
-            Section {
-                Button("Sign Out", role: .destructive) {
-                    isShowingSignOutConfirmation = true
-                }
-                FormErrorText(message: errorMessage)
-            }
         }
         .navigationTitle("Settings")
-        .refreshesNotificationPermission()
-        .alert(
-            "Share new notes with friends",
-            isPresented: $isShowingShareNewNotesConfirmation
-        ) {
-            Button("OK") { hasShownShareNewNotesConfirmation = true }
-        } message: {
-            Text("Friends see the notes you share from today and your pinned notes. You can change this for any note.")
-        }
-        .confirmationDialog(
-            "Share all \(postedNotes.count) note\(postedNotes.count == 1 ? "" : "s")?",
-            isPresented: $isShowingShareAllConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Share All") { bulkSetSharing(true) }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Friends see the notes you share from today and your pinned notes. Older notes stay hidden from them unless you pin them.")
-        }
-        .confirmationDialog(
-            "Stop sharing \(sharedNotes.count) note\(sharedNotes.count == 1 ? "" : "s")?",
-            isPresented: $isShowingStopSharingAllConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Stop Sharing", role: .destructive) { bulkSetSharing(false) }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Your friends will no longer see these notes, including any you pinned.")
-        }
         .confirmationDialog(
             "Sign out of Bloom?",
             isPresented: $isShowingSignOutConfirmation,
@@ -223,50 +120,6 @@ struct SettingsView: View {
         ) {
             Button("Sign Out", role: .destructive) { signOut() }
             Button("Cancel", role: .cancel) {}
-        }
-    }
-
-    private var backupStatusText: String {
-        pendingBackupCount == 0
-            ? "All notes backed up"
-            : "\(pendingBackupCount) note\(pendingBackupCount == 1 ? "" : "s") waiting to back up"
-    }
-
-    // The segmented style truncates "System"/"Light"/"Dark" at
-    // accessibility sizes, so it becomes a menu instead, same as the
-    // Journal segmented control.
-    @ViewBuilder
-    private var appearancePicker: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            Picker("Appearance", selection: appearance) {
-                ForEach(AppAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.menu)
-        } else {
-            Picker("Appearance", selection: appearance) {
-                ForEach(AppAppearance.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-        }
-    }
-
-    private func handleReminderToggle(_ isEnabled: Bool) {
-        reminderErrorMessage = nil
-
-        guard isEnabled else {
-            Task { await NotificationScheduler.shared.refreshReminders(enabled: false, context: context) }
-            return
-        }
-
-        Task {
-            let granted = await NotificationScheduler.shared.requestAuthorization()
-            if granted {
-                await NotificationScheduler.shared.refreshReminders(enabled: true, context: context)
-            } else {
-                isDailyReminderEnabled = false
-                reminderErrorMessage = "Bloom needs notification permission for reminders. " +
-                    "Turn it on in iOS Settings > Bloom > Notifications."
-            }
         }
     }
 
@@ -280,24 +133,6 @@ struct SettingsView: View {
     }
     #endif
 
-    private func backUpNow() {
-        guard !isBackingUp else { return }
-        isBackingUp = true
-        Task {
-            await NoteSyncService.shared.syncPending(context: context)
-            isBackingUp = false
-        }
-    }
-
-    private func bulkSetSharing(_ isShared: Bool) {
-        guard !isBulkUpdatingSharing else { return }
-        isBulkUpdatingSharing = true
-        Task {
-            await NoteSyncService.shared.setSharedWithFriendsForAllNotes(isShared, context: context)
-            isBulkUpdatingSharing = false
-        }
-    }
-
     private func signOut() {
         AuthService.shared.resetInMemoryAccountState()
         do {
@@ -305,6 +140,45 @@ struct SettingsView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+// A settings row: the SF Symbol in a rounded square, a title and an
+// optional one line subtitle. Grows with Dynamic Type, the text wraps.
+struct SettingsRowLabel: View {
+    let title: String
+    let subtitle: String?
+    let systemImage: String
+    let tint: Color
+
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 30
+
+    init(_ title: String, subtitle: String? = nil, systemImage: String, tint: Color = .accentColor) {
+        self.title = title
+        self.subtitle = subtitle
+        self.systemImage = systemImage
+        self.tint = tint
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.subheadline)
+                .foregroundStyle(Color(.systemBackground))
+                .frame(width: iconSize, height: iconSize)
+                .background(RoundedRectangle(cornerRadius: 7).fill(tint))
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(minHeight: 44)
     }
 }
 
@@ -324,26 +198,17 @@ struct SettingsView: View {
     .preferredColorScheme(.dark)
 }
 
-#Preview("Dynamic Type - Large") {
-    NavigationStack {
-        SettingsView()
-    }
-    .modelContainer(PreviewContainer.shared)
-    .environment(\.dynamicTypeSize, .large)
-}
-
-#Preview("Dynamic Type - XXX Large") {
-    NavigationStack {
-        SettingsView()
-    }
-    .modelContainer(PreviewContainer.shared)
-    .environment(\.dynamicTypeSize, .xxxLarge)
-}
-
 #Preview("Dynamic Type - Accessibility 5") {
     NavigationStack {
         SettingsView()
     }
     .modelContainer(PreviewContainer.shared)
     .environment(\.dynamicTypeSize, .accessibility5)
+}
+
+#Preview("Landscape", traits: .landscapeLeft) {
+    NavigationStack {
+        SettingsView()
+    }
+    .modelContainer(PreviewContainer.shared)
 }

@@ -288,8 +288,7 @@ final class NoteSyncService {
     // the note, then the cloud copies are removed.
     func finishDeletion(noteID: String, context: ModelContext) async {
         await StreakSyncService.shared.sync(context: context)
-        let isReminderEnabled = UserDefaults.standard.bool(forKey: "dailyReminderEnabled")
-        await NotificationScheduler.shared.refreshReminders(enabled: isReminderEnabled, context: context)
+        await NotificationScheduler.shared.refreshReminders(context: context)
         guard let uid = Auth.auth().currentUser?.uid else { return }
         await deleteRemote(noteID: noteID, uid: uid)
     }
@@ -645,7 +644,6 @@ final class NoteSyncService {
 
         guard restored > 0 else { return }
         await StreakSyncService.shared.sync(context: context)
-        let isReminderEnabled = UserDefaults.standard.bool(forKey: "dailyReminderEnabled")
-        await NotificationScheduler.shared.refreshReminders(enabled: isReminderEnabled, context: context)
+        await NotificationScheduler.shared.refreshReminders(context: context)
     }
 }

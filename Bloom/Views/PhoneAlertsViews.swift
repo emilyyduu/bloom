@@ -62,22 +62,3 @@ struct PhoneAlertsCard: View {
         }
     }
 }
-
-// Settings > Notifications: the status in words, with the same buttons.
-struct PhoneAlertsSettingsRows: View {
-    private let manager = NotificationManager.shared
-
-    var body: some View {
-        LabeledContent("Phone alerts", value: manager.hasChecked ? manager.authorizationDescription : "Checking")
-        if manager.hasChecked {
-            switch manager.authorizationStatus {
-            case .notDetermined:
-                Button("Allow") { Task { await manager.requestAuthorization() } }
-            case .denied:
-                Button("Open Settings") { manager.openSettings() }
-            default:
-                EmptyView()
-            }
-        }
-    }
-}
