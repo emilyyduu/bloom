@@ -150,11 +150,13 @@ final class ActivityStore: ObservableObject {
 
     @Published private(set) var items: [ActivityItem] = []
     @Published private(set) var isLoading = true
+    @Published private(set) var state: LiveState = .loading
     @Published var errorMessage: String?
     @Published private(set) var lastSeen = Date()
 
     private var listener: ListenerRegistration?
     private var hasReceivedFirstSnapshot = false
+    private let timeout = LiveTimeout()
 
     var unreadCount: Int {
         items.filter { $0.createdAt > lastSeen }.count
@@ -162,27 +164,44 @@ final class ActivityStore: ObservableObject {
 
     // Safe to call more than once, it only attaches once.
     func startListening() {
-        guard listener == nil, let myUID = Auth.auth().currentUser?.uid else { return }
+        guard listener == nil, let myUID = Auth.auth().currentUser?.uid else {
+            LiveLog.event("activity", "start SKIPPED (listener exists: \(listener != nil))", path: "users/?/activity")
+            return
+        }
+        LiveLog.event("activity", "start", path: "users/\(myUID)/activity")
         lastSeen = AccountDefaults.activityLastSeen
         isLoading = true
+        state = .loading
         errorMessage = nil
         hasReceivedFirstSnapshot = false
+
+        timeout.start { [weak self] in
+            guard let self, self.state == .loading else { return }
+            LiveLog.event("activity", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: "users/\(myUID)/activity")
+            self.listener?.remove()
+            self.listener = nil
+            self.fail(.failed)
+        }
 
         listener = Firestore.firestore().collection("users").document(myUID).collection("activity")
             .order(by: "createdAt", descending: true)
             .limit(to: 50)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self else { return }
+                self.timeout.cancel()
                 self.isLoading = false
+                if let error { LiveLog.error("activity", path: "users/\(myUID)/activity", error: error) }
+                else if let snapshot { LiveLog.snapshot("activity", path: "users/\(myUID)/activity", count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache) }
 
                 if let error {
-                    self.errorMessage = "Couldn\u{2019}t load your notifications. Check your connection and try again."
-                    #if DEBUG
-                    logFirestoreError(error, while: "listening to activity")
-                    #endif
+                    // Firestore ends a listener that errored.
+                    self.listener?.remove()
+                    self.listener = nil
+                    self.fail(LiveState(error: error))
                     return
                 }
                 guard let snapshot else { return }
+                self.state = .loaded
                 self.errorMessage = nil
                 self.items = snapshot.documents.compactMap(ActivityItem.init(document:))
 
@@ -198,7 +217,24 @@ final class ActivityStore: ObservableObject {
             }
     }
 
+    private func fail(_ newState: LiveState) {
+        isLoading = false
+        state = newState
+        errorMessage = newState == .permissionDenied
+            ? "You can\u{2019}t see your notifications"
+            : "Couldn\u{2019}t load your notifications"
+    }
+
+    // The Retry button: stops the listener and starts a new one.
+    func retry() {
+        stopListening()
+        startListening()
+    }
+
     func stopListening() {
+        timeout.cancel()
+        state = .loading
+        LiveLog.event("activity", "stop", path: "users/?/activity")
         listener?.remove()
         listener = nil
         items = []

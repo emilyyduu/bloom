@@ -20,20 +20,14 @@ struct NoteComment: Identifiable, Equatable {
 // removed on disappear.
 @MainActor
 final class NoteCommentsListener: ObservableObject {
-    enum LoadState {
-        case loading
-        case loaded
-        case permissionDenied
-        case failed
-    }
-
     @Published private(set) var comments: [NoteComment] = []
-    @Published private(set) var state: LoadState = .loading
+    @Published private(set) var state: LiveState = .loading
 
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var ownerUID: String?
     private var noteID: String?
+    private let timeout = LiveTimeout()
 
     private var isSample: Bool { ownerUID?.hasPrefix("sample-") ?? false }
 
@@ -42,12 +36,14 @@ final class NoteCommentsListener: ObservableObject {
         return db.collection("users").document(ownerUID).collection("notes").document(noteID).collection("comments")
     }
 
+    // Starting the note that is already running does nothing.
     func start(ownerUID: String, noteID: String) {
+        if listener != nil, self.ownerUID == ownerUID, self.noteID == noteID { return }
         stop()
         self.ownerUID = ownerUID
         self.noteID = noteID
-        comments = []
-        state = .loading
+        let path = "users/\(ownerUID)/notes/\(noteID)/comments"
+        LiveLog.event("comments", "start", path: path)
 
         // DEBUG sample friends never touch Firestore.
         guard !ownerUID.hasPrefix("sample-") else {
@@ -58,31 +54,52 @@ final class NoteCommentsListener: ObservableObject {
             return
         }
 
+        timeout.start { [weak self] in
+            guard let self, self.state == .loading else { return }
+            LiveLog.event("comments", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
+            self.listener?.remove()
+            self.listener = nil
+            self.state = .failed
+        }
+
         listener = collection?
             .order(by: "createdAt", descending: false)
             .addSnapshotListener { [weak self] snapshot, error in
-                guard let self, self.noteID == noteID else { return }
+                guard let self, self.noteID == noteID, self.ownerUID == ownerUID else { return }
+                self.timeout.cancel()
 
                 if let error {
-                    let nsError = error as NSError
-                    let isDenied = nsError.domain == FirestoreErrorDomain
-                        && nsError.code == FirestoreErrorCode.permissionDenied.rawValue
-                    self.state = isDenied ? .permissionDenied : .failed
-                    #if DEBUG
-                    logFirestoreError(error, while: "listening to comments on \(noteID)")
-                    #endif
+                    LiveLog.error("comments", path: path, error: error)
+                    self.listener?.remove()
+                    self.listener = nil
+                    self.state = LiveState(error: error)
                     return
                 }
+                guard let snapshot else { return }
+                LiveLog.snapshot("comments", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
-                self.comments = (snapshot?.documents ?? []).compactMap(Self.comment(from:))
+                self.comments = snapshot.documents.compactMap(Self.comment(from:))
                 self.state = .loaded
                 CommentCounts.shared.set(self.comments.count, ownerUID: ownerUID, noteID: noteID)
             }
     }
 
+    // The Retry button: a new listener for the same note.
+    func retry() {
+        guard let ownerUID, let noteID else { return }
+        stop()
+        start(ownerUID: ownerUID, noteID: noteID)
+    }
+
+    // Always leaves a clean state, so presenting the sheet again starts
+    // a fresh listener from loading.
     func stop() {
+        LiveLog.event("comments", "stop", path: "users/\(ownerUID ?? "?")/notes/\(noteID ?? "?")/comments")
         listener?.remove()
         listener = nil
+        timeout.cancel()
+        comments = []
+        state = .loading
     }
 
     private static func comment(from document: QueryDocumentSnapshot) -> NoteComment? {

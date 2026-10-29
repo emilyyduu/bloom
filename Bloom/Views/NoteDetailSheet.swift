@@ -237,6 +237,13 @@ private struct ViewerNoteDetail: View {
 // comment field pinned to the bottom. In landscape the note sits on the
 // left and the comments on the right, each scrolling, with the field
 // under the comments.
+private struct AttachKey: Equatable {
+    let ownerUID: String
+    let noteID: String
+    let enabled: Bool
+    let myUID: String?
+}
+
 private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     let title: String
     let ownerUID: String
@@ -292,6 +299,11 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
             }
         }
         .onAppear { attach() }
+        // Also restarts when the note or account is only known after the
+        // first appearance. start() ignores a note that is already running.
+        .task(id: AttachKey(ownerUID: ownerUID, noteID: noteID, enabled: commentsEnabled, myUID: Auth.auth().currentUser?.uid)) {
+            attach()
+        }
         .onDisappear {
             listener.stop()
             reactions.stop()
@@ -389,6 +401,27 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     }
 }
 
+// The "Couldn't load" line with a Retry button, shared by the comments
+// and reactions sections.
+struct LiveFailedNotice: View {
+    let text: String
+    let retry: () -> Void
+
+    var body: some View {
+        HStack {
+            Label(text, systemImage: "exclamationmark.triangle")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Button("Retry", action: retry)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .frame(minHeight: 44)
+        }
+        .padding(.vertical, 8)
+    }
+}
+
 // MARK: - Comments
 
 private struct CommentsSection: View {
@@ -424,8 +457,10 @@ private struct CommentsSection: View {
                         .padding(.vertical, 16)
                 case .permissionDenied:
                     notice("You can\u{2019}t see these comments", systemImage: "lock")
+                case .missingIndex:
+                    notice("Comments aren\u{2019}t available yet", systemImage: "exclamationmark.triangle")
                 case .failed:
-                    notice("Couldn\u{2019}t load comments. Check your connection and try again.", systemImage: "exclamationmark.triangle")
+                    LiveFailedNotice(text: "Couldn\u{2019}t load comments", retry: listener.retry)
                 case .loaded where listener.comments.isEmpty:
                     notice("No comments yet", systemImage: "bubble.left")
                 case .loaded:

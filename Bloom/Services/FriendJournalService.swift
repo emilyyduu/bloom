@@ -34,23 +34,17 @@ final class FriendJournalService: ObservableObject {
     static let shared = FriendJournalService()
     private init() {}
 
-    // What a tile knows about a friend's latest note. A friend with
-    // nothing shared is .loaded with no note, which is not the same as
-    // a load that hasn't finished or one that failed.
-    enum TileLoadState {
-        case loading
-        case loaded
-        case failed
-    }
-
     static let maxListeners = 20
 
     private let db = Firestore.firestore()
 
     @Published private(set) var latestNoteByFriend: [String: FriendNote] = [:]
-    @Published private(set) var loadStateByFriend: [String: TileLoadState] = [:]
+    // A friend with nothing shared is .loaded with no note, which is not
+    // the same as a load that hasn't finished or one that failed.
+    @Published private(set) var loadStateByFriend: [String: LiveState] = [:]
 
     private var listeners: [String: ListenerRegistration] = [:]
+    private var timeouts: [String: LiveTimeout] = [:]
 
     // Bumped on sign out so a fetch still in flight for the previous
     // account can't write its results into the next account's tiles.
@@ -63,7 +57,7 @@ final class FriendJournalService: ObservableObject {
         loadStateByFriend = [:]
     }
 
-    func loadState(for uid: String) -> TileLoadState {
+    func loadState(for uid: String) -> LiveState {
         loadStateByFriend[uid] ?? .loading
     }
 
@@ -72,13 +66,14 @@ final class FriendJournalService: ObservableObject {
     // Makes the set of listeners match the friend list: new friends get
     // one, friends who left lose theirs and their tile data. Safe to call
     // as often as needed, a friend who already has a listener is skipped.
-    // A friend whose listener failed is left alone until retry(uid).
+    // A friend whose listener ended in a final error state is left alone
+    // until retry(uid).
     func syncListeners(for friendUIDs: [String]) {
         let wanted = Array(friendUIDs.prefix(Self.maxListeners))
+        LiveLog.event("tile", "syncListeners wanted=\(wanted.count) have=\(listeners.count)", path: "users/*/notes", generation: generation)
 
         for uid in Array(listeners.keys) where !wanted.contains(uid) {
-            listeners[uid]?.remove()
-            listeners[uid] = nil
+            detach(uid)
         }
         for uid in Array(latestNoteByFriend.keys) where !friendUIDs.contains(uid) {
             latestNoteByFriend[uid] = nil
@@ -87,61 +82,86 @@ final class FriendJournalService: ObservableObject {
             loadStateByFriend[uid] = nil
         }
 
-        for uid in wanted where listeners[uid] == nil && loadStateByFriend[uid] != .failed {
+        for uid in wanted where listeners[uid] == nil && (loadStateByFriend[uid].map { !$0.isFinal || $0 == .loaded } ?? true) {
             attach(to: uid)
         }
     }
 
+    // Removes every listener and returns the tiles to a clean state:
+    // a tile that had loaded keeps its note until the next first answer,
+    // anything else goes back to loading so the next syncListeners
+    // starts it again. Home calls this when it leaves the screen.
     func stopAllListeners() {
-        for listener in listeners.values { listener.remove() }
-        listeners = [:]
+        LiveLog.event("tile", "stopAll (\(listeners.count) listeners)", path: "users/*/notes", generation: generation)
+        for uid in Array(listeners.keys) { detach(uid) }
+        for timeout in timeouts.values { timeout.cancel() }
+        timeouts = [:]
+        for (uid, state) in loadStateByFriend where state != .loaded {
+            loadStateByFriend[uid] = .loading
+        }
     }
 
-    // The tile's Retry button.
+    // The tile's Retry button: stops that friend's listener and starts a new one.
     func retry(_ uid: String) {
-        guard listeners[uid] == nil else { return }
+        detach(uid)
         attach(to: uid)
+    }
+
+    private func detach(_ uid: String) {
+        listeners[uid]?.remove()
+        listeners[uid] = nil
+        timeouts[uid]?.cancel()
+        timeouts[uid] = nil
     }
 
     private func attach(to uid: String) {
         guard listeners[uid] == nil else { return }
         let startedGeneration = generation
+        let path = "users/\(uid)/notes (latest shared)"
+        LiveLog.event("tile", "attach", path: path, generation: startedGeneration)
         // Whatever the tile already shows stays until the first answer.
         if loadStateByFriend[uid] != .loaded { loadStateByFriend[uid] = .loading }
+
+        let timeout = LiveTimeout()
+        timeouts[uid] = timeout
+        timeout.start { [weak self] in
+            guard let self, startedGeneration == self.generation, self.loadStateByFriend[uid] == .loading else { return }
+            LiveLog.event("tile", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path, generation: startedGeneration)
+            self.detach(uid)
+            self.loadStateByFriend[uid] = .failed
+        }
 
         // includeMetadataChanges so the move from the cache to the server
         // is seen, otherwise a friend with nothing shared could never get
         // past an empty cache answer.
         listeners[uid] = latestNoteQuery(for: uid)
             .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
-                guard let self, startedGeneration == self.generation, self.listeners[uid] != nil else { return }
+                guard let self, startedGeneration == self.generation, self.listeners[uid] != nil else {
+                    LiveLog.event("tile", "callback DISCARDED (stale generation or removed)", path: path, generation: startedGeneration)
+                    return
+                }
 
                 if let error {
+                    LiveLog.error("tile", path: path, error: error, generation: startedGeneration)
                     // Firestore ends a listener that errored, so drop ours.
-                    self.listeners[uid]?.remove()
-                    self.listeners[uid] = nil
-                    self.loadStateByFriend[uid] = .failed
-                    #if DEBUG
-                    logFriendNotesError(error, while: "listening to \(uid)'s latest shared note")
-                    #endif
+                    self.detach(uid)
+                    self.loadStateByFriend[uid] = LiveState(error: error)
                     return
                 }
                 guard let snapshot else { return }
 
-                let notes = snapshot.decoded(as: FriendNote.self)
-                #if DEBUG
-                print("FriendJournalService: tile listener fired for \(uid), \(snapshot.documents.count) document(s), " +
-                    "fromCache \(snapshot.metadata.isFromCache), at \(Date().formatted(date: .omitted, time: .standard))")
-                #endif
+                LiveLog.snapshot("tile", path: path, count: snapshot.documents.count,
+                                 fromCache: snapshot.metadata.isFromCache, generation: startedGeneration)
 
                 // An empty answer from the cache only means nothing is
-                // cached yet. Wait for the server before saying nothing
-                // is shared.
+                // cached yet. Wait for the server (or the timeout) before
+                // saying nothing is shared.
                 if snapshot.documents.isEmpty, snapshot.metadata.isFromCache, self.loadStateByFriend[uid] != .loaded {
                     return
                 }
 
-                self.latestNoteByFriend[uid] = notes.first
+                self.timeouts[uid]?.cancel()
+                self.latestNoteByFriend[uid] = snapshot.decoded(as: FriendNote.self).first
                 self.loadStateByFriend[uid] = .loaded
             }
     }
@@ -162,7 +182,7 @@ final class FriendJournalService: ObservableObject {
     func refreshLatestNotes(for friendUIDs: [String]) async {
         let startedGeneration = generation
 
-        for uid in friendUIDs.prefix(Self.maxListeners) where loadStateByFriend[uid] == .failed {
+        for uid in friendUIDs.prefix(Self.maxListeners) where loadStateByFriend[uid].map({ $0.isFinal && $0 != .loaded }) ?? false {
             retry(uid)
         }
 
@@ -174,7 +194,7 @@ final class FriendJournalService: ObservableObject {
                 loadStateByFriend[uid] = .loaded
             } catch {
                 guard startedGeneration == generation else { return }
-                loadStateByFriend[uid] = .failed
+                loadStateByFriend[uid] = LiveState(error: error)
                 #if DEBUG
                 logFriendNotesError(error, while: "fetching \(uid)'s latest shared note")
                 #endif

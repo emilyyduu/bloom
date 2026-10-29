@@ -53,15 +53,8 @@ struct NoteReaction: Identifiable, Equatable {
 // needed. Attached on appear and removed on disappear.
 @MainActor
 final class NoteReactionsListener: ObservableObject {
-    enum LoadState {
-        case loading
-        case loaded
-        case permissionDenied
-        case failed
-    }
-
     @Published private(set) var reactions: [NoteReaction] = []
-    @Published private(set) var state: LoadState = .loading
+    @Published private(set) var state: LiveState = .loading
     @Published private(set) var errorMessage: String?
 
     private let db = Firestore.firestore()
@@ -69,6 +62,7 @@ final class NoteReactionsListener: ObservableObject {
     private var ownerUID: String?
     private var noteID: String?
     private var errorTask: Task<Void, Never>?
+    private let timeout = LiveTimeout()
 
     private var isSample: Bool { ownerUID?.hasPrefix("sample-") ?? false }
 
@@ -86,13 +80,15 @@ final class NoteReactionsListener: ObservableObject {
         return reactions.first { $0.id == uid }?.kind
     }
 
+    // Starting the note that is already running does nothing, so the
+    // sheet can call this from more than one place.
     func start(ownerUID: String, noteID: String) {
+        if listener != nil, self.ownerUID == ownerUID, self.noteID == noteID { return }
         stop()
         self.ownerUID = ownerUID
         self.noteID = noteID
-        reactions = []
-        state = .loading
-        errorMessage = nil
+        let path = "users/\(ownerUID)/notes/\(noteID)/reactions"
+        LiveLog.event("reactions", "start", path: path)
 
         // DEBUG sample friends never touch Firestore.
         guard !ownerUID.hasPrefix("sample-") else {
@@ -103,29 +99,52 @@ final class NoteReactionsListener: ObservableObject {
             return
         }
 
+        timeout.start { [weak self] in
+            guard let self, self.state == .loading else { return }
+            LiveLog.event("reactions", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
+            self.listener?.remove()
+            self.listener = nil
+            self.state = .failed
+        }
+
         listener = collection?.addSnapshotListener { [weak self] snapshot, error in
-            guard let self, self.noteID == noteID else { return }
+            guard let self, self.noteID == noteID, self.ownerUID == ownerUID else { return }
+            self.timeout.cancel()
 
             if let error {
-                let nsError = error as NSError
-                let isDenied = nsError.domain == FirestoreErrorDomain
-                    && nsError.code == FirestoreErrorCode.permissionDenied.rawValue
-                self.state = isDenied ? .permissionDenied : .failed
-                #if DEBUG
-                logFirestoreError(error, while: "listening to reactions on \(noteID). Permission denied here means the reactions rules aren't published")
-                #endif
+                LiveLog.error("reactions", path: path, error: error)
+                // Firestore ends a listener that errored.
+                self.listener?.remove()
+                self.listener = nil
+                self.state = LiveState(error: error)
                 return
             }
+            guard let snapshot else { return }
+            LiveLog.snapshot("reactions", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
-            self.reactions = (snapshot?.documents ?? []).compactMap(Self.reaction(from:))
+            self.reactions = snapshot.documents.compactMap(Self.reaction(from:))
             self.state = .loaded
         }
     }
 
+    // The Retry button: a new listener for the same note.
+    func retry() {
+        guard let ownerUID, let noteID else { return }
+        stop()
+        start(ownerUID: ownerUID, noteID: noteID)
+    }
+
+    // Always leaves a clean state, so presenting the sheet again starts
+    // a fresh listener from loading.
     func stop() {
+        LiveLog.event("reactions", "stop", path: "users/\(ownerUID ?? "?")/notes/\(noteID ?? "?")/reactions")
         listener?.remove()
         listener = nil
+        timeout.cancel()
         errorTask?.cancel()
+        errorMessage = nil
+        reactions = []
+        state = .loading
     }
 
     private static func reaction(from document: QueryDocumentSnapshot) -> NoteReaction? {

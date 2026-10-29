@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import FirebaseAuth
 
 // The landing tab: today's date and streak, today's timeline of
 // notes, and what friends have shared. The bell holds requests and
@@ -67,7 +68,7 @@ struct HomeView: View {
         return friendService.friends
     }
 
-    private func loadState(for friend: FirestoreUser) -> FriendJournalService.TileLoadState {
+    private func loadState(for friend: FirestoreUser) -> LiveState {
         #if DEBUG
         if isSampleDataEnabled { return .loaded }
         #endif
@@ -82,9 +83,8 @@ struct HomeView: View {
         return friendJournalService.latestNoteByFriend
     }
 
-    // Home's friend tile preview is a refresh-on-appear fetch, not a
-    // live listener, scoped to the friends actually shown here rather
-    // than any broader list.
+    // The friends whose tiles get a live listener, scoped to the friends
+    // actually shown here rather than any broader list.
     private var friendUIDsForTileRefresh: [String] {
         #if DEBUG
         if isSampleDataEnabled { return [] }
@@ -166,11 +166,28 @@ struct HomeView: View {
             }
             .task {
                 friendService.startListening()
-                await FriendJournalService.shared.refreshLatestNotes(for: friendUIDsForTileRefresh)
+            }
+            // One tile listener per visible friend, attached while Home is
+            // on screen. The id restarts this when the friend list or the
+            // account changes (friends arrive after launch), so it never
+            // depends on the list being ready at first appearance.
+            .task(id: TileListenerKey(uid: Auth.auth().currentUser?.uid, friendUIDs: friendUIDsForTileRefresh)) {
+                guard isOnScreen else { return }
+                friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
+                await friendJournalService.refreshLatestNotes(for: friendUIDsForTileRefresh)
+            }
+            .onAppear {
+                isOnScreen = true
+                friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
+            }
+            .onDisappear {
+                isOnScreen = false
+                friendJournalService.stopAllListeners()
             }
             .onChange(of: scenePhase) { _, newPhase in
-                guard newPhase == .active else { return }
-                Task { await FriendJournalService.shared.refreshLatestNotes(for: friendUIDsForTileRefresh) }
+                guard newPhase == .active, isOnScreen else { return }
+                friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
+                Task { await friendJournalService.refreshLatestNotes(for: friendUIDsForTileRefresh) }
             }
         }
     }
@@ -328,11 +345,16 @@ struct HomeView: View {
 
 // MARK: - Supporting types
 
+private struct TileListenerKey: Equatable {
+    let uid: String?
+    let friendUIDs: [String]
+}
+
 struct FriendTileItem: Identifiable {
     let id: String
     let friend: FirestoreUser
     let note: FriendNote?
-    let loadState: FriendJournalService.TileLoadState
+    let loadState: LiveState
 }
 
 // MARK: - Date and time helpers
@@ -512,7 +534,7 @@ private struct TimelineRow: View {
 private struct FriendTile: View {
     let friend: FirestoreUser
     let sharedNote: FriendNote?
-    let loadState: FriendJournalService.TileLoadState
+    let loadState: LiveState
     let onRetry: () -> Void
     let onOpenNote: () -> Void
     let onOpenProfile: () -> Void
@@ -527,7 +549,7 @@ private struct FriendTile: View {
     private var avatarHitSize: CGFloat { max(Self.minHitSize, avatarSize) }
     private var avatarInset: CGFloat { Self.tilePadding + avatarSize / 2 - avatarHitSize / 2 }
 
-    private var isFailed: Bool { sharedNote == nil && loadState == .failed }
+    private var isFailed: Bool { sharedNote == nil && loadState.isFinal && loadState != .loaded }
 
     var body: some View {
         if isFailed {
@@ -546,7 +568,7 @@ private struct FriendTile: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .multilineTextAlignment(.center)
-            Text("Couldn\u{2019}t load")
+            Text(loadState.message ?? "Couldn\u{2019}t load")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Button("Retry", action: onRetry)

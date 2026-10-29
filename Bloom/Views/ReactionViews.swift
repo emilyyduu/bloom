@@ -32,8 +32,10 @@ struct ReactionsSection: View {
                     .padding(.vertical, 16)
             case .permissionDenied:
                 notice("You can\u{2019}t see these reactions", systemImage: "lock")
+            case .missingIndex:
+                notice("Reactions aren\u{2019}t available yet", systemImage: "exclamationmark.triangle")
             case .failed:
-                notice("Couldn\u{2019}t load reactions. Check your connection and try again.", systemImage: "exclamationmark.triangle")
+                LiveFailedNotice(text: "Couldn\u{2019}t load reactions", retry: listener.retry)
             case .loaded:
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(ReactionKind.allCases) { kind in

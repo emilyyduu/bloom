@@ -51,6 +51,10 @@ struct NotificationsView: View {
                 if let message = errorMessage ?? activity.errorMessage {
                     Section {
                         FormErrorText(message: message)
+                        if activity.state.isFinal && activity.state != .loaded && activity.state != .permissionDenied {
+                            Button("Retry") { activity.retry() }
+                                .frame(minHeight: 44)
+                        }
                     }
                 }
 
