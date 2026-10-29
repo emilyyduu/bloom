@@ -280,7 +280,7 @@ struct ProfileView: View {
                         PinnedNoteCard(note: note)
                     }
                     .buttonStyle(.plain)
-                    .notePinActions(note)
+                    .noteActions(note)
                 }
             }
         }

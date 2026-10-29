@@ -46,6 +46,11 @@ final class AuthService: ObservableObject {
         MyAvatar.shared.reset()
         NoteSyncService.shared.reset()
         ProfileLinkCoordinator.shared.reset()
+        ActivityStore.shared.stopListening()
+        LiveBannerCenter.shared.reset()
+        ActivityRouter.shared.reset()
+        CommentCounts.shared.reset()
+        Task { await UserProfileCache.shared.reset() }
         Task { await NotificationScheduler.shared.cancelAllReminders() }
     }
 

@@ -59,6 +59,10 @@ struct NoteComposerView: View {
     // note only needs the switch flipped by hand when it should
     // differ from that default. Prefills text and photo when editing
     // an existing draft.
+    init(editing note: Note) {
+        self.init(draft: note)
+    }
+
     init(draft: Note? = nil, attaching: MediaReviewDraft? = nil) {
         let existingMedia = draft?.mediaLogEntry.map(MediaReviewDraft.init(entry:))
         _mediaDraft = State(initialValue: attaching ?? existingMedia)
@@ -87,6 +91,11 @@ struct NoteComposerView: View {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return (hasText || audioDraft != nil) && !recorder.isRecording
     }
+
+    // Editing a note that is already posted: same fields, but it can
+    // never go back to being a draft, and its date, journal, sharing
+    // and pin stay as they are.
+    private var isEditingPosted: Bool { draft?.isDraft == false }
 
     private var isEditingDraft: Bool { draft != nil }
     private var hasPhotoChanged: Bool { hasPickedNewPhoto || isPhotoRemoved }
@@ -177,7 +186,7 @@ struct NoteComposerView: View {
                     }
                 }
 
-                if isEditingDraft {
+                if isEditingDraft && !isEditingPosted {
                     Section {
                         Button("Delete Draft", role: .destructive) {
                             isShowingDeleteConfirmation = true
@@ -185,13 +194,15 @@ struct NoteComposerView: View {
                     }
                 }
             }
-            .navigationTitle(isEditingDraft ? "Edit Draft" : "New Note")
+            .navigationTitle(isEditingPosted ? "Edit Note" : (isEditingDraft ? "Edit Draft" : "New Note"))
+            // A posted note has no Drafts button or Save as Draft.
+            .toolbar(isEditingPosted ? .hidden : .automatic, for: .bottomBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { handleCancel() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add to Today") { save(asDraft: false) }
+                    Button(isEditingPosted ? "Save" : "Add to Today") { save(asDraft: false) }
                         .disabled(!canSave)
                 }
                 ToolbarItem(placement: .bottomBar) {
@@ -525,6 +536,7 @@ struct NoteComposerView: View {
             photoFileName = selectedPhotoData.flatMap { try? FileManager.writePhotoData($0) }
         }
 
+        let wasPosted = isEditingPosted
         let note: Note
         if let draft {
             note = draft
@@ -542,7 +554,7 @@ struct NoteComposerView: View {
         syncMediaEntry(for: note)
         syncAudio(for: note)
 
-        if !asDraft {
+        if !asDraft && !wasPosted {
             note.createdAt = Date()
             note.journal = Journal.journal(for: Date(), in: context)
         }
@@ -550,13 +562,18 @@ struct NoteComposerView: View {
         if note.ownerUID == nil {
             note.ownerUID = Auth.auth().currentUser?.uid
         }
-        // A draft is never shared, the security rules reject it.
-        note.sharedWithFriends = asDraft ? false : isSharedWithFriends
+        // A draft is never shared, the security rules reject it. A
+        // note that is already posted keeps whatever sharing it has.
+        if !wasPosted {
+            note.sharedWithFriends = asDraft ? false : isSharedWithFriends
+        }
+        // The upload stamps updatedAt on the note document.
         note.syncedAt = nil
 
         try? context.save()
 
-        if !asDraft {
+        // An edit changes neither streaks nor reminders.
+        if !asDraft && !wasPosted {
             NotificationScheduler.shared.cancelTodaysReminder()
             Task { await StreakSyncService.shared.sync(context: context) }
         }

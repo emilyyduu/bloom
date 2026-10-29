@@ -1,0 +1,587 @@
+import SwiftUI
+import SwiftData
+import FirebaseAuth
+
+// What a detail sheet was asked to show: one of my own notes, or a
+// note a friend shared with me.
+struct NoteDetailRequest: Identifiable {
+    enum Kind {
+        case mine(Note)
+        case friend(FriendNote, ownerUID: String, author: FirestoreUser?)
+    }
+
+    let id = UUID()
+    let kind: Kind
+    // The comment bubble opens the sheet at the comments with the
+    // field focused, tapping the rest of a card opens it at the top.
+    var focusComments = false
+
+    static func mine(_ note: Note, focusComments: Bool = false) -> NoteDetailRequest {
+        NoteDetailRequest(kind: .mine(note), focusComments: focusComments)
+    }
+
+    static func friend(
+        _ note: FriendNote,
+        ownerUID: String,
+        author: FirestoreUser?,
+        focusComments: Bool = false
+    ) -> NoteDetailRequest {
+        NoteDetailRequest(kind: .friend(note, ownerUID: ownerUID, author: author), focusComments: focusComments)
+    }
+}
+
+// The one detail sheet for every tappable note. Owner mode for my own
+// posted notes (with the three dot menu), viewer mode for a friend's
+// shared note (read only, comments still work). Drafts never open
+// here, they open in the composer.
+struct NoteDetailSheet: View {
+    let request: NoteDetailRequest
+
+    init(request: NoteDetailRequest) {
+        self.request = request
+    }
+
+    init(note: Note, focusComments: Bool = false) {
+        self.request = .mine(note, focusComments: focusComments)
+    }
+
+    var body: some View {
+        switch request.kind {
+        case .mine(let note):
+            OwnerNoteDetail(note: note, focusComments: request.focusComments)
+        case .friend(let note, let ownerUID, let author):
+            ViewerNoteDetail(note: note, ownerUID: ownerUID, author: author, focusComments: request.focusComments)
+        }
+    }
+}
+
+// MARK: - Owner mode
+
+private struct OwnerNoteDetail: View {
+    let note: Note
+    let focusComments: Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @StateObject private var actions: NoteActionController
+
+    init(note: Note, focusComments: Bool) {
+        self.note = note
+        self.focusComments = focusComments
+        _actions = StateObject(wrappedValue: NoteActionController(note: note))
+    }
+
+    private var isGone: Bool { note.isDeleted || note.modelContext == nil }
+
+    var body: some View {
+        if isGone {
+            // The note was just deleted, the sheet is closing.
+            Color.clear
+        } else {
+            NoteDetailScaffold(
+                title: note.createdAt.formatted(date: .abbreviated, time: .shortened),
+                ownerUID: note.ownerUID ?? Auth.auth().currentUser?.uid ?? "",
+                noteID: note.id.uuidString,
+                isOwner: true,
+                commentsEnabled: note.sharedWithFriends && !note.isDraft,
+                focusComments: focusComments,
+                onShare: { actions.requestShareToggle() },
+                noteBody: { noteBody },
+                menu: { menu }
+            )
+            .noteActionDialogs(actions)
+            .onAppear {
+                actions.context = context
+                actions.onDeleted = { dismiss() }
+            }
+        }
+    }
+
+    private var menu: some View {
+        Menu {
+            NoteActionButtons(controller: actions)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("Note options")
+    }
+
+    private var noteBody: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !note.text.isEmpty {
+                Text(note.text)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let photo = note.photo {
+                Image(uiImage: photo)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .accessibilityLabel("Photo")
+            }
+
+            NoteVoiceMemo(note: note)
+
+            if let mediaLogEntry = note.mediaLogEntry {
+                MediaLogChip(entry: mediaLogEntry)
+            }
+
+            statusChips
+        }
+    }
+
+    // Words as well as icons, so the state never relies on colour.
+    private var statusChips: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            chip(
+                note.sharedWithFriends ? "Shared to circle" : "Only you",
+                systemImage: note.sharedWithFriends ? "person.2.fill" : "lock.fill"
+            )
+            if note.isPinned {
+                chip("Pinned", systemImage: "pin.fill")
+            }
+        }
+    }
+
+    private func chip(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.caption)
+            .fontWeight(.medium)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color(.secondarySystemBackground), in: Capsule())
+    }
+}
+
+// MARK: - Viewer mode
+
+private struct ViewerNoteDetail: View {
+    let note: FriendNote
+    let ownerUID: String
+    let author: FirestoreUser?
+    let focusComments: Bool
+
+    var body: some View {
+        NoteDetailScaffold(
+            title: note.createdAt.formatted(date: .abbreviated, time: .shortened),
+            ownerUID: ownerUID,
+            noteID: note.id ?? "",
+            isOwner: false,
+            commentsEnabled: note.id != nil,
+            focusComments: focusComments,
+            onShare: nil,
+            noteBody: { noteBody },
+            menu: { EmptyView() }
+        )
+    }
+
+    private var noteBody: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let author {
+                HStack(spacing: 12) {
+                    AvatarView(user: author, size: 44, relativeTo: .body)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(author.shownName)
+                            .font(.headline)
+                        Text("@\(author.username)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+
+            if !note.text.isEmpty {
+                Text(note.text)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            // Loaded the same way the friend journal does.
+            if note.hasPhoto, let noteID = note.id {
+                FriendNotePhoto(friendUID: ownerUID, noteID: noteID)
+            }
+
+            FriendVoiceMemo(friendUID: ownerUID, note: note)
+        }
+    }
+}
+
+// MARK: - Shared layout
+
+// One ScrollView with the note on top and the comments below, the
+// comment field pinned to the bottom. In landscape the note sits on the
+// left and the comments on the right, each scrolling, with the field
+// under the comments.
+private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
+    let title: String
+    let ownerUID: String
+    let noteID: String
+    let isOwner: Bool
+    let commentsEnabled: Bool
+    let focusComments: Bool
+    let onShare: (() -> Void)?
+    @ViewBuilder let noteBody: () -> NoteBody
+    @ViewBuilder let menu: () -> Menu
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @StateObject private var listener = NoteCommentsListener()
+    @FocusState private var isInputFocused: Bool
+
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+
+    // A friend whose note I can no longer read: stopped sharing, or no
+    // longer friends. Comments are what tells us, the rules refuse them.
+    private var isUnavailable: Bool {
+        !isOwner && listener.state == .permissionDenied
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isUnavailable {
+                    ContentUnavailableView(
+                        "You can\u{2019}t see this note",
+                        systemImage: "lock",
+                        description: Text("It may no longer be shared, or you may no longer be friends.")
+                    )
+                } else if isCompactHeight {
+                    landscapeLayout
+                } else {
+                    portraitLayout
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                if isOwner {
+                    ToolbarItem(placement: .primaryAction) {
+                        menu()
+                    }
+                }
+            }
+        }
+        .onAppear { attach() }
+        .onDisappear { listener.stop() }
+        .onChange(of: commentsEnabled) { _, _ in attach() }
+    }
+
+    private func attach() {
+        if commentsEnabled, !noteID.isEmpty, !ownerUID.isEmpty {
+            listener.start(ownerUID: ownerUID, noteID: noteID)
+        } else {
+            listener.stop()
+        }
+    }
+
+    // MARK: Portrait
+
+    private var portraitLayout: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    noteBody()
+                    CommentsSection(
+                        listener: listener,
+                        ownerUID: ownerUID,
+                        isOwner: isOwner,
+                        commentsEnabled: commentsEnabled,
+                        onShare: onShare
+                    )
+                    .id("comments")
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .safeAreaInset(edge: .bottom) {
+                if commentsEnabled {
+                    CommentInputBar(listener: listener, isFocused: $isInputFocused)
+                }
+            }
+            .task {
+                guard focusComments, commentsEnabled else { return }
+                try? await Task.sleep(for: .milliseconds(350))
+                withAnimation { proxy.scrollTo("comments", anchor: .top) }
+                isInputFocused = true
+            }
+        }
+    }
+
+    // MARK: Landscape
+
+    private var landscapeLayout: some View {
+        AnyLayout(HStackLayout(alignment: .top, spacing: 0)) {
+            ScrollView {
+                noteBody()
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            VStack(spacing: 0) {
+                ScrollView {
+                    CommentsSection(
+                        listener: listener,
+                        ownerUID: ownerUID,
+                        isOwner: isOwner,
+                        commentsEnabled: commentsEnabled,
+                        onShare: onShare
+                    )
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .scrollDismissesKeyboard(.interactively)
+
+                if commentsEnabled {
+                    CommentInputBar(listener: listener, isFocused: $isInputFocused)
+                }
+            }
+        }
+        .task {
+            guard focusComments, commentsEnabled else { return }
+            try? await Task.sleep(for: .milliseconds(350))
+            isInputFocused = true
+        }
+    }
+}
+
+// MARK: - Comments
+
+private struct CommentsSection: View {
+    @ObservedObject var listener: NoteCommentsListener
+    let ownerUID: String
+    let isOwner: Bool
+    let commentsEnabled: Bool
+    let onShare: (() -> Void)?
+
+    @State private var commentToDelete: NoteComment?
+    @State private var errorMessage: String?
+
+    private var myUID: String? { Auth.auth().currentUser?.uid }
+
+    private var heading: String {
+        guard commentsEnabled, listener.state == .loaded else { return "Comments" }
+        return "Comments \(listener.comments.count)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(heading)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+
+            if !commentsEnabled {
+                disabledState
+            } else {
+                switch listener.state {
+                case .loading:
+                    ProgressView("Loading comments")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                case .permissionDenied:
+                    notice("You can\u{2019}t see these comments", systemImage: "lock")
+                case .failed:
+                    notice("Couldn\u{2019}t load comments. Check your connection and try again.", systemImage: "exclamationmark.triangle")
+                case .loaded where listener.comments.isEmpty:
+                    notice("No comments yet", systemImage: "bubble.left")
+                case .loaded:
+                    ForEach(listener.comments) { comment in
+                        CommentRow(
+                            comment: comment,
+                            canDelete: isOwner || comment.authorUID == myUID,
+                            onDelete: { commentToDelete = comment }
+                        )
+                    }
+                }
+            }
+
+            FormErrorText(message: errorMessage)
+        }
+        .confirmationDialog(
+            "Delete this comment?",
+            isPresented: Binding(
+                get: { commentToDelete != nil },
+                set: { if !$0 { commentToDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                if let comment = commentToDelete { delete(comment) }
+                commentToDelete = nil
+            }
+            Button("Cancel", role: .cancel) { commentToDelete = nil }
+        }
+    }
+
+    // My own note that isn't shared yet.
+    private var disabledState: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Share to circle to let friends comment")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if let onShare {
+                Button("Share to circle", action: onShare)
+                    .buttonStyle(.bordered)
+                    .frame(minHeight: 44)
+            }
+        }
+    }
+
+    private func notice(_ text: String, systemImage: String) -> some View {
+        Label(text, systemImage: systemImage)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.vertical, 8)
+    }
+
+    private func delete(_ comment: NoteComment) {
+        errorMessage = nil
+        Task {
+            do {
+                try await listener.delete(comment)
+            } catch {
+                errorMessage = "Couldn\u{2019}t delete the comment. Try again."
+            }
+        }
+    }
+}
+
+private struct CommentRow: View {
+    let comment: NoteComment
+    let canDelete: Bool
+    let onDelete: () -> Void
+
+    @State private var author: FirestoreUser?
+
+    private var name: String { author?.shownName ?? "Someone" }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            AvatarView(
+                uid: comment.authorUID,
+                name: name,
+                hasAvatar: author?.hasAvatar ?? false,
+                avatarUpdatedAt: author?.avatarUpdatedAt,
+                size: 36,
+                relativeTo: .body
+            )
+            .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(comment.createdAt, format: .relative(presentation: .named))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text(comment.text)
+                    .font(.body)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            if canDelete {
+                Button(role: .destructive, action: onDelete) {
+                    Image(systemName: "trash")
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Delete comment by \(name)")
+            }
+        }
+        .task(id: comment.authorUID) {
+            author = await UserProfileCache.shared.profile(uid: comment.authorUID)
+        }
+    }
+}
+
+// The field pinned to the bottom: one to four lines, a counter as the
+// text nears 500 characters, and Send. A failed send puts the text back.
+private struct CommentInputBar: View {
+    @ObservedObject var listener: NoteCommentsListener
+    var isFocused: FocusState<Bool>.Binding
+
+    @State private var text = ""
+    @State private var errorMessage: String?
+
+    private var trimmed: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSend: Bool { !trimmed.isEmpty }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("Add a comment", text: $text, axis: .vertical)
+                    .lineLimit(1...4)
+                    .focused(isFocused)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                    .accessibilityLabel("Add a comment")
+
+                Button(action: send) {
+                    Image(systemName: "paperplane.fill")
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .disabled(!canSend)
+                .accessibilityLabel("Send comment")
+            }
+
+            if text.count >= NoteComment.maxLength - 100 {
+                Text("\(text.count) of \(NoteComment.maxLength)")
+                    .font(.caption2)
+                    .monospacedDigit()
+                    .foregroundStyle(text.count >= NoteComment.maxLength ? .red : .secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .accessibilityLabel("\(text.count) of \(NoteComment.maxLength) characters used")
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(.bar)
+        // Cut by whole characters so an emoji is never split.
+        .onChange(of: text) { _, newValue in
+            if newValue.count > NoteComment.maxLength {
+                text = String(newValue.prefix(NoteComment.maxLength))
+            }
+        }
+    }
+
+    private func send() {
+        guard canSend, let uid = Auth.auth().currentUser?.uid else { return }
+        let sending = text
+        text = ""
+        errorMessage = nil
+        Task {
+            do {
+                try await listener.send(sending, authorUID: uid)
+            } catch {
+                if text.isEmpty { text = sending }
+                errorMessage = "Couldn\u{2019}t send your comment. Try again."
+            }
+        }
+    }
+}

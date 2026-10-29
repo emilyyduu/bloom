@@ -5,7 +5,6 @@ import SwiftData
 // through horizontally like a small book.
 struct TodaysNotesView: View {
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
-    @State private var noteToShare: Note?
 
     var body: some View {
         Group {
@@ -18,7 +17,7 @@ struct TodaysNotesView: View {
             } else {
                 TabView {
                     ForEach(todaysNotes) { note in
-                        TodaysNotesPage(note: note, onShare: { noteToShare = note })
+                        TodaysNotesPage(note: note)
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
                             .padding(.bottom, 36)
@@ -28,16 +27,13 @@ struct TodaysNotesView: View {
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
             }
         }
-        .sheet(item: $noteToShare) { note in
-            ShareNoteSheet(note: note)
-        }
     }
 }
 
 private struct TodaysNotesPage: View {
     let note: Note
-    let onShare: () -> Void
 
+    @State private var detail: NoteDetailRequest?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     // In landscape on iPhone (compact height) the photo and text sit
@@ -65,10 +61,12 @@ private struct TodaysNotesPage: View {
                         PinIndicator()
                     }
                     Spacer()
-                    Button(action: onShare) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .accessibilityLabel("Share note")
+                    CommentBubbleButton(
+                        ownerUID: note.ownerUID,
+                        noteID: note.id.uuidString,
+                        isEnabled: note.sharedWithFriends,
+                        action: { detail = .mine(note, focusComments: true) }
+                    )
                 }
 
                 contentLayout {
@@ -103,7 +101,12 @@ private struct TodaysNotesPage: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(Color(.secondarySystemBackground))
         )
-        .notePinActions(note)
+        .contentShape(RoundedRectangle(cornerRadius: 20))
+        .onTapGesture { detail = .mine(note) }
+        .sheet(item: $detail) { request in
+            NoteDetailSheet(request: request)
+        }
+        .noteActions(note)
     }
 }
 

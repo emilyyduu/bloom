@@ -11,13 +11,13 @@ struct HomeView: View {
     @Query(filter: #Predicate<Note> { !$0.isDraft }, sort: \Note.createdAt) private var postedNotes: [Note]
 
     @StateObject private var friendService = FriendService.shared
+    @StateObject private var activity = ActivityStore.shared
     @StateObject private var friendJournalService = FriendJournalService.shared
 
     @State private var isShowingComposer = false
     @State private var isShowingAddFriend = false
     @State private var isShowingNotifications = false
-    @State private var noteToShare: Note?
-    @State private var noteToView: Note?
+    @State private var noteDetail: NoteDetailRequest?
     @State private var selectedFriendForJournal: FirestoreUser?
 
     #if DEBUG
@@ -54,8 +54,9 @@ struct HomeView: View {
         return StreakCalculator.currentStreak(postedDates: postedDates, today: Date(), calendar: calendar)
     }
 
-    private var hasUnseenNotifications: Bool {
-        !friendService.pendingIncoming.isEmpty
+    // Requests waiting on me plus activity I haven't seen.
+    private var unseenCount: Int {
+        friendService.pendingIncoming.count + activity.unreadCount
     }
 
     private var displayedFriends: [FirestoreUser] {
@@ -137,11 +138,8 @@ struct HomeView: View {
             .sheet(isPresented: $isShowingNotifications) {
                 NotificationsView()
             }
-            .sheet(item: $noteToShare) { note in
-                ShareNoteSheet(note: note)
-            }
-            .sheet(item: $noteToView) { note in
-                NoteDetailSheet(note: note)
+            .sheet(item: $noteDetail) { request in
+                NoteDetailSheet(request: request)
             }
             .sheet(item: $selectedFriendForJournal) { friend in
                 NavigationStack {
@@ -171,17 +169,21 @@ struct HomeView: View {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell")
                     .font(.title3)
-                if hasUnseenNotifications {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
-                        .offset(x: 4, y: -4)
+                if unseenCount > 0 {
+                    Text(unseenCount > 9 ? "9+" : "\(unseenCount)")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.red))
+                        .offset(x: 8, y: -6)
                 }
             }
             .frame(minWidth: 44, minHeight: 44)
         }
         .accessibilityLabel("Notifications")
-        .accessibilityValue(hasUnseenNotifications ? "New notifications" : "")
+        .accessibilityValue(unseenCount > 0 ? "\(unseenCount) new" : "")
     }
 
     private var streakLine: some View {
@@ -207,8 +209,8 @@ struct HomeView: View {
                         note: note,
                         isLast: index == todaysNotes.count - 1,
                         timeColumnWidth: timeColumnWidth,
-                        onShare: { noteToShare = note },
-                        onTap: { noteToView = note }
+                        onComment: { noteDetail = .mine(note, focusComments: true) },
+                        onTap: { noteDetail = .mine(note) }
                     )
                 }
             }
@@ -384,7 +386,7 @@ private struct TimelineConnector: View {
 
 private struct TimelineCard: View {
     let note: Note
-    let onShare: () -> Void
+    let onComment: () -> Void
     let onTap: () -> Void
 
     var body: some View {
@@ -416,11 +418,12 @@ private struct TimelineCard: View {
                     PinIndicator()
                 }
                 Spacer()
-                Button(action: onShare) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityLabel("Share note")
+                CommentBubbleButton(
+                    ownerUID: note.ownerUID,
+                    noteID: note.id.uuidString,
+                    isEnabled: note.sharedWithFriends,
+                    action: onComment
+                )
             }
         }
         .padding(16)
@@ -428,7 +431,7 @@ private struct TimelineCard: View {
         .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color(.separator), lineWidth: 1))
         .contentShape(RoundedRectangle(cornerRadius: 24))
         .onTapGesture(perform: onTap)
-        .notePinActions(note)
+        .noteActions(note)
     }
 }
 
@@ -436,7 +439,7 @@ private struct TimelineRow: View {
     let note: Note
     let isLast: Bool
     let timeColumnWidth: CGFloat
-    let onShare: () -> Void
+    let onComment: () -> Void
     let onTap: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -460,7 +463,7 @@ private struct TimelineRow: View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 6) {
                 timeLabel
-                TimelineCard(note: note, onShare: onShare, onTap: onTap)
+                TimelineCard(note: note, onComment: onComment, onTap: onTap)
             }
             .padding(.bottom, 16)
         } else {
@@ -471,53 +474,9 @@ private struct TimelineRow: View {
                 }
                 .frame(width: timeColumnWidth)
 
-                TimelineCard(note: note, onShare: onShare, onTap: onTap)
+                TimelineCard(note: note, onComment: onComment, onTap: onTap)
             }
             .padding(.bottom, 16)
-        }
-    }
-}
-
-// Full text and photo for a note tapped in the timeline.
-struct NoteDetailSheet: View {
-    let note: Note
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text(note.createdAt, style: .time)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    if let photo = note.photo {
-                        Image(uiImage: photo)
-                            .resizable()
-                            .scaledToFit()
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                    }
-
-                    if !note.text.isEmpty {
-                        Text(note.text)
-                            .font(.body)
-                    }
-
-                    NoteVoiceMemo(note: note)
-
-                    if let mediaLogEntry = note.mediaLogEntry {
-                        MediaLogChip(entry: mediaLogEntry)
-                    }
-                }
-                .padding()
-            }
-            .navigationTitle("Note")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
     }
 }

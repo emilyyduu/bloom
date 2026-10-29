@@ -43,6 +43,9 @@ final class FriendService: ObservableObject {
     @Published var pendingRecipientProfiles: [String: FirestoreUser] = [:]
 
     private var listenersStarted = false
+    // Whether the first incoming-requests snapshot has arrived, so only
+    // requests that show up after it count as new for the banner.
+    private var hasReceivedIncomingSnapshot = false
     private var incomingRequestsListener: ListenerRegistration?
     private var outgoingRequestsListener: ListenerRegistration?
     private var sentAcceptedListener: ListenerRegistration?
@@ -138,6 +141,11 @@ final class FriendService: ObservableObject {
         try await db.collection("friendships").document(id).updateData([
             "status": FriendRequestStatus.accepted.rawValue,
         ])
+
+        // Tell the person who asked. Best effort, never fails the accept.
+        if let myUID = Auth.auth().currentUser?.uid {
+            Task { await ActivityWriter.accepted(myUID: myUID, requesterUID: friendship.fromUID) }
+        }
     }
 
     // Declining someone else's request and cancelling my own both just
@@ -193,6 +201,13 @@ final class FriendService: ObservableObject {
                 let requests = snapshot?.decoded(as: Friendship.self) ?? []
                 self.pendingIncoming = requests
                 Task { await self.loadRequesterNames(for: requests) }
+
+                if self.hasReceivedIncomingSnapshot, let snapshot {
+                    for change in snapshot.documentChanges where change.type == .added {
+                        LiveBannerCenter.shared.showRequest(from: change.document.data()["fromUID"] as? String ?? "")
+                    }
+                }
+                if snapshot != nil { self.hasReceivedIncomingSnapshot = true }
             }
 
         outgoingRequestsListener = db.collection("friendships")
@@ -257,6 +272,7 @@ final class FriendService: ObservableObject {
         pendingOutgoing = []
         pendingRecipientProfiles = [:]
         listenersStarted = false
+        hasReceivedIncomingSnapshot = false
     }
 
     private func reloadFriends() async {

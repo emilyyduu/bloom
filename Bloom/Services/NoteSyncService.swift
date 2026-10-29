@@ -85,6 +85,22 @@ final class NoteSyncService {
 
         note.syncedAt = Date()
         try? note.modelContext?.save()
+
+        tellFriendsIfJustShared(note, ownerUID: uid)
+    }
+
+    // Writes "shared a note" into each accepted friend's activity, once
+    // per note, and only for a note posted or shared within an hour of
+    // creating it. Bulk sharing of old notes never comes through here.
+    private func tellFriendsIfJustShared(_ note: Note, ownerUID: String) {
+        guard !note.isDraft, note.sharedWithFriends,
+              Date().timeIntervalSince(note.createdAt) < 3600 else { return }
+        let noteID = note.id.uuidString
+        guard !AccountDefaults.hasNotifiedFriends(aboutNote: noteID) else { return }
+
+        let friendUIDs = FriendService.shared.friends.compactMap(\.id)
+        let text = note.text
+        Task { await ActivityWriter.noteShared(noteID: noteID, ownerUID: ownerUID, text: text, friendUIDs: friendUIDs) }
     }
 
     // Brings the backed-up photo in line with the local one. A new or
@@ -228,6 +244,78 @@ final class NoteSyncService {
                 logFirestoreError(error, while: "deleting photo \(noteID)")
                 #endif
             }
+        }
+    }
+
+    // MARK: - Deleting a note completely
+
+    // Step 1 and 2 of a delete, all local and instant: the id goes on
+    // this account's pending deletions list first, so a failed or
+    // interrupted cloud delete can never bring the note back. Then the
+    // note and its photo and audio files go. An attached Library entry
+    // is detached, not deleted. Returns the id for finishDeletion.
+    func beginDeletion(of note: Note, context: ModelContext) -> String? {
+        guard let uid = Auth.auth().currentUser?.uid, ownsContext(context, uid: uid) else { return nil }
+        let noteID = note.id.uuidString
+
+        AccountDefaults.addPendingDeletion(noteID, uid: uid)
+
+        if let fileName = note.photoFileName {
+            try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
+        }
+        note.deleteAudioFile()
+        note.mediaLogEntry?.note = nil
+        context.delete(note)
+        try? context.save()
+        return noteID
+    }
+
+    // Steps 3 and 4: the streak and reminders are recomputed without
+    // the note, then the cloud copies are removed.
+    func finishDeletion(noteID: String, context: ModelContext) async {
+        await StreakSyncService.shared.sync(context: context)
+        let isReminderEnabled = UserDefaults.standard.bool(forKey: "dailyReminderEnabled")
+        await NotificationScheduler.shared.refreshReminders(enabled: isReminderEnabled, context: context)
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        await deleteRemote(noteID: noteID, uid: uid)
+    }
+
+    // Removes users/{uid}/notes/{id}, photos/{id}, audio/{id} (a
+    // document that doesn't exist is fine) and every comment, then
+    // takes the id off the pending list. Any failure leaves the id on
+    // the list, and syncPending tries again.
+    private func deleteRemote(noteID: String, uid: String) async {
+        do {
+            let noteRef = db.collection("users").document(uid).collection("notes").document(noteID)
+            try await noteRef.delete()
+            try await photoStore.delete(ownerUID: uid, noteID: noteID)
+            try await audioStore.delete(ownerUID: uid, noteID: noteID)
+            try await deleteComments(of: noteRef)
+            AccountDefaults.removePendingDeletion(noteID, uid: uid)
+            #if DEBUG
+            print("NoteSyncService: deleted note \(noteID) and everything attached to it")
+            #endif
+        } catch {
+            #if DEBUG
+            logFirestoreError(error, while: "deleting note \(noteID) everywhere. It stays on the pending list and retries")
+            #endif
+        }
+    }
+
+    // Firestore doesn't cascade, so comments go in batches of 20.
+    private func deleteComments(of noteRef: DocumentReference) async throws {
+        while true {
+            let snapshot = try await noteRef.collection("comments").limit(to: 20).getDocuments()
+            guard !snapshot.documents.isEmpty else { return }
+            let batch = db.batch()
+            for document in snapshot.documents { batch.deleteDocument(document.reference) }
+            try await batch.commit()
+        }
+    }
+
+    private func retryPendingDeletions(uid: String) async {
+        for noteID in AccountDefaults.pendingDeletions(uid: uid) {
+            await deleteRemote(noteID: noteID, uid: uid)
         }
     }
 
@@ -375,6 +463,8 @@ final class NoteSyncService {
         let startedGeneration = generation
         defer { if startedGeneration == generation { isSyncingPending = false } }
 
+        await retryPendingDeletions(uid: uid)
+
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.syncedAt == nil })
         guard let candidates = try? context.fetch(descriptor) else { return }
 
@@ -431,6 +521,10 @@ final class NoteSyncService {
             existingIDs = []
         }
 
+        // A note deleted here whose cloud delete hasn't finished must
+        // not come back.
+        let pendingDeletions = Set(AccountDefaults.pendingDeletions(uid: uid))
+
         let snapshot: QuerySnapshot
         do {
             snapshot = try await db.collection("users").document(uid).collection("notes").getDocuments()
@@ -445,7 +539,8 @@ final class NoteSyncService {
         var failed = 0
 
         for document in snapshot.documents {
-            guard !existingIDs.contains(document.documentID) else { continue }
+            guard !existingIDs.contains(document.documentID),
+                  !pendingDeletions.contains(document.documentID) else { continue }
 
             guard let uuid = UUID(uuidString: document.documentID) else {
                 failed += 1

@@ -16,6 +16,7 @@ struct ContentView: View {
     @StateObject private var friendService = FriendService.shared
     @StateObject private var draftSaveBanner = DraftSaveBanner.shared
     @StateObject private var linkCoordinator = ProfileLinkCoordinator.shared
+    @StateObject private var router = ActivityRouter.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("dailyReminderEnabled") private var isDailyReminderEnabled = false
@@ -88,6 +89,19 @@ struct ContentView: View {
                     AddByLinkSheet(uid: link.uid)
                 }
         }
+        // Where a tapped banner goes. Its own background view, so it
+        // has its own presentation slot like the link sheet above.
+        .background {
+            Color.clear
+                .sheet(item: $router.destination) { destination in
+                    if case .feed = destination {
+                        NotificationsView()
+                    } else {
+                        ActivityDestinationSheet(destination: destination)
+                    }
+                }
+        }
+        .liveBanner()
         // Reserves space above the tab bar for the "Saved to Drafts"
         // banner rather than overlaying it, so the tab bar is never
         // covered and its taps are never blocked.
@@ -105,6 +119,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
         .task {
             friendService.startListening()
+            ActivityStore.shared.startListening()
             await NotificationScheduler.shared.refreshReminders(enabled: isDailyReminderEnabled, context: context)
             await StreakSyncService.shared.sync(context: context)
             await restoreAndSyncNotes()

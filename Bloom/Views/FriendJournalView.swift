@@ -112,7 +112,7 @@ struct FriendJournalView: View {
                                     .accessibilityAddTraits(.isHeader)
 
                                 ForEach(day.notes) { note in
-                                    FriendNoteRow(friendName: friend.shownName, friendUID: friend.id, note: note)
+                                    FriendNoteRow(friend: friend, note: note)
                                 }
                             }
                         }
@@ -183,15 +183,23 @@ private func timeString(_ date: Date) -> String {
 }
 
 private struct FriendNoteRow: View {
-    let friendName: String
-    let friendUID: String?
+    let friend: FirestoreUser
     let note: FriendNote
+
+    @State private var detail: NoteDetailRequest?
+
+    private var friendName: String { friend.shownName }
+    private var friendUID: String? { friend.id }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(timeString(note.createdAt))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack {
+                Text(timeString(note.createdAt))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                CommentBubbleButton(ownerUID: friendUID, noteID: note.id) { open(focusComments: true) }
+            }
             Text(note.text)
 
             if let friendUID {
@@ -205,12 +213,24 @@ private struct FriendNoteRow: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { open(focusComments: false) }
+        .sheet(item: $detail) { request in
+            NoteDetailSheet(request: request)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "\(friendName), \(dayHeaderString(note.createdAt)) \(timeString(note.createdAt)), \(note.text)"
                 + (note.hasPhoto ? ", has a photo" : "")
                 + (note.hasAudio == true ? ", has a voice memo" : "")
         )
+    }
+}
+
+extension FriendNoteRow {
+    fileprivate func open(focusComments: Bool) {
+        guard let uid = friend.id else { return }
+        detail = .friend(note, ownerUID: uid, author: friend, focusComments: focusComments)
     }
 }
 

@@ -190,7 +190,7 @@ struct FriendProfileView: View {
                 message("\(friend.shownName) hasn't pinned anything yet", detail: nil, systemImage: "pin")
             case .loaded:
                 ForEach(listener.notes) { note in
-                    FriendPinnedNoteCard(friendName: friend.shownName, friendUID: friend.id, note: note)
+                    FriendPinnedNoteCard(friend: friend, note: note)
                 }
             }
         }
@@ -223,9 +223,18 @@ struct FriendProfileView: View {
 // loaded through the same FriendNotePhoto and FriendPhotoCache the
 // friend journal uses.
 private struct FriendPinnedNoteCard: View {
-    let friendName: String
-    let friendUID: String?
+    let friend: FirestoreUser
     let note: FriendNote
+
+    @State private var detail: NoteDetailRequest?
+
+    private var friendName: String { friend.shownName }
+    private var friendUID: String? { friend.id }
+
+    private func open(focusComments: Bool) {
+        guard let uid = friend.id else { return }
+        detail = .friend(note, ownerUID: uid, author: friend, focusComments: focusComments)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -234,6 +243,8 @@ private struct FriendPinnedNoteCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 PinIndicator()
+                Spacer()
+                CommentBubbleButton(ownerUID: friendUID, noteID: note.id) { open(focusComments: true) }
             }
 
             Text(note.text)
@@ -251,6 +262,11 @@ private struct FriendPinnedNoteCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture { open(focusComments: false) }
+        .sheet(item: $detail) { request in
+            NoteDetailSheet(request: request)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "Pinned by \(friendName), \(note.createdAt.formatted(date: .long, time: .omitted)), \(note.text)"
