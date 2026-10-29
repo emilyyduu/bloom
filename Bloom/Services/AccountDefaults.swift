@@ -53,6 +53,14 @@ enum AccountDefaults {
         set { UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: key("activityLastSeen")) }
     }
 
+    // Cover colours the user picked for journal books, by cover key ("2026"
+    // or "2026-10") to an index into Theme.Covers.palette. Per account, on
+    // this device only. A book with no entry uses its automatic colour.
+    static var coverColorIndexes: [String: Int] {
+        get { UserDefaults.standard.dictionary(forKey: key("coverColorIndexes")) as? [String: Int] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: key("coverColorIndexes")) }
+    }
+
     // The Library's sort and filter choices. Per account.
     static var libraryOptions: LibraryOptions {
         get {

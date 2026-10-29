@@ -14,6 +14,8 @@ import SwiftUI
 // the day's chain.
 struct JournalSource<Item: JournalItem, Card: View> {
     let owner: FirestoreUser?
+    // Only my own journals can have custom covers.
+    var canEditCovers: Bool { owner == nil }
     let request: (Item, _ focusComments: Bool) -> NoteDetailRequest
     let card: (Item, _ onComment: @escaping () -> Void, _ onTap: @escaping () -> Void) -> Card
 
@@ -30,35 +32,53 @@ struct JournalSource<Item: JournalItem, Card: View> {
 
 // MARK: - Years
 
-// The first level: a list of years with their note counts. Also registers
-// the screens every deeper level pushes.
+// The first level: a shelf of year books, newest first, each with its note
+// count. My books can have a photo cover, a friend's never do.
 struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
     let title: String
     @ObservedObject var model: JournalModel<Item>
     let source: JournalSource<Item, Card>
     var footnote: String?
 
+    @ObservedObject private var covers = JournalCoverStore.shared
+    @StateObject private var editor = JournalCoverEditor()
+    @State private var editingYear: CoverYear?
+
     var body: some View {
-        List {
-            if let owner = source.owner {
-                Section { JournalOwnerHeader(owner: owner) }
-            }
-            Section {
-                ForEach(model.index.years, id: \.self) { year in
-                    NavigationLink {
-                        JournalYearScreen(year: year, model: model, source: source)
-                    } label: {
-                        JournalCountRow(
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if let owner = source.owner {
+                    JournalOwnerHeader(owner: owner)
+                }
+
+                JournalShelf(header: "Years", minimumBookWidth: 150) {
+                    ForEach(model.index.years, id: \.self) { year in
+                        let key = JournalCoverStore.yearKey(year)
+                        JournalBook(
                             title: JournalFormat.year(year),
-                            count: model.index.count(in: year)
-                        )
+                            spokenName: "\(JournalFormat.year(year)) journal",
+                            count: model.index.count(in: year),
+                            accent: source.canEditCovers ? covers.accent(for: key, automaticIndex: year) : Theme.Covers.accent(year),
+                            coverImage: source.canEditCovers ? covers.image(for: key) : nil,
+                            hint: "Opens the year"
+                        ) {
+                            JournalYearScreen(year: year, model: model, source: source)
+                        }
+                        .journalCoverMenu(key: key, canEdit: source.canEditCovers, editor: editor, covers: covers) {
+                            editingYear = CoverYear(id: year)
+                        }
                     }
                 }
-            } footer: {
+
                 if let footnote {
                     Text(footnote)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
+            .padding()
+            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -71,60 +91,101 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
                 )
             }
         }
+        .journalCoverEditing(editor)
+        .sheet(item: $editingYear) { target in
+            JournalCoverSheet(
+                key: JournalCoverStore.yearKey(target.id),
+                title: JournalFormat.year(target.id),
+                subtitle: JournalFormat.noteCount(model.index.count(in: target.id)),
+                automaticIndex: target.id
+            )
+        }
     }
+}
+
+private struct CoverYear: Identifiable {
+    let id: Int
 }
 
 // MARK: - Year
 
-// One year's months that have notes, newest first.
+// One year's months that have notes, as books, newest first.
 struct JournalYearScreen<Item: JournalItem, Card: View>: View {
     let year: Int
     @ObservedObject var model: JournalModel<Item>
     let source: JournalSource<Item, Card>
 
+    @ObservedObject private var covers = JournalCoverStore.shared
+    @StateObject private var editor = JournalCoverEditor()
+    @State private var isEditingCover = false
+    @State private var editingMonth: JournalMonthKey?
+
     var body: some View {
         let months = model.index.months(in: year)
-        List {
-            if let owner = source.owner {
-                Section { JournalOwnerHeader(owner: owner) }
-            }
-            Section {
-                ForEach(months) { month in
-                    NavigationLink {
-                        JournalMonthScreen(month: month, model: model, source: source)
-                    } label: {
-                        JournalCountRow(
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                if let owner = source.owner {
+                    JournalOwnerHeader(owner: owner)
+                }
+
+                JournalShelf(header: "Months", minimumBookWidth: 100) {
+                    ForEach(months) { month in
+                        let key = JournalCoverStore.monthKey(month)
+                        JournalBook(
                             title: JournalFormat.monthOnly(month.date()),
-                            count: model.index.count(in: month)
-                        )
+                            spokenName: "\(JournalFormat.monthYear(month.date())) journal",
+                            count: model.index.count(in: month),
+                            accent: source.canEditCovers
+                                ? covers.accent(for: key, automaticIndex: month.year * 12 + month.month)
+                                : Theme.Covers.accent(month.year * 12 + month.month),
+                            coverImage: source.canEditCovers ? covers.image(for: key) : nil,
+                            isCompact: true,
+                            hint: "Opens the month"
+                        ) {
+                            JournalMonthScreen(month: month, model: model, source: source)
+                        }
+                        .journalCoverMenu(key: key, canEdit: source.canEditCovers, editor: editor, covers: covers) {
+                            editingMonth = month
+                        }
                     }
                 }
             }
+            .padding()
+            .frame(maxWidth: 900, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .navigationTitle(JournalFormat.year(year))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if source.canEditCovers {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit cover") { isEditingCover = true }
+                }
+            }
+        }
         .overlay {
             if months.isEmpty {
                 ContentUnavailableView("Nothing in \(JournalFormat.year(year))", systemImage: "calendar")
             }
         }
-    }
-}
-
-private struct JournalCountRow: View {
-    let title: String
-    let count: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.headline)
-            Text(JournalFormat.noteCount(count))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        .journalCoverEditing(editor)
+        .sheet(isPresented: $isEditingCover) {
+            JournalCoverSheet(
+                key: JournalCoverStore.yearKey(year),
+                title: JournalFormat.year(year),
+                subtitle: JournalFormat.noteCount(model.index.count(in: year)),
+                automaticIndex: year
+            )
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
+        .sheet(item: $editingMonth) { month in
+            JournalCoverSheet(
+                key: JournalCoverStore.monthKey(month),
+                title: JournalFormat.monthOnly(month.date()),
+                subtitle: JournalFormat.noteCount(model.index.count(in: month)),
+                automaticIndex: month.year * 12 + month.month,
+                isCompact: true
+            )
+        }
     }
 }
 
@@ -162,6 +223,7 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var month: JournalMonthKey
+    @State private var isEditingCover = false
 
     init(month: JournalMonthKey, model: JournalModel<Item>, source: JournalSource<Item, Card>) {
         _month = State(initialValue: month)
@@ -204,6 +266,22 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
         // the bar only carries the back button.
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if source.canEditCovers {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit cover") { isEditingCover = true }
+                }
+            }
+        }
+        .sheet(isPresented: $isEditingCover) {
+            JournalCoverSheet(
+                key: JournalCoverStore.monthKey(month),
+                title: JournalFormat.monthOnly(month.date()),
+                subtitle: JournalFormat.noteCount(model.index.count(in: month)),
+                automaticIndex: month.year * 12 + month.month,
+                isCompact: true
+            )
+        }
     }
 
     private var monthControls: some View {

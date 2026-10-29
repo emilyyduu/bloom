@@ -49,6 +49,50 @@ enum Theme {
         })
     }
 
+    // Book covers for the journals. The cover colours are all dark enough
+    // for white text: the lightest of them, in either appearance, still gives
+    // white text at least 5:1 contrast (the bar is 4.5:1). A cover with a
+    // photo puts coverShade behind its title, see BookCoverView.
+    enum Covers {
+        private static func dynamic(light: (Double, Double, Double), dark: (Double, Double, Double)) -> Color {
+            Color(UIColor { trait in
+                let c = trait.userInterfaceStyle == .dark ? dark : light
+                return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+            })
+        }
+
+        // Moss, ocean, plum, terracotta, umber and teal. The dark mode
+        // values are a touch lighter so the books don't sink into the
+        // background.
+        static let palette: [Color] = [
+            dynamic(light: (0.13, 0.40, 0.24), dark: (0.17, 0.44, 0.28)),
+            dynamic(light: (0.12, 0.33, 0.52), dark: (0.16, 0.37, 0.56)),
+            dynamic(light: (0.43, 0.22, 0.46), dark: (0.47, 0.26, 0.50)),
+            dynamic(light: (0.62, 0.28, 0.18), dark: (0.66, 0.32, 0.22)),
+            dynamic(light: (0.52, 0.36, 0.08), dark: (0.56, 0.40, 0.12)),
+            dynamic(light: (0.12, 0.42, 0.44), dark: (0.16, 0.46, 0.48)),
+        ]
+
+        static let names = ["Moss", "Ocean", "Plum", "Terracotta", "Umber", "Teal"]
+
+        // The same index always gives the same colour, so a year keeps its
+        // book colour. Years use the year, months use year * 12 + month, so
+        // neighbouring books differ.
+        static func accent(_ index: Int) -> Color {
+            palette[((index % palette.count) + palette.count) % palette.count]
+        }
+
+        // Text on a cover is always light, in light and dark mode alike.
+        static let text = Color.white
+        // The darker strip down the spine.
+        static let spine = Color.black.opacity(0.28)
+        static let shadow = Color.black.opacity(0.3)
+        // Behind the title on a photo cover. Even over a pure white photo,
+        // 65 percent black leaves white text about 7:1.
+        static let shade = Color.black
+        static let shadeStrength = 0.65
+    }
+
     enum Fonts {
         // The large root-screen title ScreenHeader shows on Home,
         // Journal, Greenhouse and Profile. One definition here so every
