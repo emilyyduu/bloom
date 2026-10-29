@@ -3,9 +3,9 @@ import Foundation
 import SwiftData
 
 // DEBUG only: about 60 posted notes spread over 2024, 2025 and 2026 so the
-// Journals screens (years, months, calendar, date range) have something to
-// show. Every text starts with Note.samplePrefix, which is how the notes
-// are found again. They are marked as already backed up (syncedAt) and
+// journal screens (years, months, calendar, day) have something to show.
+// Every text starts with Note.samplePrefix, which is how the notes are found
+// again. They are marked as already backed up (syncedAt) and
 // Note.isSample keeps them out of uploads, sharing and pins, so they never
 // reach Firestore. Real notes are never touched. It also adds 14 sample
 // movies and shows for the Library (see mediaSamples).
@@ -55,7 +55,7 @@ enum SampleJournalHistory {
         guard let start = calendar.date(from: DateComponents(year: 2024, month: 1, day: 3)) else { return 0 }
         let totalDays = max(calendar.dateComponents([.day], from: start, to: now).day ?? 1, 1)
 
-        let baseCount = 52
+        let baseCount = 46
         var created = 0
         for index in 0..<baseCount {
             let dayOffset = min(index * totalDays / baseCount + (index * 7) % 9, totalDays)
@@ -70,8 +70,28 @@ enum SampleJournalHistory {
                 created += 1
             }
         }
+        created += addBusyDays(to: context, now: now)
         addMediaEntries(to: context)
         try? context.save()
+        return created
+    }
+
+    // One day with 3 notes and one with 5, both last month, so the calendar's
+    // shading can be checked for 1, 3 and 5 notes.
+    private static func addBusyDays(to context: ModelContext, now: Date) -> Int {
+        let calendar = Calendar.current
+        guard let lastMonth = calendar.date(byAdding: .month, value: -1, to: now) else { return 0 }
+        var created = 0
+        for (dayNumber, hours) in [(12, [9, 13, 20]), (19, [7, 10, 13, 17, 22])] {
+            var parts = calendar.dateComponents([.year, .month], from: lastMonth)
+            parts.day = dayNumber
+            guard let day = calendar.date(from: parts) else { continue }
+            for (position, hour) in hours.enumerated() {
+                guard let when = calendar.date(bySettingHour: hour, minute: position * 9, second: 0, of: day) else { continue }
+                insert(text: lines[(dayNumber + position * 3) % lines.count], at: when, in: context)
+                created += 1
+            }
+        }
         return created
     }
 

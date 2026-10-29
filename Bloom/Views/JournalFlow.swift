@@ -3,15 +3,11 @@ import SwiftUI
 // The journal flow, shared by my journals and a friend's:
 // years, then a year's months, then a month's calendar, then a day's chain.
 // Every level is pushed onto the one NavigationStack that already holds the
-// screen, so each has a back button. The screens only know a JournalIndex
+// screen, so each has a back button. The links use destination closures, not
+// values, because the Profile stack is bound to a typed path that can't hold
+// journal values. The screens only know a JournalIndex
 // and a JournalSource, so the same code serves my SwiftData notes and a
 // friend's shared notes.
-
-enum JournalRoute: Hashable {
-    case year(Int)
-    case month(JournalMonthKey)
-    case day(JournalDayKey)
-}
 
 // What differs between my journal and a friend's: who owns it (nil for
 // mine), how a note opens in the detail sheet, and the card a note shows on
@@ -49,7 +45,9 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
             }
             Section {
                 ForEach(model.index.years, id: \.self) { year in
-                    NavigationLink(value: JournalRoute.year(year)) {
+                    NavigationLink {
+                        JournalYearScreen(year: year, model: model, source: source)
+                    } label: {
                         JournalCountRow(
                             title: JournalFormat.year(year),
                             count: model.index.count(in: year)
@@ -73,16 +71,6 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
                 )
             }
         }
-        .navigationDestination(for: JournalRoute.self) { route in
-            switch route {
-            case .year(let year):
-                JournalYearScreen(year: year, model: model, source: source)
-            case .month(let month):
-                JournalMonthScreen(month: month, model: model, source: source)
-            case .day(let day):
-                JournalDayScreen(day: day, model: model, source: source)
-            }
-        }
     }
 }
 
@@ -102,7 +90,9 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
             }
             Section {
                 ForEach(months) { month in
-                    NavigationLink(value: JournalRoute.month(month)) {
+                    NavigationLink {
+                        JournalMonthScreen(month: month, model: model, source: source)
+                    } label: {
                         JournalCountRow(
                             title: JournalFormat.monthOnly(month.date()),
                             count: model.index.count(in: month)
@@ -200,7 +190,9 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
                 if dynamicTypeSize.isAccessibilitySize {
                     dayList
                 } else {
-                    JournalCalendarGrid(month: month, index: model.index)
+                    JournalCalendarGrid(month: month, index: model.index) { day in
+                        JournalDayScreen(day: day, model: model, source: source)
+                    }
                     JournalCalendarLegend()
                 }
             }
@@ -208,7 +200,9 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
             .frame(maxWidth: 600)
             .frame(maxWidth: .infinity)
         }
-        .navigationTitle(JournalFormat.monthYear(month.date()))
+        // The month and year are already the header between the arrows, so
+        // the bar only carries the back button.
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -250,7 +244,9 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
     private var dayList: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(model.index.days(in: month)) { day in
-                NavigationLink(value: JournalRoute.day(day)) {
+                NavigationLink {
+                    JournalDayScreen(day: day, model: model, source: source)
+                } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(JournalFormat.dayHeader(day.date(calendar: calendar)))
                             .font(.headline)
@@ -286,9 +282,10 @@ private enum JournalShade {
     }
 }
 
-private struct JournalCalendarGrid<Item: JournalItem>: View {
+private struct JournalCalendarGrid<Item: JournalItem, Destination: View>: View {
     let month: JournalMonthKey
     let index: JournalIndex<Item>
+    @ViewBuilder let destination: (JournalDayKey) -> Destination
 
     private var calendar: Calendar { index.calendar }
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
@@ -323,7 +320,9 @@ private struct JournalCalendarGrid<Item: JournalItem>: View {
             ForEach(Array(cells.enumerated()), id: \.offset) { _, number in
                 if let number {
                     let day = JournalDayKey(year: month.year, month: month.month, day: number)
-                    JournalDayCell(day: day, count: index.count(on: day), isToday: day == today, calendar: calendar)
+                    JournalDayCell(day: day, count: index.count(on: day), isToday: day == today, calendar: calendar) {
+                        destination(day)
+                    }
                 } else {
                     Color.clear
                         .accessibilityHidden(true)
@@ -336,11 +335,12 @@ private struct JournalCalendarGrid<Item: JournalItem>: View {
 // One day of the grid: its number, a shade and a small count when it has
 // notes, a ring when it is today. VoiceOver reads "14 October, 3 notes".
 // A day without notes is disabled.
-private struct JournalDayCell: View {
+private struct JournalDayCell<Destination: View>: View {
     let day: JournalDayKey
     let count: Int
     let isToday: Bool
     let calendar: Calendar
+    @ViewBuilder let destination: () -> Destination
 
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 52
 
@@ -374,7 +374,9 @@ private struct JournalDayCell: View {
 
     var body: some View {
         if count > 0 {
-            NavigationLink(value: JournalRoute.day(day)) {
+            NavigationLink {
+                destination()
+            } label: {
                 content
             }
             .buttonStyle(.plain)

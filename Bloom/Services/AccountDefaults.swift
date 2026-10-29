@@ -53,14 +53,6 @@ enum AccountDefaults {
         set { UserDefaults.standard.set(newValue.timeIntervalSince1970, forKey: key("activityLastSeen")) }
     }
 
-    // How the Journals screens order years, months and days. Per account.
-    static var journalSortOrder: JournalSortOrder {
-        get {
-            JournalSortOrder(rawValue: UserDefaults.standard.string(forKey: key("journalSortOrder")) ?? "") ?? .newestFirst
-        }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: key("journalSortOrder")) }
-    }
-
     // The Library's sort and filter choices. Per account.
     static var libraryOptions: LibraryOptions {
         get {

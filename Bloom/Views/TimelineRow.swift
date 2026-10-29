@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // The chain every timeline in Bloom uses: the time on the left with a dot
 // and a connecting line under it, and a card to the right. Home's Today
@@ -26,7 +27,6 @@ struct TimelineRow<Card: View>: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .accessibilityHidden(true)
     }
 
     var body: some View {

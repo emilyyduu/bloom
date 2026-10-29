@@ -204,11 +204,11 @@ final class FriendJournalService: ObservableObject {
 }
 
 // One friend's shared journal: their notes with sharedWithFriends ==
-// true, newest first, the most recent 100 to start with and 100 more
-// each time loadEarlier() is called. Owned per screen rather than as
+// true, newest first, the most recent 500. Owned per screen rather than as
 // a singleton, so nothing is shared between friends: start() resets
 // every property, and the listener lives only between FriendJournalView's
-// onAppear and onDisappear.
+// onAppear and onDisappear. Months and counts come from what is loaded,
+// hitLimit says there may be older notes that were not.
 @MainActor
 final class FriendJournalListener: ObservableObject {
     enum LoadState {
@@ -219,35 +219,31 @@ final class FriendJournalListener: ObservableObject {
         case failed
     }
 
-    static let pageSize = 100
+    static let limit = 500
 
     @Published private(set) var notes: [FriendNote] = []
     @Published private(set) var state: LoadState = .loading
-    @Published private(set) var canLoadMore = false
-    @Published private(set) var isLoadingMore = false
+    @Published private(set) var hitLimit = false
 
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var friendUID: String?
-    private var limit = FriendJournalListener.pageSize
 
     func start(friendUID: String) {
         stop()
         self.friendUID = friendUID
-        limit = Self.pageSize
         notes = []
         state = .loading
-        canLoadMore = false
-        isLoadingMore = false
-        attach()
-    }
+        hitLimit = false
 
-    // Raises the limit by a page and re-attaches, so the same listener
-    // keeps delivering live updates while reaching further back.
-    func loadEarlier() {
-        guard canLoadMore, !isLoadingMore else { return }
-        isLoadingMore = true
-        limit += Self.pageSize
+        // DEBUG sample friends are never looked up in Firestore.
+        #if DEBUG
+        if friendUID.hasPrefix("sample-") {
+            notes = SampleCircleData.journalNotes(for: friendUID)
+            state = .loaded
+            return
+        }
+        #endif
         attach()
     }
 
@@ -260,14 +256,12 @@ final class FriendJournalListener: ObservableObject {
         guard let friendUID else { return }
         listener?.remove()
 
-        let requestedLimit = limit
         listener = db.collection("users").document(friendUID).collection("notes")
             .whereField("sharedWithFriends", isEqualTo: true)
             .order(by: "createdAt", descending: true)
-            .limit(to: requestedLimit)
+            .limit(to: Self.limit)
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let self, self.friendUID == friendUID else { return }
-                self.isLoadingMore = false
 
                 if let error {
                     let nsError = error as NSError
@@ -282,13 +276,13 @@ final class FriendJournalListener: ObservableObject {
 
                 let fetched = snapshot?.decoded(as: FriendNote.self) ?? []
                 self.notes = fetched
-                self.canLoadMore = (snapshot?.documents.count ?? 0) >= requestedLimit
+                self.hitLimit = (snapshot?.documents.count ?? 0) >= Self.limit
                 self.state = .loaded
 
                 #if DEBUG
                 let documentCount = snapshot?.documents.count ?? 0
                 print("FriendJournalListener: \(friendUID) returned \(documentCount) document(s) " +
-                    "(limit \(requestedLimit)), \(fetched.count) decoded, " +
+                    "(limit \(Self.limit)), \(fetched.count) decoded, " +
                     "\(fetched.filter(\.hasPhoto).count) with a photo. " +
                     "Query: users/\(friendUID)/notes where sharedWithFriends == true, createdAt descending, " +
                     "so every document counted here has sharedWithFriends true.")
