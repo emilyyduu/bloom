@@ -14,11 +14,10 @@ struct ProfileView: View {
     // One sheet(item:) drives every sheet, so they can never be asked to
     // present at the same time.
     private enum ProfileSheet: Identifiable {
-        case friendSearch, shareProfile, note(Note)
+        case shareProfile, note(Note)
 
         var id: String {
             switch self {
-            case .friendSearch: return "friendSearch"
             case .shareProfile: return "shareProfile"
             case .note(let note): return "note-\(note.id.uuidString)"
             }
@@ -95,7 +94,6 @@ struct ProfileView: View {
 
                         VStack(spacing: 20) {
                             actionButtons
-                            searchButton
                             pinnedSection
                             rowsCard
                         }
@@ -133,8 +131,6 @@ struct ProfileView: View {
             }
             .sheet(item: $activeSheet) { sheet in
                 switch sheet {
-                case .friendSearch:
-                    AddFriendView(startsWithSearchFocused: true)
                 case .shareProfile:
                     ShareProfileSheet(uid: myUID ?? "", displayName: shownName, username: username)
                 case .note(let note):
@@ -229,27 +225,6 @@ struct ProfileView: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.large)
-    }
-
-    // Looks like a text field but is a button: tapping opens Add Friend
-    // with its own search field already active.
-    private var searchButton: some View {
-        Button {
-            activeSheet = .friendSearch
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                Text("Search for friends")
-                Spacer(minLength: 0)
-            }
-            .foregroundStyle(.secondary)
-            .padding(10)
-            .frame(minHeight: 44)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(.separator), lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Pinned

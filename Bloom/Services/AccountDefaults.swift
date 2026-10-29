@@ -61,6 +61,27 @@ enum AccountDefaults {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: key("journalSortOrder")) }
     }
 
+    // The Library's sort and filter choices. Per account.
+    static var libraryOptions: LibraryOptions {
+        get {
+            let defaults = UserDefaults.standard
+            func stored(_ name: String) -> String { defaults.string(forKey: key(name)) ?? "" }
+            return LibraryOptions(
+                sort: LibrarySort(rawValue: stored("librarySort")) ?? .newestAdded,
+                type: LibraryTypeFilter(rawValue: stored("libraryTypeFilter")) ?? .all,
+                stars: LibraryStarsFilter(rawValue: stored("libraryStarsFilter")) ?? .any,
+                review: LibraryReviewFilter(rawValue: stored("libraryReviewFilter")) ?? .any
+            )
+        }
+        set {
+            let defaults = UserDefaults.standard
+            defaults.set(newValue.sort.rawValue, forKey: key("librarySort"))
+            defaults.set(newValue.type.rawValue, forKey: key("libraryTypeFilter"))
+            defaults.set(newValue.stars.rawValue, forKey: key("libraryStarsFilter"))
+            defaults.set(newValue.review.rawValue, forKey: key("libraryReviewFilter"))
+        }
+    }
+
     // The circle the Greenhouse shows and the circle Home's tiles are
     // filtered to, by circle id. nil means All friends.
     static var gardenCircleID: String? {

@@ -3,7 +3,7 @@ import SwiftData
 
 // One per day. There is no publish time and no published/unpublished
 // state: a journal is simply whatever notes have been logged under that
-// date so far.
+// date.
 @Model
 final class Journal {
     var id: UUID

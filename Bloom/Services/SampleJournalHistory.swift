@@ -7,7 +7,8 @@ import SwiftData
 // show. Every text starts with Note.samplePrefix, which is how the notes
 // are found again. They are marked as already backed up (syncedAt) and
 // Note.isSample keeps them out of uploads, sharing and pins, so they never
-// reach Firestore. Real notes are never touched.
+// reach Firestore. Real notes are never touched. It also adds 14 sample
+// movies and shows for the Library (see mediaSamples).
 @MainActor
 enum SampleJournalHistory {
     private static let lines = [
@@ -69,8 +70,53 @@ enum SampleJournalHistory {
                 created += 1
             }
         }
+        addMediaEntries(to: context)
         try? context.save()
         return created
+    }
+
+    // Sample movies and shows with a spread of types, star ratings, reviews
+    // and dates added, so the Library sort and filters have something to
+    // work on. A negative tmdbID marks them, which is how remove finds them
+    // again. They have no poster and no note, and live only in SwiftData.
+    private static let mediaSamples: [(title: String, type: String, year: Int, rating: Int, review: String?)] = [
+        ("Paddington", "movie", 2014, 5, "Warm and funny. Marmalade sandwiches forever."),
+        ("The Bear", "tv", 2022, 5, "Stressful in the best way."),
+        ("Past Lives", "movie", 2023, 4, "Quiet and devastating."),
+        ("Severance", "tv", 2022, 4, nil),
+        ("Barbie", "movie", 2023, 3, "Fun, if a bit loud."),
+        ("Abbott Elementary", "tv", 2021, 4, "An easy comfort watch."),
+        ("Spirited Away", "movie", 2001, 5, nil),
+        ("The Menu", "movie", 2022, 3, nil),
+        ("Bridgerton", "tv", 2020, 2, "Not really for me."),
+        ("Zodiac", "movie", 2007, 2, nil),
+        ("Fleabag", "tv", 2016, 5, "Perfect, again."),
+        ("Emily in Paris", "tv", 2020, 1, "Could not finish it."),
+        ("Dune: Part Two", "movie", 2024, 4, nil),
+        ("Cats", "movie", 2019, 1, nil),
+    ]
+
+    private static func addMediaEntries(to context: ModelContext) {
+        let now = Date()
+        for (index, sample) in mediaSamples.enumerated() {
+            let entry = MediaLogEntry(
+                tmdbID: -(index + 1),
+                title: sample.title,
+                mediaType: sample.type,
+                releaseYear: sample.year,
+                posterFileName: nil,
+                rating: sample.rating
+            )
+            entry.reviewText = sample.review
+            // One logged every couple of days, newest first in list order.
+            entry.loggedAt = now.addingTimeInterval(-Double(index) * 2 * 86_400)
+            context.insert(entry)
+        }
+    }
+
+    private static func removeMediaEntries(from context: ModelContext) {
+        let samples = (try? context.fetch(FetchDescriptor<MediaLogEntry>(predicate: #Predicate { $0.tmdbID < 0 }))) ?? []
+        for entry in samples { context.delete(entry) }
     }
 
     // Deletes only notes whose text starts with "Sample: ". They were never
@@ -80,6 +126,7 @@ enum SampleJournalHistory {
         let all = (try? context.fetch(FetchDescriptor<Note>())) ?? []
         let samples = all.filter { $0.text.hasPrefix(Note.samplePrefix) }
         for note in samples { context.delete(note) }
+        removeMediaEntries(from: context)
         try? context.save()
         return samples.count
     }

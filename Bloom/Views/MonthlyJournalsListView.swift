@@ -2,8 +2,7 @@ import SwiftUI
 import SwiftData
 
 // Every month that has at least one non-draft note, newest first. The
-// current month is always included, labelled "so far" since it isn't
-// finished yet. Months are only a way of grouping notes on screen, the
+// current month is always included. Months are only a way of grouping notes on screen, the
 // Journal model and its Firestore backup stay grouped by day.
 struct MonthlyJournalsListView: View {
     @Query(filter: #Predicate<Note> { !$0.isDraft }, sort: \Note.createdAt, order: .reverse)
@@ -61,8 +60,7 @@ private struct MonthGroup: Identifiable {
     var id: Date { monthStart }
 
     var title: String {
-        let base = monthYearString(monthStart)
-        return isCurrentMonth ? "\(base) so far" : base
+        monthYearString(monthStart)
     }
 }
 

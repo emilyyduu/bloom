@@ -15,8 +15,6 @@ struct JournalsView: View {
 
     @StateObject private var model = JournalModel()
 
-    private var currentYear: Int { Calendar.current.component(.year, from: Date()) }
-
     var body: some View {
         List(model.index.years(model.sortOrder), id: \.self) { year in
             NavigationLink {
@@ -46,7 +44,7 @@ struct JournalsView: View {
     }
 
     private func yearTitle(_ year: Int) -> String {
-        year == currentYear ? "\(JournalFormat.year(year)) so far" : JournalFormat.year(year)
+        JournalFormat.year(year)
     }
 }
 
@@ -94,8 +92,7 @@ struct JournalYearView: View {
     }
 
     private func monthTitle(_ month: JournalMonthKey) -> String {
-        let base = JournalFormat.monthYear(month.date())
-        return month == JournalMonthKey(Date()) ? "\(base) so far" : base
+        JournalFormat.monthYear(month.date())
     }
 }
 

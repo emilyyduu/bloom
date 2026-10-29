@@ -60,6 +60,7 @@ struct FriendsView: View {
                 } label: {
                     Image(systemName: "person.badge.plus")
                 }
+                .accessibilityLabel("Add friend")
             }
         }
         .sheet(isPresented: $isShowingAddFriend) {

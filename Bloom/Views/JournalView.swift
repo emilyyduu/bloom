@@ -11,6 +11,8 @@ struct JournalView: View {
 
     @State private var segment: Segment
     @State private var isShowingMediaSearch = false
+    // Sort and filter choices for the Library, restored per account.
+    @State private var libraryOptions = AccountDefaults.libraryOptions
     // The Library flow: search, then review, then the attach choice.
     // Each step is handed on when the previous sheet has finished
     // dismissing, so two sheets are never swapped at once.
@@ -37,6 +39,8 @@ struct JournalView: View {
                 ScreenHeader(segment.rawValue) {
                     HStack(spacing: 12) {
                         if segment == .library {
+                            LibraryOptionsMenus(options: $libraryOptions)
+
                             Button {
                                 isShowingMediaSearch = true
                             } label: {
@@ -73,7 +77,7 @@ struct JournalView: View {
                     case .todaysNotes:
                         TodaysNotesView()
                     case .library:
-                        LibraryView()
+                        LibraryView(options: $libraryOptions)
                     }
                 }
                 .frame(maxWidth: isCompactHeight ? 700 : .infinity)
@@ -81,6 +85,9 @@ struct JournalView: View {
             }
             .navigationTitle(segment.rawValue)
             .toolbar(.hidden, for: .navigationBar)
+            .onChange(of: libraryOptions) { _, newValue in
+                AccountDefaults.libraryOptions = newValue
+            }
             .sheet(isPresented: $isShowingMediaSearch, onDismiss: {
                 attachingMedia = chosenMedia
                 chosenMedia = nil

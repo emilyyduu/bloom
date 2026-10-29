@@ -18,19 +18,7 @@ struct AddFriendView: View {
     @State private var isSearching = false
     @State private var errorMessage: String?
     @State private var requestErrorMessage: String?
-    @State private var isSearchPresented = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    // Profile's "Search for friends" field opens this with the search
-    // field already active, so typing can start straight away.
-    var startsWithSearchFocused = false
-
-    #if DEBUG
-    init(startsWithSearchFocused: Bool = false) {
-        self.startsWithSearchFocused = startsWithSearchFocused
-        print("AddFriendView init")
-    }
-    #endif
 
     var body: some View {
         NavigationStack {
@@ -83,25 +71,14 @@ struct AddFriendView: View {
             }
             .searchable(
                 text: $query,
-                isPresented: $isSearchPresented,
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search by username"
             )
             .onSubmit(of: .search) { searchByUsername() }
-            // Activating search while the sheet is still animating in is
-            // unreliable, so wait for it to settle. .task runs once per
-            // appearance and cancels if the sheet goes away first.
-            .task {
-                guard startsWithSearchFocused else { return }
-                try? await Task.sleep(for: .milliseconds(400))
-                guard !Task.isCancelled else { return }
-                isSearchPresented = true
-            }
             #if DEBUG
             .onAppear { print("AddFriendView appeared") }
             .onDisappear { print("AddFriendView disappeared") }
             .onChange(of: query) { old, new in print("AddFriendView query: '\(old)' -> '\(new)'") }
-            .onChange(of: isSearchPresented) { _, new in print("AddFriendView isSearchPresented: \(new)") }
             #endif
         }
     }
