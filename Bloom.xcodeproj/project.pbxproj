@@ -10,6 +10,7 @@
 		A275C15630656C7B00BDF6C2 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = A275C15530656C7B00BDF6C2 /* FirebaseAuth */; };
 		A275C15830656C7B00BDF6C2 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = A275C15730656C7B00BDF6C2 /* FirebaseCore */; };
 		A275C15A30656C7B00BDF6C2 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = A275C15930656C7B00BDF6C2 /* FirebaseFirestore */; };
+		A2FE15BC30948C1200FF1013 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = A2FE15BB30948C0D00FF1013 /* README.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +34,7 @@
 		A275C09F306567A200BDF6C2 /* Bloom.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Bloom.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2FE158D3094428800FF1013 /* BloomTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BloomTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2FE159A309442A500FF1013 /* BloomUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BloomUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2FE15BB30948C0D00FF1013 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -98,6 +100,7 @@
 		A275C096306567A200BDF6C2 = {
 			isa = PBXGroup;
 			children = (
+				A2FE15BB30948C0D00FF1013 /* README.md */,
 				A275C0A1306567A200BDF6C2 /* Bloom */,
 				A2FE158E3094428800FF1013 /* BloomTests */,
 				A2FE159B309442A500FF1013 /* BloomUITests */,
@@ -241,6 +244,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A2FE15BC30948C1200FF1013 /* README.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
