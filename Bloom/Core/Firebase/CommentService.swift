@@ -98,13 +98,6 @@ final class NoteCommentsListener: ObservableObject {
         return db.collection("users").document(ownerUID).collection("notes").document(noteID).collection("comments")
     }
 
-    // For one off writes with no listener, such as a notification action:
-    // points send() at a note without attaching anything.
-    func prepareForOneOffWrite(ownerUID: String, noteID: String) {
-        self.ownerUID = ownerUID
-        self.noteID = noteID
-    }
-
     // Starting the note that is already running does nothing.
     func start(ownerUID: String, noteID: String) {
         if listener != nil, self.ownerUID == ownerUID, self.noteID == noteID { return }

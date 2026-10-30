@@ -80,10 +80,6 @@ final class NotificationScheduler {
         content.title = Self.title
         content.body = Self.body
         content.sound = .default
-        content.categoryIdentifier = NotificationConstants.Category.reminder
-        if let uid = Auth.auth().currentUser?.uid {
-            content.userInfo = [NotificationConstants.Key.recipientUID: uid]
-        }
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
         let request = UNNotificationRequest(identifier: day.identifier, content: content, trigger: trigger)

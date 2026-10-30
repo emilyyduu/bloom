@@ -3,7 +3,7 @@ import UserNotifications
 
 // Attached in BloomApp with @UIApplicationDelegateAdaptor. It is created
 // once, before any view, and the adaptor keeps it alive. Not per account.
-// Launch work is only the delegate and the categories. Firebase is
+// Launch work is only the delegate. Firebase is
 // configured in BloomApp.init, which runs before this does.
 @MainActor
 final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -12,7 +12,6 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        NotificationCategories.register()
         return true
     }
 
@@ -28,31 +27,21 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         return isActive && notification.request.trigger is UNPushNotificationTrigger ? [] : [.banner, .sound]
     }
 
-    // A tap on the banner or on one of its buttons. Everything is awaited
-    // before returning, since the app may have been launched in the
-    // background just to run this.
+    // A tap on the banner. Awaited before returning, since the app may
+    // have been launched in the background just to run this.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        let userInfo = response.notification.request.content.userInfo
-        let payload = NotificationPayload(userInfo: userInfo)
-        let recipientUID = userInfo[NotificationConstants.Key.recipientUID] as? String
-        let userText = (response as? UNTextInputNotificationResponse)?.userText
+        let payload = NotificationPayload(userInfo: response.notification.request.content.userInfo)
 
         switch response.actionIdentifier {
         case UNNotificationDefaultActionIdentifier:
             // The reminder has no type, tapping it just opens Bloom.
             if let payload { await NotificationOpener.shared.open(payload) }
-        case UNNotificationDismissActionIdentifier:
-            break
         default:
-            await NotificationActionHandler.perform(
-                action: response.actionIdentifier,
-                text: userText,
-                payload: payload,
-                recipientUID: recipientUID
-            )
+            // Dismissing the banner does nothing.
+            break
         }
     }
 }

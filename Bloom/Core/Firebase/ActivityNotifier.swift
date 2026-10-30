@@ -10,24 +10,14 @@ import FirebaseAuth
 @MainActor
 enum ActivityNotifier {
     private typealias Key = NotificationConstants.Key
-    private typealias Category = NotificationConstants.Category
 
     static func post(for item: ActivityItem) async {
         let base: String
-        let category: String?
         switch item.kind {
-        case .note:
-            base = AccountDefaults.notifyFriendNotesBase
-            category = Category.note
-        case .comment:
-            base = AccountDefaults.notifyCommentsBase
-            category = Category.comment
-        case .reaction:
-            base = AccountDefaults.notifyReactionsBase
-            category = nil
-        case .accepted:
-            base = AccountDefaults.notifyFriendRequestsBase
-            category = nil
+        case .note: base = AccountDefaults.notifyFriendNotesBase
+        case .comment: base = AccountDefaults.notifyCommentsBase
+        case .reaction: base = AccountDefaults.notifyReactionsBase
+        case .accepted: base = AccountDefaults.notifyFriendRequestsBase
         }
         guard let me = Auth.auth().currentUser?.uid, item.fromUID != me,
               AccountDefaults.isNotificationEnabled(base) else { return }
@@ -55,7 +45,6 @@ enum ActivityNotifier {
             Key.type: item.kind.rawValue,
             Key.fromUID: item.fromUID,
             Key.activityID: item.id,
-            Key.recipientUID: me,
         ]
         if let noteOwnerUID = item.noteOwnerUID { userInfo[Key.noteOwnerUID] = noteOwnerUID }
         if let noteID = item.noteID { userInfo[Key.noteID] = noteID }
@@ -64,7 +53,6 @@ enum ActivityNotifier {
             identifier: "activity_\(item.id)",
             body: body,
             thread: "bloom.activity.\(item.kind.rawValue)",
-            category: category,
             userInfo: userInfo,
             me: me
         )
@@ -78,8 +66,7 @@ enum ActivityNotifier {
             identifier: "request_\(uid)",
             body: "\(name) sent you a friend request",
             thread: "bloom.friendRequest",
-            category: Category.friendRequest,
-            userInfo: [Key.type: "friendRequest", Key.fromUID: uid, Key.recipientUID: me],
+            userInfo: [Key.type: "friendRequest", Key.fromUID: uid],
             me: me
         )
     }
@@ -89,7 +76,6 @@ enum ActivityNotifier {
         identifier: String,
         body: String,
         thread: String,
-        category: String?,
         userInfo: [String: String],
         me: String
     ) async {
@@ -107,7 +93,6 @@ enum ActivityNotifier {
         content.body = body
         content.sound = .default
         content.threadIdentifier = thread
-        if let category { content.categoryIdentifier = category }
         content.userInfo = userInfo
 
         let request = UNNotificationRequest(

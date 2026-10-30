@@ -19,8 +19,6 @@ struct NotificationPayload: Sendable {
     let noteID: String?
     let fromUID: String?
     let activityID: String?
-    let commentID: String?
-    let recipientUID: String?
 
     static let friendRequestTypes = ["request", "friendRequest", "friend_request"]
 
@@ -38,8 +36,6 @@ struct NotificationPayload: Sendable {
         noteID = string(Key.noteID)
         fromUID = string(Key.fromUID)
         activityID = string(Key.activityID)
-        commentID = string(Key.commentID)
-        recipientUID = string(Key.recipientUID)
     }
 }
 
