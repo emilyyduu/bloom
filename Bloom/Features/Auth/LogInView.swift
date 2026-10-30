@@ -54,13 +54,24 @@ struct LogInView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(method == .phone ? "Send Code" : "Log In") { submit() }
-                        .disabled(isSubmitting)
+                        .disabled(isSubmitting || isInputEmpty)
                         .accessibilityIdentifier("logIn.submit")
                 }
             }
             .navigationDestination(item: $verificationID) { id in
                 PhoneVerificationView(verificationID: id, displayName: "", username: "", isNewAccount: false)
             }
+        }
+    }
+
+    // True when the active method's fields are empty after trimming.
+    private var isInputEmpty: Bool {
+        switch method {
+        case .phone:
+            return phoneNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .email:
+            return email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
     }
 
