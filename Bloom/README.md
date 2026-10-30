@@ -65,11 +65,23 @@ Full setup notes, including phone auth's push/reCAPTCHA requirement and suggeste
 
 ```
 Bloom/
-├── BloomApp.swift          # App entry point, Firebase setup, auth-gated root view
-├── Models/                 # SwiftData models (Note, Journal) + Firestore user record
-├── Views/                  # SwiftUI views: auth flow, journaling, friends & sharing
-└── Services/                # AuthService, FriendService, SharingService
+├── App/                 # BloomApp (entry point, Firebase setup), ContentView, PreviewContainer
+├── Core/                # Used by two or more features
+│   ├── Theme/           # Colors, fonts, journal cover styles
+│   ├── Storage/         # Per-account SwiftData stores, AccountDefaults, image caches
+│   ├── Firebase/        # AuthService, FriendService, SharingService and other Firestore services
+│   ├── Models/          # SwiftData models (Note, Journal, MediaLogEntry) + Firestore user record
+│   ├── Streaks/         # Streak calculation and sync
+│   ├── Utilities/       # Validators, notification plumbing, TMDB client, helpers
+│   └── Components/      # Views shared by several features (avatars, note detail, timeline rows)
+└── Features/            # Used by one feature only
+    ├── Auth/  Home/  Notes/  Journals/  Library/  Friends/
+    └── Greenhouse/  Notifications/  Profile/  Settings/
 ```
+
+If only one feature uses a file it goes in that feature, and if two or more use it, it goes
+in `Core`. New files go in the feature that owns them, or in the matching `Core` subfolder
+when shared.
 
 ## Roadmap
 
