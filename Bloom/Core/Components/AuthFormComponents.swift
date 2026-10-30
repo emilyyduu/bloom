@@ -45,6 +45,27 @@ struct FormErrorText: View {
     }
 }
 
+// The inline error on Sign Up, Log In and code entry. A warning icon
+// goes with the text so red isn't the only signal. It reads to VoiceOver
+// as just the message, and callers add their own identifier.
+struct AuthErrorText: View {
+    let message: String?
+
+    var body: some View {
+        if let message {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .accessibilityHidden(true)
+                Text(message)
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.Colors.error)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(message)
+        }
+    }
+}
+
 // Runs an async action while toggling a submission flag and capturing
 // any thrown error's description. Shared by LogInView, SignUpView and
 // PhoneVerificationView, which all talk to AuthService the same way:

@@ -16,8 +16,12 @@ struct LogInView: View {
     var body: some View {
         NavigationStack {
             Form {
-                AuthMethodPicker(method: $method)
-                    .accessibilityIdentifier("logIn.method")
+                Section {
+                    AuthMethodPicker(method: $method)
+                        .accessibilityIdentifier("logIn.method")
+                } header: {
+                    SectionHeader("Log in with")
+                }
 
                 switch method {
                 case .phone:
@@ -26,7 +30,9 @@ struct LogInView: View {
                             .keyboardType(.phonePad)
                             .accessibilityIdentifier("logIn.phone")
                     } header: {
-                        SectionHeader("Phone Number")
+                        SectionHeader("Phone number")
+                    } footer: {
+                        Text("We'll text you a 6 digit code. No password needed.")
                     }
                 case .email:
                     Section {
@@ -37,11 +43,13 @@ struct LogInView: View {
                         SecureField("Password", text: $password)
                             .accessibilityIdentifier("logIn.password")
                     } header: {
-                        SectionHeader("Email & Password")
+                        SectionHeader("Email and password")
+                    } footer: {
+                        Text("Use the email and password you signed up with.")
                     }
                 }
 
-                FormErrorText(message: errorMessage)
+                AuthErrorText(message: errorMessage)
                     .accessibilityIdentifier("logIn.error")
             }
             .frame(maxWidth: 500)
@@ -59,7 +67,13 @@ struct LogInView: View {
                 }
             }
             .navigationDestination(item: $verificationID) { id in
-                PhoneVerificationView(verificationID: id, displayName: "", username: "", isNewAccount: false)
+                PhoneVerificationView(
+                    verificationID: id,
+                    phoneNumber: phoneNumber,
+                    displayName: "",
+                    username: "",
+                    isNewAccount: false
+                )
             }
         }
     }

@@ -43,7 +43,6 @@ The app is complete for the unit submission. Everything listed below is built an
 **Notifications**
 - A daily reminder at a time you choose, skipped on days that already have a note. Optionally it adapts to the time you usually write
 - Friend alerts (new request, new shared note, comment or reply, reaction) appear as system notifications while Bloom is running, and always in the in-app notifications list
-- Banners have action buttons: Accept or Decline a friend request, Reply to a comment, Love or Comment on a note, and Quick note or Remind me in 1 hour on the daily reminder
 
 **Profile and settings**
 - Profile picture, display name and username, with a pinned notes section

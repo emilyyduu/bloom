@@ -36,8 +36,12 @@ struct SignUpView: View {
     var body: some View {
         NavigationStack {
             Form {
-                AuthMethodPicker(method: $method)
-                    .accessibilityIdentifier("signUp.method")
+                Section {
+                    AuthMethodPicker(method: $method)
+                        .accessibilityIdentifier("signUp.method")
+                } header: {
+                    SectionHeader("Sign up with")
+                }
 
                 Section {
                     TextField("Display name", text: $displayName)
@@ -45,9 +49,7 @@ struct SignUpView: View {
                         .textInputAutocapitalization(.words)
                         .accessibilityIdentifier("signUp.displayName")
                     if let displayNameValidationError {
-                        Text(displayNameValidationError)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                        AuthErrorText(message: displayNameValidationError)
                             .accessibilityIdentifier("signUp.displayNameError")
                     }
                 } header: {
@@ -61,13 +63,13 @@ struct SignUpView: View {
                         .textInputAutocapitalization(.never)
                         .accessibilityIdentifier("signUp.username")
                     if let usernameValidationError {
-                        Text(usernameValidationError)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                        AuthErrorText(message: usernameValidationError)
                             .accessibilityIdentifier("signUp.usernameError")
                     }
                 } header: {
                     SectionHeader("Username")
+                } footer: {
+                    Text("Friends can search for you by username. Use letters, numbers, underscore or dot.")
                 }
 
                 switch method {
@@ -77,7 +79,9 @@ struct SignUpView: View {
                             .keyboardType(.phonePad)
                             .accessibilityIdentifier("signUp.phone")
                     } header: {
-                        SectionHeader("Phone Number")
+                        SectionHeader("Phone number")
+                    } footer: {
+                        Text("We'll text you a 6 digit code. No password needed.")
                     }
                 case .email:
                     Section {
@@ -88,11 +92,13 @@ struct SignUpView: View {
                         SecureField("Password", text: $password)
                             .accessibilityIdentifier("signUp.password")
                     } header: {
-                        SectionHeader("Email & Password")
+                        SectionHeader("Email and password")
+                    } footer: {
+                        Text("Choose a password with at least 6 characters.")
                     }
                 }
 
-                FormErrorText(message: errorMessage)
+                AuthErrorText(message: errorMessage)
                     .accessibilityIdentifier("signUp.error")
             }
             .frame(maxWidth: 500)
@@ -110,7 +116,13 @@ struct SignUpView: View {
                 }
             }
             .navigationDestination(item: $verificationID) { id in
-                PhoneVerificationView(verificationID: id, displayName: displayName, username: username, isNewAccount: true)
+                PhoneVerificationView(
+                    verificationID: id,
+                    phoneNumber: phoneNumber,
+                    displayName: displayName,
+                    username: username,
+                    isNewAccount: true
+                )
             }
         }
     }

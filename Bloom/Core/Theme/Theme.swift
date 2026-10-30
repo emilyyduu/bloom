@@ -47,6 +47,50 @@ enum Theme {
                 ? UIColor(red: 0.07, green: 0.15, blue: 0.09, alpha: 1)
                 : UIColor(red: 0.86, green: 0.92, blue: 0.85, alpha: 1)
         })
+
+        // The Welcome screen's backdrop fades from the system background
+        // down to this pale tint of the blooming green (a deep forest
+        // green in dark mode). Checked against the text and fills below.
+        static let welcomeGradientBottom = Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.07, green: 0.15, blue: 0.09, alpha: 1)
+                : UIColor(red: 0.90, green: 0.95, blue: 0.89, alpha: 1)
+        })
+
+        // The fill of the brand badge and the primary button, and the
+        // colour of the secondary button's border and text. Same hue as
+        // `blooming`.
+        static let actionFill = Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.45, green: 0.85, blue: 0.48, alpha: 1)
+                : UIColor(red: 0.08, green: 0.42, blue: 0.14, alpha: 1)
+        })
+
+        // The leaf or label drawn on top of `actionFill`.
+        static let onActionFill = Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.04, green: 0.14, blue: 0.06, alpha: 1)
+                : UIColor.white
+        })
+
+        // Supporting text on the Welcome screen. The system's secondary
+        // label is only about 3.4:1 on white, so this is a darker (light
+        // mode) or lighter (dark mode) green grey that clears 4.5:1 on
+        // every point of the gradient.
+        static let welcomeSecondaryText = Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 0.80, green: 0.86, blue: 0.81, alpha: 1)
+                : UIColor(red: 0.22, green: 0.28, blue: 0.24, alpha: 1)
+        })
+
+        // Inline error text on Sign Up, Log In and code entry. The system
+        // red is only 3.6:1 on a white form row, this clears 4.5:1 on the
+        // row and grouped backgrounds in both appearances.
+        static let error = Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark
+                ? UIColor(red: 1.0, green: 0.54, blue: 0.50, alpha: 1)
+                : UIColor(red: 0.72, green: 0.09, blue: 0.09, alpha: 1)
+        })
     }
 
     // Book covers for the journals. The cover colours are all dark enough
