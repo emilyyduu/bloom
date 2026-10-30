@@ -12,7 +12,7 @@ struct CirclesView: View {
     @State private var circleToDelete: FriendCircle?
     @State private var errorMessage: String?
 
-    private var friends: [FirestoreUser] { circleStore.allFriends(real: friendService.friends) }
+    private var friends: [FirestoreUser] { friendService.friends }
 
     var body: some View {
         List {

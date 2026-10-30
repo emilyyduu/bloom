@@ -93,8 +93,6 @@ final class NoteCommentsListener: ObservableObject {
     private var noteID: String?
     private let timeout = LiveTimeout()
 
-    private var isSample: Bool { ownerUID?.hasPrefix("sample-") ?? false }
-
     private var collection: CollectionReference? {
         guard let ownerUID, let noteID else { return nil }
         return db.collection("users").document(ownerUID).collection("notes").document(noteID).collection("comments")
@@ -113,21 +111,9 @@ final class NoteCommentsListener: ObservableObject {
         stop()
         self.ownerUID = ownerUID
         self.noteID = noteID
-        let path = "users/\(ownerUID)/notes/\(noteID)/comments"
-        LiveLog.event("comments", "start", path: path)
-
-        // DEBUG sample friends never touch Firestore.
-        guard !ownerUID.hasPrefix("sample-") else {
-            #if DEBUG
-            comments = Self.sampleComments
-            state = .loaded
-            #endif
-            return
-        }
 
         timeout.start { [weak self] in
             guard let self, self.state == .loading else { return }
-            LiveLog.event("comments", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
             self.listener?.remove()
             self.listener = nil
             self.state = .failed
@@ -140,14 +126,12 @@ final class NoteCommentsListener: ObservableObject {
                 self.timeout.cancel()
 
                 if let error {
-                    LiveLog.error("comments", path: path, error: error)
                     self.listener?.remove()
                     self.listener = nil
                     self.state = LiveState(error: error)
                     return
                 }
                 guard let snapshot else { return }
-                LiveLog.snapshot("comments", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
                 self.comments = snapshot.documents.compactMap(Self.comment(from:))
                 self.state = .loaded
@@ -165,7 +149,6 @@ final class NoteCommentsListener: ObservableObject {
     // Always leaves a clean state, so presenting the sheet again starts
     // a fresh listener from loading.
     func stop() {
-        LiveLog.event("comments", "stop", path: "users/\(ownerUID ?? "?")/notes/\(noteID ?? "?")/comments")
         listener?.remove()
         listener = nil
         timeout.cancel()
@@ -195,13 +178,6 @@ final class NoteCommentsListener: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, trimmed.count <= NoteComment.maxLength else { return }
 
-        if isSample {
-            comments.append(NoteComment(
-                id: UUID().uuidString, authorUID: authorUID, text: trimmed, createdAt: Date(),
-                replyToUID: replyTo?.toUID, replyToCommentId: replyTo?.threadID
-            ))
-            return
-        }
         guard let collection else { return }
         let commentRef = collection.document()
         var data: [String: Any] = [
@@ -213,14 +189,7 @@ final class NoteCommentsListener: ObservableObject {
             data["replyToUID"] = replyTo.toUID
             data["replyToCommentId"] = replyTo.threadID
         }
-        do {
-            try await commentRef.setData(data)
-        } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "sending a comment. Permission denied here means the comments rules aren't published")
-            #endif
-            throw error
-        }
+        try await commentRef.setData(data)
 
         let commentID = commentRef.documentID
         if let replyTo {
@@ -245,31 +214,8 @@ final class NoteCommentsListener: ObservableObject {
     }
 
     func delete(_ comment: NoteComment) async throws {
-        if isSample {
-            comments.removeAll { $0.id == comment.id }
-            return
-        }
-        do {
-            try await collection?.document(comment.id).delete()
-        } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "deleting comment \(comment.id)")
-            #endif
-            throw error
-        }
+        try await collection?.document(comment.id).delete()
     }
-
-    #if DEBUG
-    private static let sampleComments: [NoteComment] = [
-        NoteComment(id: "sample-comment-1", authorUID: "sample-priya", text: "Love this one.", createdAt: Date().addingTimeInterval(-7200)),
-        NoteComment(id: "sample-comment-2", authorUID: "sample-tom", text: "Same, we should go again soon.", createdAt: Date().addingTimeInterval(-3600)),
-        NoteComment(
-            id: "sample-comment-3", authorUID: "sample-priya", text: "@tom Yes please, next weekend?",
-            createdAt: Date().addingTimeInterval(-1800),
-            replyToUID: "sample-tom", replyToCommentId: "sample-comment-2"
-        ),
-    ]
-    #endif
 }
 
 // How many comments a card shows, loaded lazily with a count
@@ -291,22 +237,16 @@ final class CommentCounts: ObservableObject {
     }
 
     func ensure(ownerUID: String?, noteID: String?) async {
-        guard let ownerUID, let noteID, !ownerUID.hasPrefix("sample-") else { return }
+        guard let ownerUID, let noteID else { return }
         let key = Self.key(ownerUID: ownerUID, noteID: noteID)
         guard counts[key] == nil, !inFlight.contains(key) else { return }
         inFlight.insert(key)
         defer { inFlight.remove(key) }
 
-        do {
-            let query = Firestore.firestore().collection("users").document(ownerUID)
-                .collection("notes").document(noteID).collection("comments").count
-            let snapshot = try await query.getAggregation(source: .server)
-            counts[key] = snapshot.count.intValue
-        } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "counting comments on \(noteID)")
-            #endif
-        }
+        let query = Firestore.firestore().collection("users").document(ownerUID)
+            .collection("notes").document(noteID).collection("comments").count
+        guard let snapshot = try? await query.getAggregation(source: .server) else { return }
+        counts[key] = snapshot.count.intValue
     }
 
     func set(_ count: Int, ownerUID: String, noteID: String) {
@@ -329,7 +269,6 @@ actor UserProfileCache {
 
     func profile(uid: String) async -> FirestoreUser? {
         if let cached = profiles[uid] { return cached }
-        guard !uid.hasPrefix("sample-") else { return Self.sampleProfile(uid) }
 
         do {
             let snapshot = try await Firestore.firestore().collection("users").document(uid).getDocument()
@@ -337,17 +276,9 @@ actor UserProfileCache {
             profiles[uid] = user
             return user
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "loading the profile of \(uid)")
-            #endif
             return nil
         }
     }
 
     func reset() { profiles = [:] }
-
-    private static func sampleProfile(_ uid: String) -> FirestoreUser {
-        let name = uid.replacingOccurrences(of: "sample-", with: "").capitalized
-        return FirestoreUser(id: uid, username: name.lowercased(), displayName: name, createdAt: Date())
-    }
 }

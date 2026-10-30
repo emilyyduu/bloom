@@ -99,9 +99,6 @@ final class NotificationOpener {
     // matching item in my feed.
     func isForMe(_ payload: NotificationPayload, me: String) async -> Bool {
         if let id = payload.activityID {
-            #if DEBUG
-            if id.hasPrefix(DebugBanner.activityPrefix) { return true }
-            #endif
             if ActivityStore.shared.items.contains(where: { $0.id == id }) { return true }
             do {
                 return try await db.collection("users").document(me).collection("activity").document(id)
@@ -185,7 +182,6 @@ final class NotificationBadge {
         let delivered = await center.deliveredNotifications()
         let identifiers = delivered.map(\.request.identifier)
             .filter { !$0.hasPrefix(ReminderPlanner.identifierPrefix) }
-        NotificationLog.removed("removeDeliveredNotifications (feed opened)", identifiers: identifiers)
         center.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 }

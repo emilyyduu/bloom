@@ -90,8 +90,7 @@ struct AvatarView: View {
         .accessibilityLabel(name)
         .accessibilityAddTraits(.isImage)
         .task(id: LoadKey(uid: uid, hasAvatar: hasAvatar, updatedAt: avatarUpdatedAt)) {
-            // DEBUG sample friends have no avatar and never touch Firestore.
-            guard hasAvatar, let uid, !uid.hasPrefix("sample-") else {
+            guard hasAvatar, let uid else {
                 loadedImage = nil
                 return
             }

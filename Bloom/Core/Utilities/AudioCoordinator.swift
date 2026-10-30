@@ -69,9 +69,6 @@ final class AudioCoordinator {
             try session.setActive(true)
             return true
         } catch {
-            #if DEBUG
-            print("AudioCoordinator: couldn't activate the audio session: \(error)")
-            #endif
             end(owner: newOwner)
             return false
         }

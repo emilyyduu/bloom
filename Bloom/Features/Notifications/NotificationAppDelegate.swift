@@ -12,9 +12,7 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
-        NotificationLog.delegateWasSet(self)
         NotificationCategories.register()
-        Task { await NotificationLog.snapshot("launch") }
         return true
     }
 
@@ -27,10 +25,7 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         let isActive = UIApplication.shared.applicationState == .active
-        let result: UNNotificationPresentationOptions =
-            isActive && notification.request.trigger is UNPushNotificationTrigger ? [] : [.banner, .sound]
-        NotificationLog.willPresent(notification, isActive: isActive, result: result)
-        return result
+        return isActive && notification.request.trigger is UNPushNotificationTrigger ? [] : [.banner, .sound]
     }
 
     // A tap on the banner or on one of its buttons. Everything is awaited
@@ -40,7 +35,6 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        NotificationLog.didReceive(response)
         let userInfo = response.notification.request.content.userInfo
         let payload = NotificationPayload(userInfo: userInfo)
         let recipientUID = userInfo[NotificationConstants.Key.recipientUID] as? String

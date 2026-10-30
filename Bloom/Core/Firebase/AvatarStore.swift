@@ -79,9 +79,6 @@ enum AvatarProcessor {
         for step in stride(from: 7, through: 1, by: -1) {
             let quality = CGFloat(step) / 10
             if let data = square.jpegData(compressionQuality: quality), data.count < maxBytes {
-                #if DEBUG
-                print("AvatarProcessor: \(data.count) bytes at JPEG quality \(quality)")
-                #endif
                 return data
             }
         }

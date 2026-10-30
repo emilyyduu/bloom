@@ -30,55 +30,23 @@ enum CircleError: LocalizedError {
 final class CircleStore: ObservableObject {
     static let shared = CircleStore()
 
-    @Published private(set) var realCircles: [FriendCircle] = []
+    @Published private(set) var circles: [FriendCircle] = []
     @Published private(set) var state: LiveState = .loading
     @Published private(set) var errorMessage: String?
     // Which circle the Greenhouse shows and which one filters Home's
     // tiles, nil is All friends. Saved per account.
     @Published private(set) var gardenCircleID: String?
     @Published private(set) var homeFilterCircleID: String?
-    // DEBUG sample data, always false in release.
-    @Published private(set) var isSampleData = false
-
-    #if DEBUG
-    @Published private var sampleCircles: [FriendCircle] = SampleCircleData.circles()
-    private var defaultsObserver: NSObjectProtocol?
-    #endif
 
     private var listener: ListenerRegistration?
     private let timeout = LiveTimeout()
     private var friendsCancellable: AnyCancellable?
     private var pruning: Set<String> = []
 
-    private init() {
-        #if DEBUG
-        isSampleData = UserDefaults.standard.bool(forKey: SampleCircleData.isEnabledKey)
-        defaultsObserver = NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshSampleFlag() }
-        }
-        #endif
-    }
-
-    #if DEBUG
-    private func refreshSampleFlag() {
-        let enabled = UserDefaults.standard.bool(forKey: SampleCircleData.isEnabledKey)
-        guard enabled != isSampleData else { return }
-        isSampleData = enabled
-        reconcileSelections()
-    }
-    #endif
-
-    var circles: [FriendCircle] {
-        #if DEBUG
-        if isSampleData { return sampleCircles }
-        #endif
-        return realCircles
-    }
+    private init() {}
 
     // The circles are known: the first answer, or an error, has arrived.
-    var isReady: Bool { isSampleData || state != .loading }
+    var isReady: Bool { state != .loading }
 
     func circle(id: String?) -> FriendCircle? {
         guard let id else { return nil }
@@ -95,9 +63,6 @@ final class CircleStore: ObservableObject {
     // more is hidden as soon as the friend list is known (and removed from
     // the document), someone who just isn't loaded yet stays.
     func memberUIDs(of circle: FriendCircle) -> [String] {
-        #if DEBUG
-        if isSampleData { return circle.memberUIDs }
-        #endif
         guard let confirmed = FriendService.shared.confirmedFriendUIDs else { return circle.memberUIDs }
         return circle.memberUIDs.filter { confirmed.contains($0) }
     }
@@ -105,14 +70,6 @@ final class CircleStore: ObservableObject {
     func members(of circle: FriendCircle, among friends: [FirestoreUser]) -> [FirestoreUser] {
         let byID = Dictionary(friends.compactMap { friend in friend.id.map { ($0, friend) } }, uniquingKeysWith: { first, _ in first })
         return memberUIDs(of: circle).compactMap { byID[$0] }
-    }
-
-    // My friends, or the 12 sample friends when the DEBUG switch is on.
-    func allFriends(real: [FirestoreUser]) -> [FirestoreUser] {
-        #if DEBUG
-        if isSampleData { return SampleCircleData.friends }
-        #endif
-        return real
     }
 
     func circles(containing uid: String) -> [FriendCircle] {
@@ -127,12 +84,9 @@ final class CircleStore: ObservableObject {
         homeFilterCircleID = AccountDefaults.homeCircleFilterID
         state = .loading
         errorMessage = nil
-        let path = "users/\(uid)/circles"
-        LiveLog.event("circles", "start", path: path)
 
         timeout.start { [weak self] in
             guard let self, self.state == .loading else { return }
-            LiveLog.event("circles", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
             self.listener?.remove()
             self.listener = nil
             self.state = .failed
@@ -146,7 +100,6 @@ final class CircleStore: ObservableObject {
                 self.timeout.cancel()
 
                 if let error {
-                    LiveLog.error("circles", path: path, error: error)
                     self.listener?.remove()
                     self.listener = nil
                     let failure = LiveState(error: error)
@@ -157,16 +110,9 @@ final class CircleStore: ObservableObject {
                     return
                 }
                 guard let snapshot else { return }
-                LiveLog.snapshot("circles", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
                 // A circle that doesn't decode is skipped, not fatal.
-                let parsed = snapshot.documents.compactMap { FriendCircle(document: $0) }
-                #if DEBUG
-                if parsed.count != snapshot.documents.count {
-                    print("CircleStore: skipped \(snapshot.documents.count - parsed.count) circle document(s) that didn't decode")
-                }
-                #endif
-                self.realCircles = parsed
+                self.circles = snapshot.documents.compactMap { FriendCircle(document: $0) }
                 self.state = .loaded
                 self.errorMessage = nil
                 self.reconcileSelections()
@@ -186,14 +132,13 @@ final class CircleStore: ObservableObject {
 
     // The account reset: nothing about this account stays in memory.
     func stopListening() {
-        LiveLog.event("circles", "stop", path: "users/?/circles")
         listener?.remove()
         listener = nil
         timeout.cancel()
         friendsCancellable?.cancel()
         friendsCancellable = nil
         pruning = []
-        realCircles = []
+        circles = []
         state = .loading
         errorMessage = nil
         gardenCircleID = nil
@@ -220,10 +165,10 @@ final class CircleStore: ObservableObject {
     // Removes people who are no longer accepted friends from the circle
     // documents. Does nothing until the friend list has come from the server.
     private func prune(confirmed: Set<String>?) {
-        guard !isSampleData, state == .loaded, let confirmed else { return }
+        guard state == .loaded, let confirmed else { return }
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
-        for circle in realCircles {
+        for circle in circles {
             let stale = circle.memberUIDs.filter { !confirmed.contains($0) }
             guard !stale.isEmpty, !pruning.contains(circle.id) else { continue }
             pruning.insert(circle.id)
@@ -237,9 +182,6 @@ final class CircleStore: ObservableObject {
                     ])
                 } catch {
                     errorMessage = "Couldn\u{2019}t update a circle"
-                    #if DEBUG
-                    logFirestoreError(error, while: "removing former friends from circle \(circle.id)")
-                    #endif
                 }
             }
         }
@@ -253,9 +195,6 @@ final class CircleStore: ObservableObject {
     }
 
     private func isFriend(_ uid: String) -> Bool {
-        #if DEBUG
-        if isSampleData { return SampleCircleData.friends.contains { $0.id == uid } }
-        #endif
         if let confirmed = FriendService.shared.confirmedFriendUIDs { return confirmed.contains(uid) }
         return FriendService.shared.friends.contains { $0.id == uid }
     }
@@ -273,24 +212,14 @@ final class CircleStore: ObservableObject {
         let now = Date()
         let clean = CircleLimits.trimmed(name)
 
-        #if DEBUG
-        if isSampleData {
-            let circle = FriendCircle(id: "sample-circle-\(UUID().uuidString)", name: clean, memberUIDs: members, createdAt: now, updatedAt: now)
-            sampleCircles.append(circle)
-            return circle
-        }
-        #endif
-
         guard let collection else { throw CircleError.notSignedIn }
         let reference = collection.document()
-        try await write("creating a circle") {
-            try await reference.setData([
-                "name": clean,
-                "memberUIDs": members,
-                "createdAt": Timestamp(date: now),
-                "updatedAt": Timestamp(date: now),
-            ])
-        }
+        try await reference.setData([
+            "name": clean,
+            "memberUIDs": members,
+            "createdAt": Timestamp(date: now),
+            "updatedAt": Timestamp(date: now),
+        ])
         return FriendCircle(id: reference.documentID, name: clean, memberUIDs: members, createdAt: now, updatedAt: now)
     }
 
@@ -299,25 +228,12 @@ final class CircleStore: ObservableObject {
         if let problem = CircleLimits.nameError(name, existingNames: others) { throw CircleError.name(problem) }
         let clean = CircleLimits.trimmed(name)
 
-        #if DEBUG
-        if isSampleData {
-            update(&sampleCircles, id: circle.id) { $0.name = clean }
-            return
-        }
-        #endif
-        try await change(circle, "renaming a circle", ["name": clean])
+        try await change(circle, ["name": clean])
     }
 
     func delete(_ circle: FriendCircle) async throws {
-        #if DEBUG
-        if isSampleData {
-            sampleCircles.removeAll { $0.id == circle.id }
-            reconcileSelections()
-            return
-        }
-        #endif
         guard let collection else { throw CircleError.notSignedIn }
-        try await write("deleting a circle") { try await collection.document(circle.id).delete() }
+        try await collection.document(circle.id).delete()
         // Don't wait for the listener to fall back to All friends.
         if gardenCircleID == circle.id { selectGardenCircle(nil) }
         if homeFilterCircleID == circle.id { selectHomeFilter(nil) }
@@ -330,23 +246,11 @@ final class CircleStore: ObservableObject {
         guard CircleLimits.canAdd(current: current.count, adding: new.count) else { throw CircleError.limitOfMembers }
         guard new.allSatisfy(isFriend) else { throw CircleError.notAFriend }
 
-        #if DEBUG
-        if isSampleData {
-            update(&sampleCircles, id: circle.id) { $0.memberUIDs += new }
-            return
-        }
-        #endif
-        try await change(circle, "adding people to a circle", ["memberUIDs": FieldValue.arrayUnion(new)])
+        try await change(circle, ["memberUIDs": FieldValue.arrayUnion(new)])
     }
 
     func remove(_ uid: String, from circle: FriendCircle) async throws {
-        #if DEBUG
-        if isSampleData {
-            update(&sampleCircles, id: circle.id) { $0.memberUIDs.removeAll { $0 == uid } }
-            return
-        }
-        #endif
-        try await change(circle, "removing someone from a circle", ["memberUIDs": FieldValue.arrayRemove([uid])])
+        try await change(circle, ["memberUIDs": FieldValue.arrayRemove([uid])])
     }
 
     // Tapping a circle in FriendProfileView's menu: in becomes out and back.
@@ -358,30 +262,10 @@ final class CircleStore: ObservableObject {
         }
     }
 
-    private func change(_ circle: FriendCircle, _ action: String, _ fields: [String: Any]) async throws {
+    private func change(_ circle: FriendCircle, _ fields: [String: Any]) async throws {
         guard let collection else { throw CircleError.notSignedIn }
         var data = fields
         data["updatedAt"] = Timestamp(date: Date())
-        try await write(action) { try await collection.document(circle.id).updateData(data) }
+        try await collection.document(circle.id).updateData(data)
     }
-
-    // Every failed write is printed in DEBUG and then thrown to the screen.
-    private func write(_ action: String, _ body: () async throws -> Void) async throws {
-        do {
-            try await body()
-        } catch {
-            #if DEBUG
-            logFirestoreError(error, while: action)
-            #endif
-            throw error
-        }
-    }
-
-    #if DEBUG
-    private func update(_ list: inout [FriendCircle], id: String, _ edit: (inout FriendCircle) -> Void) {
-        guard let index = list.firstIndex(where: { $0.id == id }) else { return }
-        edit(&list[index])
-        list[index].updatedAt = Date()
-    }
-    #endif
 }

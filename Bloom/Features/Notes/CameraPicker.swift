@@ -35,11 +35,6 @@ enum CameraAccess {
 
         // Asking without this key would crash the app.
         guard hasUsageDescription else {
-            #if DEBUG
-            print("CameraAccess: add NSCameraUsageDescription to the target's Info settings " +
-                "(Info.plist key, or INFOPLIST_KEY_NSCameraUsageDescription in build settings) " +
-                "with a sentence explaining why Bloom uses the camera.")
-            #endif
             return .blocked(CameraNotice(message: "Camera access isn\u{2019}t set up in this build"))
         }
 

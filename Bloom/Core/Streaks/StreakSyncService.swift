@@ -30,19 +30,7 @@ final class StreakSyncService {
             "updatedAt": Timestamp(date: Date()),
         ]
 
-        do {
-            try await db.collection("streaks").document(uid).setData(data)
-        } catch {
-            #if DEBUG
-            let nsError = error as NSError
-            if nsError.domain == FirestoreErrorDomain, nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
-                print("StreakSyncService: permission denied writing streaks/\(uid). " +
-                    "The streaks Firestore security rules probably haven't been published yet.")
-            } else {
-                print("StreakSyncService: error writing streaks/\(uid): \(error)")
-            }
-            #endif
-        }
+        try? await db.collection("streaks").document(uid).setData(data)
     }
 
     private func postedDates(in context: ModelContext, calendar: Calendar) -> Set<Date> {

@@ -147,9 +147,6 @@ struct AddByLinkSheet: View {
             }
             state = .loaded(try snapshot.data(as: FirestoreUser.self))
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "loading the profile from a link")
-            #endif
             state = .failed
         }
     }

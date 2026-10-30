@@ -90,18 +90,12 @@ actor FriendAudioCache {
         let task = Task<Outcome, Never> {
             do {
                 guard let data = try await store.download(ownerUID: ownerUID, noteID: noteID), !data.isEmpty else {
-                    #if DEBUG
-                    print("FriendAudioCache: no audio data for \(key)")
-                    #endif
                     return .failed
                 }
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 try data.write(to: fileURL)
                 return .file(fileURL)
             } catch {
-                #if DEBUG
-                logFirestoreError(error, while: "downloading voice memo \(key). Permission denied here means the audio rules aren't published or you're not accepted friends")
-                #endif
                 return .failed
             }
         }

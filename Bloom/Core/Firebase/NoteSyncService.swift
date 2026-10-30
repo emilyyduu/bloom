@@ -37,29 +37,16 @@ final class NoteSyncService {
     // so a context from a previous account (say, in a Task that outlived
     // its view) can never be backed up under the new account's uid.
     private func ownsContext(_ context: ModelContext, uid: String?) -> Bool {
-        let owns = StoreManager.shared.owns(context, uid: uid)
-        #if DEBUG
-        if !owns { print("NoteSyncService: ignored a context that isn't the signed-in account's store") }
-        #endif
-        return owns
+        StoreManager.shared.owns(context, uid: uid)
     }
 
     // MARK: - Upload
 
     // Fire-and-forget upload for a single just-saved note. Never
-    // blocks the caller; failures are silent in release and printed
-    // in DEBUG. A failed note keeps syncedAt == nil, so syncPending
-    // retries it later.
+    // blocks the caller; failures are silent. A failed note keeps
+    // syncedAt == nil, so syncPending retries it later.
     func upload(_ note: Note) {
-        Task {
-            do {
-                try await uploadNote(note)
-            } catch {
-                #if DEBUG
-                logFirestoreError(error, while: "uploading note \(note.id.uuidString)")
-                #endif
-            }
-        }
+        Task { try? await uploadNote(note) }
     }
 
     // The same upload, awaited, for a notification action that must
@@ -72,12 +59,6 @@ final class NoteSyncService {
     // true before its photo exists. If the photo step throws, the note
     // is not written and syncedAt stays nil, so it retries.
     private func uploadNote(_ note: Note) async throws {
-        // DEBUG sample history notes are local only. Keep them marked as
-        // backed up so syncPending never picks them up.
-        if note.isSample {
-            if note.syncedAt == nil { note.syncedAt = Date() }
-            return
-        }
         guard let uid = note.ownerUID else { return }
 
         try await syncPhoto(for: note, ownerUID: uid)
@@ -92,10 +73,6 @@ final class NoteSyncService {
             .collection("notes").document(note.id.uuidString)
             .setData(data)
 
-        #if DEBUG
-        print("uploaded \(note.id.uuidString) shared=\(data["sharedWithFriends"] as? Bool ?? false) " +
-            "at \(Date().formatted(date: .omitted, time: .standard))")
-        #endif
 
         note.syncedAt = Date()
         try? note.modelContext?.save()
@@ -132,20 +109,11 @@ final class NoteSyncService {
                 }
                 try await photoStore.upload(data, ownerUID: ownerUID, noteID: noteID)
                 note.photoSyncedAt = Date()
-                #if DEBUG
-                print("NoteSyncService: uploaded photo for \(noteID), \(data.count) bytes")
-                #endif
             } else if note.photoSyncedAt != nil {
                 try await photoStore.delete(ownerUID: ownerUID, noteID: noteID)
                 note.photoSyncedAt = nil
-                #if DEBUG
-                print("NoteSyncService: deleted photo for \(noteID)")
-                #endif
             }
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "syncing photo for note \(noteID). Permission denied here means the photos rules aren't published")
-            #endif
             throw error
         }
     }
@@ -168,20 +136,11 @@ final class NoteSyncService {
                 guard data.count <= AudioLimits.maxBytes else { throw AudioStoreError.tooLarge }
                 try await audioStore.upload(data, ownerUID: ownerUID, noteID: noteID)
                 note.audioSyncedAt = Date()
-                #if DEBUG
-                print("NoteSyncService: uploaded voice memo for \(noteID), \(data.count) bytes")
-                #endif
             } else if note.audioSyncedAt != nil {
                 try await audioStore.delete(ownerUID: ownerUID, noteID: noteID)
                 note.audioSyncedAt = nil
-                #if DEBUG
-                print("NoteSyncService: deleted voice memo for \(noteID)")
-                #endif
             }
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "syncing voice memo for note \(noteID). Permission denied here means the audio rules aren't published")
-            #endif
             throw error
         }
     }
@@ -231,22 +190,13 @@ final class NoteSyncService {
         Task {
             do {
                 try await db.collection("users").document(uid).collection("notes").document(noteID).delete()
-                #if DEBUG
-                print("NoteSyncService: deleted note \(noteID)")
-                #endif
             } catch {
-                #if DEBUG
-                logFirestoreError(error, while: "deleting note \(noteID)")
-                #endif
             }
 
             if mayHaveAudioBackup {
                 do {
                     try await audioStore.delete(ownerUID: uid, noteID: noteID)
                 } catch {
-                    #if DEBUG
-                    logFirestoreError(error, while: "deleting voice memo \(noteID)")
-                    #endif
                 }
             }
 
@@ -254,9 +204,6 @@ final class NoteSyncService {
             do {
                 try await photoStore.delete(ownerUID: uid, noteID: noteID)
             } catch {
-                #if DEBUG
-                logFirestoreError(error, while: "deleting photo \(noteID)")
-                #endif
             }
         }
     }
@@ -305,13 +252,7 @@ final class NoteSyncService {
             try await audioStore.delete(ownerUID: uid, noteID: noteID)
             try await deleteComments(of: noteRef)
             AccountDefaults.removePendingDeletion(noteID, uid: uid)
-            #if DEBUG
-            print("NoteSyncService: deleted note \(noteID) and everything attached to it")
-            #endif
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "deleting note \(noteID) everywhere. It stays on the pending list and retries")
-            #endif
         }
     }
 
@@ -352,9 +293,6 @@ final class NoteSyncService {
         } catch {
             note.sharedWithFriends = previous
             try? note.modelContext?.save()
-            #if DEBUG
-            logFirestoreError(error, while: "sharing note \(note.id.uuidString) (shared=\(isShared))")
-            #endif
             throw error
         }
     }
@@ -387,10 +325,7 @@ final class NoteSyncService {
         guard let uid = Auth.auth().currentUser?.uid, ownsContext(context, uid: uid) else { return }
 
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { !$0.isDraft })
-        guard let notes = (try? context.fetch(descriptor))?.filter({ !$0.isSample }), !notes.isEmpty else {
-            #if DEBUG
-            print("NoteSyncService: setSharedWithFriendsForAllNotes(\(isShared)) - no notes to update")
-            #endif
+        guard let notes = try? context.fetch(descriptor), !notes.isEmpty else {
             return
         }
 
@@ -401,9 +336,6 @@ final class NoteSyncService {
         }
         try? context.save()
 
-        var updated = 0
-        var failed = 0
-
         var ready: [Note] = []
         for note in notes {
             guard let noteUID = note.ownerUID else { continue }
@@ -411,9 +343,7 @@ final class NoteSyncService {
                 try await syncPhoto(for: note, ownerUID: noteUID)
                 try await syncAudio(for: note, ownerUID: noteUID)
                 ready.append(note)
-            } catch {
-                failed += 1
-            }
+            } catch {}
         }
 
         for chunk in ready.chunked(into: 500) {
@@ -428,26 +358,11 @@ final class NoteSyncService {
                 try await batch.commit()
                 for note in chunk {
                     note.syncedAt = Date()
-                    #if DEBUG
-                    print("uploaded \(note.id.uuidString) shared=\(note.sharedWithFriends) " +
-                        "at \(Date().formatted(date: .omitted, time: .standard))")
-                    #endif
                 }
-                updated += chunk.count
-            } catch {
-                failed += chunk.count
-                #if DEBUG
-                logFirestoreError(error, while: "bulk-updating sharing for \(chunk.count) notes")
-                #endif
-            }
+            } catch {}
         }
 
         try? context.save()
-
-        #if DEBUG
-        print("NoteSyncService: setSharedWithFriendsForAllNotes(\(isShared)) - " +
-            "updated \(updated), failed \(failed)")
-        #endif
     }
 
     // MARK: - Photo backfill
@@ -466,9 +381,6 @@ final class NoteSyncService {
         for note in notes { note.syncedAt = nil }
         try? context.save()
 
-        #if DEBUG
-        print("NoteSyncService: photo backfill queued \(notes.count) note(s)")
-        #endif
     }
 
     // MARK: - Sync pending
@@ -490,35 +402,17 @@ final class NoteSyncService {
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.syncedAt == nil })
         guard let candidates = try? context.fetch(descriptor) else { return }
 
-        var uploaded = 0
-        var skippedForAnotherAccount = 0
-        var failed = 0
-
         for note in candidates {
             if note.ownerUID == nil {
                 note.ownerUID = uid
             } else if note.ownerUID != uid {
-                skippedForAnotherAccount += 1
                 continue
             }
 
-            do {
-                try await uploadNote(note)
-                uploaded += 1
-            } catch {
-                failed += 1
-                #if DEBUG
-                logFirestoreError(error, while: "uploading note \(note.id.uuidString)")
-                #endif
-            }
+            try? await uploadNote(note)
         }
 
         try? context.save()
-
-        #if DEBUG
-        print("NoteSyncService: syncPending - uploaded \(uploaded), " +
-            "skipped \(skippedForAnotherAccount) for another account, failed \(failed)")
-        #endif
     }
 
     // MARK: - Restore
@@ -551,31 +445,21 @@ final class NoteSyncService {
         do {
             snapshot = try await db.collection("users").document(uid).collection("notes").getDocuments()
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "restoring notes")
-            #endif
             return
         }
 
         var restored = 0
-        var failed = 0
 
         for document in snapshot.documents {
             guard !existingIDs.contains(document.documentID),
                   !pendingDeletions.contains(document.documentID) else { continue }
 
-            guard let uuid = UUID(uuidString: document.documentID) else {
-                failed += 1
-                continue
-            }
+            guard let uuid = UUID(uuidString: document.documentID) else { continue }
 
             let data = document.data()
             guard let text = data["text"] as? String,
                   let createdAtTimestamp = data["createdAt"] as? Timestamp,
-                  let isDraft = data["isDraft"] as? Bool else {
-                failed += 1
-                continue
-            }
+                  let isDraft = data["isDraft"] as? Bool else { continue }
 
             var restoredPhotoFileName: String?
             if data["hasPhoto"] as? Bool == true {
@@ -584,10 +468,6 @@ final class NoteSyncService {
                         restoredPhotoFileName = try FileManager.writePhotoData(photoData)
                     }
                 } catch {
-                    failed += 1
-                    #if DEBUG
-                    logFirestoreError(error, while: "restoring photo for note \(document.documentID)")
-                    #endif
                     continue
                 }
             }
@@ -601,13 +481,9 @@ final class NoteSyncService {
                         restoredAudioFileName = try FileManager.writeAudioData(audioData)
                     }
                 } catch {
-                    failed += 1
                     if let restoredPhotoFileName {
                         try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(restoredPhotoFileName))
                     }
-                    #if DEBUG
-                    logFirestoreError(error, while: "restoring voice memo for note \(document.documentID)")
-                    #endif
                     continue
                 }
             }
@@ -638,9 +514,6 @@ final class NoteSyncService {
 
         try? context.save()
 
-        #if DEBUG
-        print("NoteSyncService: restore for \(uid) added \(restored) note(s), failed \(failed)")
-        #endif
 
         guard restored > 0 else { return }
         await StreakSyncService.shared.sync(context: context)

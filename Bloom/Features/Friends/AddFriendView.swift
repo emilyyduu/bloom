@@ -75,11 +75,6 @@ struct AddFriendView: View {
                 prompt: "Search by username"
             )
             .onSubmit(of: .search) { searchByUsername() }
-            #if DEBUG
-            .onAppear { print("AddFriendView appeared") }
-            .onDisappear { print("AddFriendView disappeared") }
-            .onChange(of: query) { old, new in print("AddFriendView query: '\(old)' -> '\(new)'") }
-            #endif
         }
     }
 
@@ -128,9 +123,6 @@ struct AddFriendView: View {
         guard mode == .username, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         isSearching = true
         errorMessage = nil
-        #if DEBUG
-        print("AddFriendView search started: '\(query)'")
-        #endif
         Task {
             do {
                 results = try await friendService.searchByUsername(query)
@@ -138,9 +130,6 @@ struct AddFriendView: View {
                 errorMessage = "Check your connection and try again."
             }
             isSearching = false
-            #if DEBUG
-            print("AddFriendView search finished")
-            #endif
         }
     }
 

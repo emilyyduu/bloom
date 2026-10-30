@@ -27,14 +27,6 @@ struct SettingsView: View {
     var isProfileLoading = false
     var onProfileSaved: (_ displayName: String, _ username: String) -> Void = { _, _ in }
 
-    #if DEBUG
-    @AppStorage("gardenSampleDataEnabled") private var isGardenSampleDataEnabled = false
-    @Query(filter: #Predicate<Note> { !$0.isDraft }) private var postedNotes: [Note]
-    @Environment(\.modelContext) private var context
-    @State private var sampleHistoryMessage: String?
-    @State private var testBannerMessage: String?
-    #endif
-
     @State private var isShowingSignOutConfirmation = false
     @State private var errorMessage: String?
 
@@ -82,35 +74,6 @@ struct SettingsView: View {
                     SettingsRowLabel("About", subtitle: AppInfo.versionLine, systemImage: "info.circle")
                 }
             }
-
-            #if DEBUG
-            Section {
-                Toggle("Preview garden with sample data", isOn: $isGardenSampleDataEnabled)
-                Button("Add sample journal history") {
-                    let count = SampleJournalHistory.add(to: context)
-                    sampleHistoryMessage = "Added \(count) sample notes."
-                }
-                Button("Remove sample history", role: .destructive) {
-                    let count = SampleJournalHistory.remove(from: context)
-                    sampleHistoryMessage = "Removed \(count) sample notes."
-                }
-                if let sampleHistoryMessage {
-                    Text(sampleHistoryMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(DebugBanner.Kind.allCases, id: \.self) { kind in
-                    Button("Send test: \(kind.rawValue)") { sendTestBanner(kind) }
-                }
-                if let testBannerMessage {
-                    Text(testBannerMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                SectionHeader("Debug")
-            }
-            #endif
         }
         .navigationTitle("Settings")
         .confirmationDialog(
@@ -122,16 +85,6 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) {}
         }
     }
-
-    #if DEBUG
-    // Each test uses my newest posted note where it needs one.
-    private func sendTestBanner(_ kind: DebugBanner.Kind) {
-        let latestNoteID = postedNotes.max(by: { $0.createdAt < $1.createdAt })?.id.uuidString
-        Task {
-            testBannerMessage = await DebugBanner.schedule(kind, latestNoteID: latestNoteID)
-        }
-    }
-    #endif
 
     private func signOut() {
         AuthService.shared.resetInMemoryAccountState()

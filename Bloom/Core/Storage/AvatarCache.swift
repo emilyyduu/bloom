@@ -52,9 +52,6 @@ actor AvatarCache {
                 self.writeToDisk(data, uid: uid, key: key)
                 return image
             } catch {
-                #if DEBUG
-                logFirestoreError(error, while: "downloading the avatar for \(uid). Permission denied here means the avatar rules aren't published or you're not accepted friends")
-                #endif
                 return nil
             }
         }

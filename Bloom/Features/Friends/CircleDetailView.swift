@@ -42,7 +42,7 @@ struct CircleDetailView: View {
 
     @ViewBuilder
     private func content(for circle: FriendCircle) -> some View {
-        let friends = circleStore.allFriends(real: friendService.friends)
+        let friends = friendService.friends
         let members = circleStore.members(of: circle, among: friends)
 
         List {

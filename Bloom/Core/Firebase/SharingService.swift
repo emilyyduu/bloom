@@ -84,18 +84,7 @@ final class SharedNotesStore: ObservableObject {
 
     func startListening() {
         guard listener == nil else { return }
-        listener = SharingService.shared.listenForSharedNotes { [weak self] notes, error in
-            #if DEBUG
-            if let error {
-                let nsError = error as NSError
-                if nsError.domain == FirestoreErrorDomain, nsError.code == FirestoreErrorCode.failedPrecondition.rawValue {
-                    print("SharedNotesStore: sharedNotes query needs a composite index on " +
-                        "(toUID, sharedAt descending). Create it in the Firebase console: \(error)")
-                } else {
-                    print("SharedNotesStore: error listening for shared notes: \(error)")
-                }
-            }
-            #endif
+        listener = SharingService.shared.listenForSharedNotes { [weak self] notes, _ in
             self?.recentNotes = notes
         }
     }

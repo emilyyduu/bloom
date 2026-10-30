@@ -68,31 +68,7 @@ final class NotificationScheduler {
     func cancelAllReminders() async {
         let pending = await center.pendingNotificationRequests()
         let identifiers = pending.map(\.identifier).filter { $0.hasPrefix(ReminderPlanner.identifierPrefix) }
-        NotificationLog.removed("removePendingNotificationRequests (cancelAllReminders)", identifiers: identifiers)
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
-    }
-    
-    // DEBUG-only: fires 5 seconds after it's called, so delivery can be
-    // checked without waiting until 6pm.
-    
-    func sendTestNotification() {
-        let content = UNMutableNotificationContent(
-        )
-        content.title = Self.title
-        content.body = Self.body
-        content.sound = .default
-        
-        let trigger = UNTimeIntervalNotificationTrigger(
-            timeInterval: 5,
-            repeats: false
-        )
-        
-        let request = UNNotificationRequest(
-            identifier:"bloom.reminder.test",
-            content: content,
-            trigger: trigger
-        )
-        center.add(request)
     }
 
     private func schedule(for day: ReminderPlanner.ReminderDay, minutes: Int, calendar: Calendar) {
@@ -111,9 +87,7 @@ final class NotificationScheduler {
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
         let request = UNNotificationRequest(identifier: day.identifier, content: content, trigger: trigger)
-        center.add(request) { error in
-            Task { @MainActor in NotificationLog.added(request, error: error) }
-        }
+        center.add(request)
     }
 
     // When each posted note was written.

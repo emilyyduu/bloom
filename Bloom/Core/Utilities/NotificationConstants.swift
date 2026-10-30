@@ -30,7 +30,7 @@ enum NotificationConstants {
         static let activityID = "activityId"
         static let commentID = "commentId"
         // Which account a notification was scheduled for. Set on the
-        // reminders and the debug banners. The relay may add it too.
+        // reminders. The relay may add it too.
         static let recipientUID = "recipientUID"
     }
 

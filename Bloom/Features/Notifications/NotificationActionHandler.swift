@@ -155,9 +155,6 @@ enum NotificationActionHandler {
         do {
             try await withDeadline { try await NoteSyncService.shared.uploadAndWait(note) }
         } catch {
-            #if DEBUG
-            print("NotificationActionHandler: quick note upload will retry: \(error)")
-            #endif
         }
         try? await withDeadline { await StreakSyncService.shared.sync(context: context) }
     }
@@ -210,9 +207,6 @@ enum NotificationActionHandler {
 
     // A local notification, since the person may have the app closed.
     private static func fail(_ what: String, _ error: Error) async {
-        #if DEBUG
-        print("NotificationActionHandler: couldn't \(what): \(error)")
-        #endif
         let content = UNMutableNotificationContent()
         content.title = NotificationScheduler.title
         content.body = "Couldn\u{2019}t \(what). Open Bloom to try again."

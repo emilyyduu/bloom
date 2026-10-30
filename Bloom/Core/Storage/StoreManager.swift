@@ -30,9 +30,6 @@ final class StoreManager {
             let url = try storeURL(for: uid)
             let configuration = ModelConfiguration(schema: Self.schema, url: url)
             container = try ModelContainer(for: Self.schema, configurations: [configuration])
-            #if DEBUG
-            print("StoreManager: created store for \(uid) at \(url.path)")
-            #endif
         }
 
         containers[uid] = container

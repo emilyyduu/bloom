@@ -74,11 +74,6 @@ final class VoiceMemoRecorder: ObservableObject {
         switch permission {
         case .notConfigured:
             message = "Microphone access isn\u{2019}t set up in this build"
-            #if DEBUG
-            print("VoiceMemoRecorder: add NSMicrophoneUsageDescription to the target's Info settings " +
-                "(Info.plist key, or INFOPLIST_KEY_NSMicrophoneUsageDescription in build settings) " +
-                "with a sentence explaining why Bloom records voice memos.")
-            #endif
             return
         case .denied:
             return
@@ -117,9 +112,6 @@ final class VoiceMemoRecorder: ObservableObject {
             isRecording = true
             startTicker()
         } catch {
-            #if DEBUG
-            print("VoiceMemoRecorder: couldn't start recording: \(error)")
-            #endif
             message = "Couldn\u{2019}t start recording. Try again."
             AudioCoordinator.shared.end(owner: self)
         }

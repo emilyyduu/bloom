@@ -22,7 +22,6 @@ struct GreenhouseView: View {
     private struct GardenKey: Equatable {
         let uids: [String]
         let isReady: Bool
-        let isSample: Bool
     }
 
     // All friends shows this many, by name. Circles are how to choose.
@@ -49,7 +48,7 @@ struct GreenhouseView: View {
     // MARK: Selection
 
     private var allFriends: [FirestoreUser] {
-        circleStore.allFriends(real: friendService.friends)
+        friendService.friends
             .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
     }
 
@@ -66,15 +65,10 @@ struct GreenhouseView: View {
     }
 
     private var gardenKey: GardenKey {
-        GardenKey(uids: shownFriends.compactMap(\.id), isReady: circleStore.isReady, isSample: circleStore.isSampleData)
+        GardenKey(uids: shownFriends.compactMap(\.id), isReady: circleStore.isReady)
     }
 
-    private var plants: [GardenPlant] {
-        #if DEBUG
-        if circleStore.isSampleData { return samplePlants(for: shownFriends) }
-        #endif
-        return gardenService.plants
-    }
+    private var plants: [GardenPlant] { gardenService.plants }
 
     // Me first, then everyone else ordered by streak, highest first.
     // "No data" sorts last, below a 0 day wilted or withered streak.
@@ -116,7 +110,7 @@ struct GreenhouseView: View {
             // Adds listeners for people who joined the selection and removes
             // them for people who left, the scene and camera stay as they are.
             .task(id: gardenKey) {
-                guard circleStore.isReady, !circleStore.isSampleData else { return }
+                guard circleStore.isReady else { return }
                 gardenService.setPeople(friends: shownFriends)
             }
             .fullScreenCover(isPresented: $isShowingFullScreenGarden) {
@@ -251,26 +245,6 @@ struct GreenhouseView: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
     }
-
-    #if DEBUG
-    // Me and the shown sample friends, with the plant states rotating so
-    // every state appears.
-    private func samplePlants(for friends: [FirestoreUser]) -> [GardenPlant] {
-        let states: [PlantState?] = [.blooming, .wilting, .dead, nil, .blooming]
-        var result = [GardenPlant(id: "sample-me", username: "You", currentStreak: 9, plantState: .blooming, isMe: true)]
-        for (index, friend) in friends.enumerated() {
-            let state = states[index % states.count]
-            result.append(GardenPlant(
-                id: friend.id ?? friend.username,
-                username: friend.username,
-                currentStreak: state == .blooming ? 3 + index * 2 : 0,
-                plantState: state,
-                displayName: friend.shownName
-            ))
-        }
-        return result
-    }
-    #endif
 }
 
 private struct GardenStreakRow: View {

@@ -24,9 +24,6 @@ struct ShareProfileSheet: View {
         self.displayName = displayName
         self.username = username
         let url = ProfileLink.url(forUID: uid)
-        #if DEBUG
-        print("ShareProfileSheet: link is \(url?.absoluteString ?? "nil")")
-        #endif
         self.url = url
         self.qrImage = url.flatMap { QRCode.image(for: $0.absoluteString) }
     }

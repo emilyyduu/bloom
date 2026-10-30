@@ -46,18 +46,12 @@ actor FriendPhotoCache {
             do {
                 guard let data = try await store.download(ownerUID: ownerUID, noteID: noteID),
                       let image = UIImage(data: data) else {
-                    #if DEBUG
-                    print("FriendPhotoCache: no photo data for \(key)")
-                    #endif
                     return .failed
                 }
                 try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
                 try? data.write(to: fileURL)
                 return .image(image)
             } catch {
-                #if DEBUG
-                logFirestoreError(error, while: "downloading photo \(key). Permission denied here means the photos rules aren't published or you're not accepted friends")
-                #endif
                 return .failed
             }
         }

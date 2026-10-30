@@ -68,7 +68,7 @@ struct NewCircleSheet: View {
     @FocusState private var isNameFocused: Bool
 
     private var friends: [FirestoreUser] {
-        circleStore.allFriends(real: friendService.friends)
+        friendService.friends
             .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
     }
 
@@ -164,7 +164,7 @@ struct AddPeopleSheet: View {
     private var currentMembers: Set<String> { Set(circleStore.memberUIDs(of: circle)) }
 
     private var candidates: [FirestoreUser] {
-        circleStore.allFriends(real: friendService.friends)
+        friendService.friends
             .filter { friend in friend.id.map { !currentMembers.contains($0) } ?? false }
             .sorted { $0.shownName.localizedCaseInsensitiveCompare($1.shownName) == .orderedAscending }
     }

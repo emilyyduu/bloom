@@ -93,27 +93,15 @@ final class GardenService: ObservableObject {
 
         for person in people where listeners[person.uid] == nil {
             listeners[person.uid] = db.collection("streaks").document(person.uid)
-                .addSnapshotListener { [weak self] snapshot, error in
-                    self?.handleSnapshot(uid: person.uid, snapshot: snapshot, error: error)
+                .addSnapshotListener { [weak self] snapshot, _ in
+                    self?.handleSnapshot(uid: person.uid, snapshot: snapshot)
                 }
         }
 
         rebuildPlants()
     }
 
-    private func handleSnapshot(uid: String, snapshot: DocumentSnapshot?, error: Error?) {
-        #if DEBUG
-        if let error {
-            let nsError = error as NSError
-            if nsError.domain == FirestoreErrorDomain, nsError.code == FirestoreErrorCode.permissionDenied.rawValue {
-                print("GardenService: permission denied reading streaks/\(uid). " +
-                    "The streaks Firestore security rules probably haven't been published yet.")
-            } else {
-                print("GardenService: error reading streaks/\(uid): \(error)")
-            }
-        }
-        #endif
-
+    private func handleSnapshot(uid: String, snapshot: DocumentSnapshot?) {
         if let data = snapshot?.data() {
             let currentStreak = data["currentStreak"] as? Int ?? 0
             let lastPostDate = (data["lastPostDate"] as? Timestamp)?.dateValue()

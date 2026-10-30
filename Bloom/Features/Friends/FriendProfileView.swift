@@ -32,15 +32,6 @@ final class FriendPinnedListener: ObservableObject {
         notes = []
         state = .loading
 
-        // DEBUG sample friends are never looked up in Firestore.
-        guard !friendUID.hasPrefix("sample-") else {
-            #if DEBUG
-            notes = Self.sampleNotes(for: friendUID)
-            state = .loaded
-            #endif
-            return
-        }
-
         listener = db.collection("users").document(friendUID).collection("notes")
             .whereField("sharedWithFriends", isEqualTo: true)
             .whereField("isPinned", isEqualTo: true)
@@ -52,9 +43,6 @@ final class FriendPinnedListener: ObservableObject {
                     let isDenied = nsError.domain == FirestoreErrorDomain
                         && nsError.code == FirestoreErrorCode.permissionDenied.rawValue
                     self.state = isDenied ? .permissionDenied : .failed
-                    #if DEBUG
-                    logFirestoreError(error, while: "listening to \(friendUID)'s pinned notes")
-                    #endif
                     return
                 }
 
@@ -72,26 +60,6 @@ final class FriendPinnedListener: ObservableObject {
         listener?.remove()
         listener = nil
     }
-
-    #if DEBUG
-    private static func sampleNotes(for friendUID: String) -> [FriendNote] {
-        guard friendUID == "sample-allison" || friendUID == "sample-tom" else { return [] }
-        return [
-            FriendNote(
-                id: "sample-pin-1",
-                text: "Finally finished the FIT3178 assignment, feeling good about it.",
-                createdAt: Date().addingTimeInterval(-86400 * 3),
-                pinnedAt: Date().addingTimeInterval(-3600)
-            ),
-            FriendNote(
-                id: "sample-pin-2",
-                text: "Long walk by the river after work, needed that.",
-                createdAt: Date().addingTimeInterval(-86400 * 9),
-                pinnedAt: Date().addingTimeInterval(-7200)
-            ),
-        ]
-    }
-    #endif
 }
 
 // A friend's profile: who they are, their pinned notes, and a way into

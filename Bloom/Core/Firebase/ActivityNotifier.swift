@@ -30,10 +30,7 @@ enum ActivityNotifier {
             category = nil
         }
         guard let me = Auth.auth().currentUser?.uid, item.fromUID != me,
-              AccountDefaults.isNotificationEnabled(base) else {
-            NotificationLog.skipped("activity_\(item.id)", "own action or the \(base) toggle is off")
-            return
-        }
+              AccountDefaults.isNotificationEnabled(base) else { return }
         let name = await UserProfileCache.shared.profile(uid: item.fromUID)?.shownName ?? "Someone"
 
         let body: String
@@ -75,10 +72,7 @@ enum ActivityNotifier {
 
     static func postRequest(from uid: String) async {
         guard let me = Auth.auth().currentUser?.uid, !uid.isEmpty, uid != me,
-              AccountDefaults.isNotificationEnabled(AccountDefaults.notifyFriendRequestsBase) else {
-            NotificationLog.skipped("request_\(uid)", "own request, no sender or the friend requests toggle is off")
-            return
-        }
+              AccountDefaults.isNotificationEnabled(AccountDefaults.notifyFriendRequestsBase) else { return }
         let name = await UserProfileCache.shared.profile(uid: uid)?.shownName ?? "Someone"
         await add(
             identifier: "request_\(uid)",
@@ -101,18 +95,12 @@ enum ActivityNotifier {
     ) async {
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
-        NotificationLog.settings(settings)
         switch settings.authorizationStatus {
         case .authorized, .provisional, .ephemeral: break
-        default:
-            NotificationLog.skipped(identifier, "permission is \(settings.authorizationStatus.rawValue), not granted")
-            return
+        default: return
         }
         // Signed out or switched account while the name loaded.
-        guard Auth.auth().currentUser?.uid == me else {
-            NotificationLog.skipped(identifier, "account changed")
-            return
-        }
+        guard Auth.auth().currentUser?.uid == me else { return }
 
         let content = UNMutableNotificationContent()
         content.title = "Bloom"
@@ -127,12 +115,6 @@ enum ActivityNotifier {
             content: content,
             trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
         )
-        NotificationLog.delegateCheck()
-        do {
-            try await center.add(request)
-            NotificationLog.added(request, error: nil)
-        } catch {
-            NotificationLog.added(request, error: error)
-        }
+        try? await center.add(request)
     }
 }

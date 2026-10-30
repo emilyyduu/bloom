@@ -23,10 +23,6 @@ struct HomeView: View {
     @State private var selectedFriendForJournal: FirestoreUser?
     @State private var isOnScreen = false
 
-    #if DEBUG
-    @AppStorage("gardenSampleDataEnabled") private var isSampleDataEnabled = false
-    #endif
-
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
@@ -61,13 +57,8 @@ struct HomeView: View {
         friendService.pendingIncoming.count + activity.unreadCount
     }
 
-    // Every friend (or the DEBUG sample friends), before any circle filter.
-    private var allFriends: [FirestoreUser] {
-        #if DEBUG
-        if isSampleDataEnabled { return SampleCircleData.friends }
-        #endif
-        return friendService.friends
-    }
+    // Every friend, before any circle filter.
+    private var allFriends: [FirestoreUser] { friendService.friends }
 
     // The tiles shown: everyone, or only the members of the chosen circle.
     private var displayedFriends: [FirestoreUser] {
@@ -76,27 +67,18 @@ struct HomeView: View {
     }
 
     private func loadState(for friend: FirestoreUser) -> LiveState {
-        #if DEBUG
-        if isSampleDataEnabled { return .loaded }
-        #endif
         guard let id = friend.id else { return .loaded }
         return friendJournalService.loadState(for: id)
     }
 
     private var displayedLatestNoteByFriend: [String: FriendNote] {
-        #if DEBUG
-        if isSampleDataEnabled { return Self.sampleLatestNoteByFriend }
-        #endif
-        return friendJournalService.latestNoteByFriend
+        friendJournalService.latestNoteByFriend
     }
 
     // The friends whose tiles get a live listener, scoped to the friends
     // actually shown here rather than any broader list.
     private var friendUIDsForTileRefresh: [String] {
-        #if DEBUG
-        if isSampleDataEnabled { return [] }
-        #endif
-        return displayedFriends.compactMap(\.id)
+        displayedFriends.compactMap(\.id)
     }
 
     // Friends with a share sort newest first; everyone else sorts
@@ -358,29 +340,6 @@ struct HomeView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
     }
-
-    #if DEBUG
-    // Sample notes for a few of the sample friends (SampleCircleData has all
-    // 12), the rest have nothing shared, so every tile state can be checked
-    // without writing anything to Firestore.
-    private static let sampleLatestNoteByFriend: [String: FriendNote] = [
-        "sample-allison": FriendNote(
-            id: "sample-note-1",
-            text: "Finally finished the FIT3178 assignment, feeling good about it.",
-            createdAt: Date().addingTimeInterval(-3600)
-        ),
-        "sample-tom": FriendNote(
-            id: "sample-note-2",
-            text: "Coffee with the team was great today, long overdue catch up.",
-            createdAt: Date().addingTimeInterval(-7200)
-        ),
-        "sample-mei": FriendNote(
-            id: "sample-note-3",
-            text: "Long walk by the river after work, needed that.",
-            createdAt: Date().addingTimeInterval(-86400)
-        ),
-    ]
-    #endif
 }
 
 // MARK: - Supporting types
@@ -663,14 +622,7 @@ private struct FriendTile: View {
         .environment(\.dynamicTypeSize, .accessibility5)
 }
 
-#Preview("Sample Data") {
-    let _ = UserDefaults.standard.set(true, forKey: "gardenSampleDataEnabled")
-    HomeView(selectedTab: .constant(.home))
-        .modelContainer(PreviewContainer.shared)
-}
-
 #Preview("Landscape", traits: .landscapeLeft) {
-    let _ = UserDefaults.standard.set(true, forKey: "gardenSampleDataEnabled")
     HomeView(selectedTab: .constant(.home))
         .modelContainer(PreviewContainer.shared)
 }

@@ -104,7 +104,6 @@ final class FriendJournalService: ObservableObject {
         rolloverIfNeeded()
 
         let wanted = Array(friendUIDs.prefix(Self.maxListeners))
-        LiveLog.event("tile", "syncListeners wanted=\(wanted.count) have=\(listeners.count)", path: "users/*/notes", generation: generation)
 
         for uid in Array(listeners.keys) where !wanted.contains(uid) {
             detach(uid)
@@ -128,7 +127,6 @@ final class FriendJournalService: ObservableObject {
         let today = FriendDay()
         defer { attachedDay = today }
         guard let attachedDay, attachedDay != today else { return }
-        LiveLog.event("tile", "day changed, restarting", path: "users/*/notes", generation: generation)
         for uid in Array(listeners.keys) { detach(uid) }
         latestNoteByFriend = [:]
         loadStateByFriend = [:]
@@ -139,7 +137,6 @@ final class FriendJournalService: ObservableObject {
     // anything else goes back to loading so the next syncListeners
     // starts it again. Home calls this when it leaves the screen.
     func stopAllListeners() {
-        LiveLog.event("tile", "stopAll (\(listeners.count) listeners)", path: "users/*/notes", generation: generation)
         for uid in Array(listeners.keys) { detach(uid) }
         for timeout in timeouts.values { timeout.cancel() }
         timeouts = [:]
@@ -165,8 +162,6 @@ final class FriendJournalService: ObservableObject {
         guard listeners[uid] == nil else { return }
         let startedGeneration = generation
         let day = FriendDay()
-        let path = "users/\(uid)/notes (latest shared today)"
-        LiveLog.event("tile", "attach", path: path, generation: startedGeneration)
         // Whatever the tile already shows stays until the first answer.
         if loadStateByFriend[uid] != .loaded { loadStateByFriend[uid] = .loading }
 
@@ -174,7 +169,6 @@ final class FriendJournalService: ObservableObject {
         timeouts[uid] = timeout
         timeout.start { [weak self] in
             guard let self, startedGeneration == self.generation, self.loadStateByFriend[uid] == .loading else { return }
-            LiveLog.event("tile", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path, generation: startedGeneration)
             self.detach(uid)
             self.loadStateByFriend[uid] = .failed
         }
@@ -184,25 +178,15 @@ final class FriendJournalService: ObservableObject {
         // past an empty cache answer.
         listeners[uid] = latestNoteQuery(for: uid, day: day)
             .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
-                guard let self, startedGeneration == self.generation, self.listeners[uid] != nil else {
-                    LiveLog.event("tile", "callback DISCARDED (stale generation or removed)", path: path, generation: startedGeneration)
-                    return
-                }
+                guard let self, startedGeneration == self.generation, self.listeners[uid] != nil else { return }
 
                 if let error {
-                    LiveLog.error("tile", path: path, error: error, generation: startedGeneration)
                     // Firestore ends a listener that errored, so drop ours.
                     self.detach(uid)
                     self.loadStateByFriend[uid] = LiveState(error: error)
-                    #if DEBUG
-                    logFriendNotesError(error, while: "listening to \(uid)'s latest shared note today")
-                    #endif
                     return
                 }
                 guard let snapshot else { return }
-
-                LiveLog.snapshot("tile", path: path, count: snapshot.documents.count,
-                                 fromCache: snapshot.metadata.isFromCache, generation: startedGeneration)
 
                 // An empty answer from the cache only means nothing is
                 // cached yet. Wait for the server (or the timeout) before
@@ -245,9 +229,6 @@ final class FriendJournalService: ObservableObject {
             } catch {
                 guard startedGeneration == generation else { return }
                 loadStateByFriend[uid] = LiveState(error: error)
-                #if DEBUG
-                logFriendNotesError(error, while: "fetching \(uid)'s latest shared note today")
-                #endif
             }
         }
     }
@@ -295,12 +276,8 @@ final class FriendTodayListener: ObservableObject {
     }
 
     private func attach(friendUID: String, day: FriendDay) {
-        let path = "users/\(friendUID)/notes (shared today)"
-        LiveLog.event("today", "attach", path: path)
-
         timeout.start { [weak self] in
             guard let self, self.friendUID == friendUID, self.state == .loading else { return }
-            LiveLog.event("today", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
             self.stop()
             self.state = .failed
         }
@@ -310,17 +287,11 @@ final class FriendTodayListener: ObservableObject {
                 guard let self, self.friendUID == friendUID, self.day == day, self.listener != nil else { return }
 
                 if let error {
-                    LiveLog.error("today", path: path, error: error)
                     self.stop()
                     self.state = LiveState(error: error)
-                    #if DEBUG
-                    logFriendNotesError(error, while: "listening to \(friendUID)'s notes shared today")
-                    #endif
                     return
                 }
                 guard let snapshot else { return }
-
-                LiveLog.snapshot("today", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
                 // An empty cache answer only means nothing is cached yet.
                 if snapshot.documents.isEmpty, snapshot.metadata.isFromCache, self.state != .loaded {
@@ -336,19 +307,3 @@ final class FriendTodayListener: ObservableObject {
             }
     }
 }
-
-#if DEBUG
-// These queries (sharedWithFriends ascending, createdAt descending)
-// need a composite index. A failed precondition error here means
-// that index doesn't exist yet in Firestore, surface it rather than
-// restructuring the query to avoid needing one.
-private func logFriendNotesError(_ error: Error, while action: String) {
-    let nsError = error as NSError
-    if nsError.domain == FirestoreErrorDomain, nsError.code == FirestoreErrorCode.failedPrecondition.rawValue {
-        print("FriendJournalService: \(action) needs a composite index on " +
-            "(sharedWithFriends ascending, createdAt descending). Create it in the Firebase console: \(error)")
-    } else {
-        logFirestoreError(error, while: action)
-    }
-}
-#endif

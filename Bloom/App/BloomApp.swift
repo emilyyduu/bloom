@@ -51,9 +51,6 @@ struct BloomApp: App {
         do {
             return try StoreManager.shared.container(for: uid)
         } catch {
-            #if DEBUG
-            print("BloomApp: could not open the store for \(uid): \(error)")
-            #endif
             return nil
         }
     }

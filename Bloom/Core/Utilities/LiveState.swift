@@ -70,34 +70,3 @@ final class LiveTimeout {
 
     deinit { task?.cancel() }
 }
-
-// DEBUG only console trace of every listener's life: created, started,
-// first snapshot or error, stopped, with its path, my uid, the owner's
-// generation counter (where it has one) and the thread. Release builds
-// compile these to nothing.
-enum LiveLog {
-    static func event(_ name: String, _ event: String, path: String, generation: Int? = nil) {
-        #if DEBUG
-        print("LIVE \(name) \(event) path=\(path) uid=\(Auth.auth().currentUser?.uid ?? "nil") " +
-            "gen=\(generation.map(String.init) ?? "-") main=\(Thread.isMainThread)")
-        #endif
-    }
-
-    static func snapshot(_ name: String, path: String, count: Int, fromCache: Bool, generation: Int? = nil) {
-        #if DEBUG
-        print("LIVE \(name) snapshot path=\(path) docs=\(count) fromCache=\(fromCache) " +
-            "uid=\(Auth.auth().currentUser?.uid ?? "nil") gen=\(generation.map(String.init) ?? "-") main=\(Thread.isMainThread)")
-        #endif
-    }
-
-    // Prints the whole error, which includes the console link Firestore
-    // gives for a missing index.
-    static func error(_ name: String, path: String, error: Error, generation: Int? = nil) {
-        #if DEBUG
-        let nsError = error as NSError
-        print("LIVE \(name) ERROR path=\(path) uid=\(Auth.auth().currentUser?.uid ?? "nil") " +
-            "gen=\(generation.map(String.init) ?? "-") main=\(Thread.isMainThread) " +
-            "domain=\(nsError.domain) code=\(nsError.code) message=\(nsError.localizedDescription) full=\(error)")
-        #endif
-    }
-}

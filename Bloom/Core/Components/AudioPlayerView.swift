@@ -68,9 +68,6 @@ final class VoicePlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
             self.player = player
             resume()
         } catch {
-            #if DEBUG
-            print("VoicePlayer: couldn't open \(url.lastPathComponent): \(error)")
-            #endif
             state = .failed("This voice memo can\u{2019}t be played. Tap to try again.")
         }
     }

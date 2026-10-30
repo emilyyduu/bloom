@@ -67,22 +67,16 @@ final class ReactionCounts: ObservableObject {
     }
 
     func ensure(ownerUID: String?, noteID: String?) async {
-        guard let ownerUID, let noteID, !ownerUID.hasPrefix("sample-") else { return }
+        guard let ownerUID, let noteID else { return }
         let key = Self.key(ownerUID: ownerUID, noteID: noteID)
         guard counts[key] == nil, !inFlight.contains(key) else { return }
         inFlight.insert(key)
         defer { inFlight.remove(key) }
 
-        do {
-            let query = Firestore.firestore().collection("users").document(ownerUID)
-                .collection("notes").document(noteID).collection("reactions").count
-            let snapshot = try await query.getAggregation(source: .server)
-            counts[key] = snapshot.count.intValue
-        } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "counting reactions on \(noteID)")
-            #endif
-        }
+        let query = Firestore.firestore().collection("users").document(ownerUID)
+            .collection("notes").document(noteID).collection("reactions").count
+        guard let snapshot = try? await query.getAggregation(source: .server) else { return }
+        counts[key] = snapshot.count.intValue
     }
 
     func set(_ count: Int, ownerUID: String, noteID: String) {
@@ -111,8 +105,6 @@ final class NoteReactionsListener: ObservableObject {
     private var noteID: String?
     private var errorTask: Task<Void, Never>?
     private let timeout = LiveTimeout()
-
-    private var isSample: Bool { ownerUID?.hasPrefix("sample-") ?? false }
 
     private var collection: CollectionReference? {
         guard let ownerUID, let noteID else { return nil }
@@ -143,21 +135,9 @@ final class NoteReactionsListener: ObservableObject {
         stop()
         self.ownerUID = ownerUID
         self.noteID = noteID
-        let path = "users/\(ownerUID)/notes/\(noteID)/reactions"
-        LiveLog.event("reactions", "start", path: path)
-
-        // DEBUG sample friends never touch Firestore.
-        guard !ownerUID.hasPrefix("sample-") else {
-            #if DEBUG
-            reactions = Self.sampleReactions
-            state = .loaded
-            #endif
-            return
-        }
 
         timeout.start { [weak self] in
             guard let self, self.state == .loading else { return }
-            LiveLog.event("reactions", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: path)
             self.listener?.remove()
             self.listener = nil
             self.state = .failed
@@ -168,7 +148,6 @@ final class NoteReactionsListener: ObservableObject {
             self.timeout.cancel()
 
             if let error {
-                LiveLog.error("reactions", path: path, error: error)
                 // Firestore ends a listener that errored.
                 self.listener?.remove()
                 self.listener = nil
@@ -176,7 +155,6 @@ final class NoteReactionsListener: ObservableObject {
                 return
             }
             guard let snapshot else { return }
-            LiveLog.snapshot("reactions", path: path, count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache)
 
             self.reactions = snapshot.documents.compactMap(Self.reaction(from:))
             self.state = .loaded
@@ -194,7 +172,6 @@ final class NoteReactionsListener: ObservableObject {
     // Always leaves a clean state, so presenting the sheet again starts
     // a fresh listener from loading.
     func stop() {
-        LiveLog.event("reactions", "stop", path: "users/\(ownerUID ?? "?")/notes/\(noteID ?? "?")/reactions")
         listener?.remove()
         listener = nil
         timeout.cancel()
@@ -221,7 +198,6 @@ final class NoteReactionsListener: ObservableObject {
         errorMessage = nil
         apply(newKind, uid: myUID)
 
-        if isSample { return }
         guard let reference = collection?.document(myUID) else { return }
 
         do {
@@ -234,9 +210,6 @@ final class NoteReactionsListener: ObservableObject {
                 try await reference.delete()
             }
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "changing my reaction. Permission denied here means the reactions rules aren't published")
-            #endif
             apply(previous?.kind, uid: myUID, createdAt: previous?.createdAt)
             showError("Couldn\u{2019}t save your reaction. Try again.")
             return
@@ -266,12 +239,4 @@ final class NoteReactionsListener: ObservableObject {
             self?.errorMessage = nil
         }
     }
-
-    #if DEBUG
-    private static let sampleReactions: [NoteReaction] = [
-        NoteReaction(id: "sample-priya", kind: .love, createdAt: Date().addingTimeInterval(-5400)),
-        NoteReaction(id: "sample-tom", kind: .sprout, createdAt: Date().addingTimeInterval(-3000)),
-        NoteReaction(id: "sample-mei", kind: .love, createdAt: Date().addingTimeInterval(-1200)),
-    ]
-    #endif
 }

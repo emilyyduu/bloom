@@ -465,7 +465,6 @@ private struct TodaysNoteCard: View {
             Button("Share with friends") { actions.requestShareToggle() }
                 .buttonStyle(.bordered)
                 .frame(minHeight: 44)
-                .disabled(actions.isSample)
         }
     }
 

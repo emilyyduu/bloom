@@ -355,9 +355,8 @@ struct ProfileView: View {
     // this document. All of it is fixed here, the moment the signed-in
     // user's own profile is loaded. displayName, username and
     // usernameLower are always written together, and an existing
-    // displayName is never overwritten. Failures only print in DEBUG
-    // since this is a best-effort migration, not something the user can
-    // act on.
+    // displayName is never overwritten. Failures are silent since
+    // this is a best-effort migration, not something the user can act on.
     private func backfillProfile(docRef: DocumentReference, username: String, displayName: String) async {
         let newDisplayName = displayName.isEmpty ? username : displayName
         do {
@@ -368,11 +367,7 @@ struct ProfileView: View {
                 "email": FieldValue.delete(),
             ])
             self.displayName = newDisplayName
-        } catch {
-            #if DEBUG
-            print("ProfileView: failed to backfill displayName and usernameLower for existing profile: \(error)")
-            #endif
-        }
+        } catch {}
     }
 }
 

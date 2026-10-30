@@ -46,8 +46,8 @@ struct ActivityItem: Identifiable, Equatable {
 }
 
 // Whoever causes an event writes it into the recipient's activity.
-// Best effort: silent in release, printed in DEBUG, and never a reason
-// for the real action to fail. Sample friends are never written to.
+// Best effort: failures are silent and never a reason for the real
+// action to fail.
 enum ActivityWriter {
     private static var db: Firestore { Firestore.firestore() }
 
@@ -76,7 +76,7 @@ enum ActivityWriter {
     // A note I posted and shared, to each accepted friend (at most 30).
     // The id is fixed so a retry can't duplicate it.
     static func noteShared(noteID: String, ownerUID: String, text: String, friendUIDs: [String]) async {
-        let recipients = friendUIDs.filter { !$0.hasPrefix("sample-") }.prefix(30)
+        let recipients = friendUIDs.prefix(30)
         guard !recipients.isEmpty else { return }
 
         let batch = db.batch()
@@ -90,66 +90,41 @@ enum ActivityWriter {
         do {
             try await batch.commit()
             AccountDefaults.markNotifiedFriends(aboutNote: noteID)
-        } catch {
-            log(error, "telling friends about note \(noteID)")
-        }
+        } catch {}
     }
 
     // My comment on someone else's note, to the note's owner.
     static func commented(commentID: String, authorUID: String, noteOwnerUID: String, noteID: String, text: String) async {
-        guard authorUID != noteOwnerUID, !noteOwnerUID.hasPrefix("sample-") else { return }
-        do {
-            try await db.collection("users").document(noteOwnerUID).collection("activity")
-                .document("comment_\(commentID)")
-                .setData(data(kind: .comment, fromUID: authorUID, noteOwnerUID: noteOwnerUID, noteID: noteID, preview: text))
-        } catch {
-            log(error, "telling \(noteOwnerUID) about my comment")
-        }
+        guard authorUID != noteOwnerUID else { return }
+        try? await db.collection("users").document(noteOwnerUID).collection("activity")
+            .document("comment_\(commentID)")
+            .setData(data(kind: .comment, fromUID: authorUID, noteOwnerUID: noteOwnerUID, noteID: noteID, preview: text))
     }
 
     // My reply to someone's comment, to that person. Type comment, preview
     // "replied: " then the start of my text. Refused by the rules when
     // they aren't my friend, which is fine.
     static func replied(commentID: String, authorUID: String, toUID: String, noteOwnerUID: String, noteID: String, text: String) async {
-        guard authorUID != toUID, !toUID.hasPrefix("sample-") else { return }
-        do {
-            try await db.collection("users").document(toUID).collection("activity")
-                .document("reply_\(commentID)")
-                .setData(data(kind: .comment, fromUID: authorUID, noteOwnerUID: noteOwnerUID, noteID: noteID, preview: "replied: \(text)"))
-        } catch {
-            log(error, "telling \(toUID) about my reply")
-        }
+        guard authorUID != toUID else { return }
+        try? await db.collection("users").document(toUID).collection("activity")
+            .document("reply_\(commentID)")
+            .setData(data(kind: .comment, fromUID: authorUID, noteOwnerUID: noteOwnerUID, noteID: noteID, preview: "replied: \(text)"))
     }
 
     // My reaction on someone else's note, to the note's owner. The id is
     // fixed per note and reactor, so changing my reaction overwrites it.
     static func reacted(noteID: String, reactorUID: String, noteOwnerUID: String) async {
-        guard reactorUID != noteOwnerUID, !noteOwnerUID.hasPrefix("sample-") else { return }
-        do {
-            try await db.collection("users").document(noteOwnerUID).collection("activity")
-                .document("reaction_\(noteID)_\(reactorUID)")
-                .setData(data(kind: .reaction, fromUID: reactorUID, noteOwnerUID: noteOwnerUID, noteID: noteID))
-        } catch {
-            log(error, "telling \(noteOwnerUID) about my reaction")
-        }
+        guard reactorUID != noteOwnerUID else { return }
+        try? await db.collection("users").document(noteOwnerUID).collection("activity")
+            .document("reaction_\(noteID)_\(reactorUID)")
+            .setData(data(kind: .reaction, fromUID: reactorUID, noteOwnerUID: noteOwnerUID, noteID: noteID))
     }
 
     // A request I accepted, to the person who sent it.
     static func accepted(myUID: String, requesterUID: String) async {
-        guard !requesterUID.hasPrefix("sample-") else { return }
-        do {
-            try await db.collection("users").document(requesterUID).collection("activity")
-                .document("accepted_\(myUID)")
-                .setData(data(kind: .accepted, fromUID: myUID))
-        } catch {
-            log(error, "telling \(requesterUID) that I accepted")
-        }
-    }
-
-    private static func log(_ error: Error, _ action: String) {
-        #if DEBUG
-        logFirestoreError(error, while: "\(action). Permission denied here means the activity rules aren't published")
-        #endif
+        try? await db.collection("users").document(requesterUID).collection("activity")
+            .document("accepted_\(myUID)")
+            .setData(data(kind: .accepted, fromUID: myUID))
     }
 }
 
@@ -177,11 +152,7 @@ final class ActivityStore: ObservableObject {
 
     // Safe to call more than once, it only attaches once.
     func startListening() {
-        guard listener == nil, let myUID = Auth.auth().currentUser?.uid else {
-            LiveLog.event("activity", "start SKIPPED (listener exists: \(listener != nil))", path: "users/?/activity")
-            return
-        }
-        LiveLog.event("activity", "start", path: "users/\(myUID)/activity")
+        guard listener == nil, let myUID = Auth.auth().currentUser?.uid else { return }
         lastSeen = AccountDefaults.activityLastSeen
         isLoading = true
         state = .loading
@@ -190,7 +161,6 @@ final class ActivityStore: ObservableObject {
 
         timeout.start { [weak self] in
             guard let self, self.state == .loading else { return }
-            LiveLog.event("activity", "TIMED OUT after \(Int(LiveTimeout.seconds))s", path: "users/\(myUID)/activity")
             self.listener?.remove()
             self.listener = nil
             self.fail(.failed)
@@ -203,9 +173,6 @@ final class ActivityStore: ObservableObject {
                 guard let self else { return }
                 self.timeout.cancel()
                 self.isLoading = false
-                if let error { LiveLog.error("activity", path: "users/\(myUID)/activity", error: error) }
-                else if let snapshot { LiveLog.snapshot("activity", path: "users/\(myUID)/activity", count: snapshot.documents.count, fromCache: snapshot.metadata.isFromCache) }
-
                 if let error {
                     // Firestore ends a listener that errored.
                     self.listener?.remove()
@@ -247,7 +214,6 @@ final class ActivityStore: ObservableObject {
     func stopListening() {
         timeout.cancel()
         state = .loading
-        LiveLog.event("activity", "stop", path: "users/?/activity")
         listener?.remove()
         listener = nil
         items = []

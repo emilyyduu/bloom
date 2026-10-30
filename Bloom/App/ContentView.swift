@@ -132,7 +132,6 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Task {
-                await NotificationLog.snapshot("became active")
                 await NotificationScheduler.shared.refreshReminders(context: context)
                 await StreakSyncService.shared.sync(context: context)
                 await restoreAndSyncNotes()

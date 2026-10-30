@@ -43,19 +43,6 @@ extension Note {
 
     static let pinLimit = 3
 
-    // DEBUG sample history notes start with this. In release builds no
-    // note is ever a sample, so a real note can't be affected.
-    static let samplePrefix = "Sample: "
-
-    // Sample notes are never uploaded, shared or pinned.
-    var isSample: Bool {
-        #if DEBUG
-        text.hasPrefix(Self.samplePrefix)
-        #else
-        false
-        #endif
-    }
-
     // How many posted notes are pinned right now.
     static func pinnedCount(in context: ModelContext) -> Int {
         let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.isPinned && !$0.isDraft })

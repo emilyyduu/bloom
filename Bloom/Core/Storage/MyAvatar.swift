@@ -77,9 +77,6 @@ final class MyAvatar: ObservableObject {
             hasAvatar = true
             updatedAt = date
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "uploading my avatar")
-            #endif
             guard startedGeneration == generation else { return }
             localImage = previousImage
             errorMessage = "Couldn't update your photo. Check your connection and try again."
@@ -100,9 +97,6 @@ final class MyAvatar: ObservableObject {
         do {
             try await store.remove(uid: uid)
         } catch {
-            #if DEBUG
-            logFirestoreError(error, while: "removing my avatar")
-            #endif
             guard startedGeneration == generation else { return }
             localImage = previousImage
             hasAvatar = previousHasAvatar

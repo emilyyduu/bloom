@@ -96,9 +96,6 @@ struct ActivityDestinationSheet: View {
             return .note(.friend(note, ownerUID: ownerUID, author: author, focusComments: focusComments))
         } catch {
             // Stopped sharing or no longer friends reads as gone too.
-            #if DEBUG
-            logFirestoreError(error, while: "opening note \(noteID) from a notification")
-            #endif
             return gone
         }
     }

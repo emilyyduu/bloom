@@ -28,13 +28,11 @@ final class NoteActionController: ObservableObject {
 
     var isShared: Bool { note.sharedWithFriends }
     var isPinned: Bool { note.isPinned }
-    // DEBUG sample history notes can't be shared or pinned.
-    var isSample: Bool { note.isSample }
 
     // MARK: Share
 
     func requestShareToggle() {
-        guard !note.isDraft, !note.isSample else { return }
+        guard !note.isDraft else { return }
         if note.sharedWithFriends {
             isShowingStopSharingConfirmation = true
         } else if AccountDefaults.hasConfirmedShareToCircle {
@@ -71,7 +69,7 @@ final class NoteActionController: ObservableObject {
 
     // The existing pin logic, including the limit of three.
     func togglePin() {
-        guard !note.isDraft, !note.isSample else { return }
+        guard !note.isDraft else { return }
         if note.isPinned {
             NoteSyncService.shared.setPinned(false, for: note)
         } else if let context, Note.pinnedCount(in: context) >= Note.pinLimit {
@@ -113,14 +111,12 @@ struct NoteActionButtons: View {
                 systemImage: controller.isShared ? "person.2.slash" : "person.2"
             )
         }
-        .disabled(controller.isSample)
 
         Button {
             controller.togglePin()
         } label: {
             Label(controller.isPinned ? "Unpin" : "Pin to profile", systemImage: controller.isPinned ? "pin.slash" : "pin")
         }
-        .disabled(controller.isSample)
 
         Button {
             controller.edit()

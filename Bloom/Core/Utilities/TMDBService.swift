@@ -36,11 +36,21 @@ enum TMDBServiceError: LocalizedError {
 // control.
 final class TMDBService {
     static let shared = TMDBService()
-    private init() {}
+
+    private let session: URLSession
+    private let apiKeyOverride: String?
+
+    // `session` and `apiKey` exist so tests can use a stub session and a
+    // fixed key. The app only ever uses `shared`.
+    init(session: URLSession = .shared, apiKey: String? = nil) {
+        self.session = session
+        self.apiKeyOverride = apiKey
+    }
 
     private let baseURL = URL(string: "https://api.themoviedb.org/3")!
 
     private var apiKey: String? {
+        if let apiKeyOverride { return apiKeyOverride }
         guard
             let key = Bundle.main.object(forInfoDictionaryKey: "TMDBAPIKey") as? String,
             !key.isEmpty
@@ -68,7 +78,7 @@ final class TMDBService {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await session.data(from: url)
         } catch {
             throw TMDBServiceError.noConnection
         }
@@ -99,7 +109,7 @@ final class TMDBService {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(from: url)
+            (data, response) = try await session.data(from: url)
         } catch {
             throw TMDBServiceError.noConnection
         }

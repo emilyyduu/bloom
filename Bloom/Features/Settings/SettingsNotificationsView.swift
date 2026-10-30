@@ -107,12 +107,6 @@ struct SettingsNotificationsView: View {
                     EmptyView()
                 }
             }
-
-            #if DEBUG
-            Button("Send Test Notification (5s)") {
-                NotificationScheduler.shared.sendTestNotification()
-            }
-            #endif
         } header: {
             SectionHeader("Permission")
         }
