@@ -37,15 +37,18 @@ struct SignUpView: View {
         NavigationStack {
             Form {
                 AuthMethodPicker(method: $method)
+                    .accessibilityIdentifier("signUp.method")
 
                 Section {
                     TextField("Display name", text: $displayName)
                         .textContentType(.name)
                         .textInputAutocapitalization(.words)
+                        .accessibilityIdentifier("signUp.displayName")
                     if let displayNameValidationError {
                         Text(displayNameValidationError)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .accessibilityIdentifier("signUp.displayNameError")
                     }
                 } header: {
                     SectionHeader("Display name")
@@ -56,10 +59,12 @@ struct SignUpView: View {
                 Section {
                     TextField("Username", text: $username)
                         .textInputAutocapitalization(.never)
+                        .accessibilityIdentifier("signUp.username")
                     if let usernameValidationError {
                         Text(usernameValidationError)
                             .font(.footnote)
                             .foregroundStyle(.red)
+                            .accessibilityIdentifier("signUp.usernameError")
                     }
                 } header: {
                     SectionHeader("Username")
@@ -70,6 +75,7 @@ struct SignUpView: View {
                     Section {
                         TextField("+61 4xx xxx xxx", text: $phoneNumber)
                             .keyboardType(.phonePad)
+                            .accessibilityIdentifier("signUp.phone")
                     } header: {
                         SectionHeader("Phone Number")
                     }
@@ -78,13 +84,16 @@ struct SignUpView: View {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("signUp.email")
                         SecureField("Password", text: $password)
+                            .accessibilityIdentifier("signUp.password")
                     } header: {
                         SectionHeader("Email & Password")
                     }
                 }
 
                 FormErrorText(message: errorMessage)
+                    .accessibilityIdentifier("signUp.error")
             }
             .frame(maxWidth: 500)
             .frame(maxWidth: .infinity)
@@ -92,10 +101,12 @@ struct SignUpView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityIdentifier("signUp.cancel")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(method == .phone ? "Send Code" : "Sign Up") { submit() }
                         .disabled(isSubmitting || !isUsernameValid || !DisplayNameValidator.isValid(displayName))
+                        .accessibilityIdentifier("signUp.submit")
                 }
             }
             .navigationDestination(item: $verificationID) { id in

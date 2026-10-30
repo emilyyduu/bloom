@@ -17,12 +17,14 @@ struct LogInView: View {
         NavigationStack {
             Form {
                 AuthMethodPicker(method: $method)
+                    .accessibilityIdentifier("logIn.method")
 
                 switch method {
                 case .phone:
                     Section {
                         TextField("+61 4xx xxx xxx", text: $phoneNumber)
                             .keyboardType(.phonePad)
+                            .accessibilityIdentifier("logIn.phone")
                     } header: {
                         SectionHeader("Phone Number")
                     }
@@ -31,13 +33,16 @@ struct LogInView: View {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
                             .textInputAutocapitalization(.never)
+                            .accessibilityIdentifier("logIn.email")
                         SecureField("Password", text: $password)
+                            .accessibilityIdentifier("logIn.password")
                     } header: {
                         SectionHeader("Email & Password")
                     }
                 }
 
                 FormErrorText(message: errorMessage)
+                    .accessibilityIdentifier("logIn.error")
             }
             .frame(maxWidth: 500)
             .frame(maxWidth: .infinity)
@@ -45,10 +50,12 @@ struct LogInView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .accessibilityIdentifier("logIn.cancel")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(method == .phone ? "Send Code" : "Log In") { submit() }
                         .disabled(isSubmitting)
+                        .accessibilityIdentifier("logIn.submit")
                 }
             }
             .navigationDestination(item: $verificationID) { id in

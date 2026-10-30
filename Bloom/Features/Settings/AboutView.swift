@@ -14,6 +14,7 @@ struct AboutView: View {
             footerSection
         }
         .listStyle(.insetGrouped)
+        .accessibilityIdentifier("about.list")
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -66,10 +67,10 @@ struct AboutView: View {
 
     private var developerSection: some View {
         Section {
-            DeveloperRow(label: "Name", value: AppInfo.developerName)
-            DeveloperRow(label: "Student ID", value: AppInfo.studentID)
-            DeveloperRow(label: "Unit", value: AppInfo.unit)
-            DeveloperRow(label: "University", value: AppInfo.university)
+            DeveloperRow(label: "Name", value: AppInfo.developerName, identifier: "about.name")
+            DeveloperRow(label: "Student ID", value: AppInfo.studentID, identifier: "about.studentID")
+            DeveloperRow(label: "Unit", value: AppInfo.unit, identifier: "about.unit")
+            DeveloperRow(label: "University", value: AppInfo.university, identifier: "about.university")
         } header: {
             AboutSectionHeader("Developer", systemImage: "person.crop.square")
         }
@@ -101,6 +102,7 @@ struct AboutView: View {
                         .accessibilityLabel("TMDB logo")
                 }
                 Text(AppInfo.tmdbAttribution)
+                    .accessibilityIdentifier("about.tmdb")
                 Text(AppInfo.footerCredit)
             }
             .font(.footnote)
@@ -155,6 +157,7 @@ private struct FeatureRow: View {
 private struct DeveloperRow: View {
     let label: String
     let value: String
+    let identifier: String
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -175,6 +178,7 @@ private struct DeveloperRow: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label), \(value)")
+        .accessibilityIdentifier(identifier)
     }
 }
 

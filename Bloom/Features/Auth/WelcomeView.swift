@@ -22,14 +22,17 @@ struct WelcomeView: View {
                 Button("Sign Up") { isShowingSignUp = true }
                     .buttonStyle(.borderedProminent)
                     .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("welcome.signUp")
 
                 Button("Log In") { isShowingLogIn = true }
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity)
+                    .accessibilityIdentifier("welcome.logIn")
 
                 Button("About Bloom") { isShowingAbout = true }
                     .font(.footnote)
                     .frame(minHeight: 44)
+                    .accessibilityIdentifier("welcome.about")
             }
             .padding(32)
             .frame(maxWidth: 500)
@@ -43,6 +46,7 @@ struct WelcomeView: View {
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") { isShowingAbout = false }
+                                .accessibilityIdentifier("about.close")
                         }
                     }
             }
