@@ -218,7 +218,7 @@ struct SettingsPrivacyView: View {
     }
 
     private func permissionRow(_ title: String, systemImage: String, status: PermissionStatus) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             LabeledContent {
                 Text(status.text)
             } label: {

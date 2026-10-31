@@ -24,27 +24,26 @@ struct AboutView: View {
     // Not a button, just the app's identity.
     private var headerSection: some View {
         Section {
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "leaf.fill")
-                    .font(.largeTitle)
+                    .textStyle(.display)
                     .foregroundStyle(Theme.Colors.blooming)
                     .accessibilityHidden(true)
                 Text(AppInfo.appName)
-                    .font(.system(.largeTitle, design: .serif))
-                    .fontWeight(.bold)
+                    .textStyle(.display)
                     .accessibilityAddTraits(.isHeader)
                 Text(AppInfo.tagline)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 Text(AppInfo.versionLine)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, Theme.Spacing.sm)
             .accessibilityElement(children: .combine)
-            .listRowBackground(Theme.Colors.gardenCardBackground)
+            .listRowBackground(Theme.Palette.greenTint)
         }
     }
 
@@ -52,9 +51,9 @@ struct AboutView: View {
         Section {
             Text(AppInfo.aboutText)
 
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                 Text("What you can do")
-                    .font(.headline)
+                    .textStyle(.subheading)
                     .accessibilityAddTraits(.isHeader)
                 ForEach(AppInfo.features) { feature in
                     FeatureRow(feature: feature)
@@ -91,7 +90,7 @@ struct AboutView: View {
 
     private var footerSection: some View {
         Section {
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Spacing.sm) {
                 // TMDB asks for its logo next to the attribution. It is only
                 // shown when the asset exists, see TMDBLogo in the catalog.
                 if UIImage(named: "TMDBLogo") != nil {
@@ -105,8 +104,8 @@ struct AboutView: View {
                     .accessibilityIdentifier("about.tmdb")
                 Text(AppInfo.footerCredit)
             }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            .textStyle(.caption)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
             .listRowBackground(Color.clear)
@@ -126,9 +125,9 @@ struct AboutSectionHeader: View {
 
     var body: some View {
         Label(title, systemImage: systemImage)
-            .font(.subheadline)
+            .textStyle(.callout)
             .fontWeight(.semibold)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .textCase(nil)
             .accessibilityAddTraits(.isHeader)
     }
@@ -140,7 +139,7 @@ private struct FeatureRow: View {
     @ScaledMetric(relativeTo: .body) private var iconWidth: CGFloat = 24
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.md) {
             Image(systemName: feature.systemImage)
                 .foregroundStyle(Theme.Colors.blooming)
                 .frame(width: iconWidth)
@@ -163,14 +162,14 @@ private struct DeveloperRow: View {
 
     var body: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
-            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.xs))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Theme.Spacing.md))
 
         layout {
             Text(label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
             if !dynamicTypeSize.isAccessibilitySize {
-                Spacer(minLength: 8)
+                Spacer(minLength: Theme.Spacing.sm)
             }
             Text(value)
                 .textSelection(.enabled)

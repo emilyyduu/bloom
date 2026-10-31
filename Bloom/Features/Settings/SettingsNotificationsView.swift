@@ -120,7 +120,7 @@ struct SettingsNotificationsView: View {
                 .onChange(of: isReminderEnabled) { _, isOn in handleReminderToggle(isOn) }
 
             if let reminderErrorMessage {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                     FormErrorText(message: reminderErrorMessage)
                     Button("Open Settings") { manager.openSettings() }
                 }
@@ -134,15 +134,15 @@ struct SettingsNotificationsView: View {
                     .disabled(adaptsToHabits)
 
                 if adaptsToHabits {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text("Bloom picks the time from when you usually write")
                         if let nextReminderText { Text(nextReminderText) }
                         if ReminderPlanner.habitMinutes(noteDates: noteDates) == nil {
                             Text("Until you have written a few notes, Bloom uses the time you chose.")
                         }
                     }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
         } header: {

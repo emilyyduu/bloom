@@ -45,7 +45,7 @@ struct SettingsView: View {
                 } label: {
                     SettingsRowLabel("Sign out", systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
                 }
-                .foregroundStyle(.red)
+                .foregroundStyle(Theme.Colors.error)
 
                 FormErrorText(message: errorMessage)
             } header: {
@@ -106,7 +106,7 @@ struct SettingsRowLabel: View {
 
     @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 30
 
-    init(_ title: String, subtitle: String? = nil, systemImage: String, tint: Color = .accentColor) {
+    init(_ title: String, subtitle: String? = nil, systemImage: String, tint: Color = Theme.Colors.actionFill) {
         self.title = title
         self.subtitle = subtitle
         self.systemImage = systemImage
@@ -114,20 +114,20 @@ struct SettingsRowLabel: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.md) {
             Image(systemName: systemImage)
-                .font(.subheadline)
-                .foregroundStyle(Color(.systemBackground))
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.surface)
                 .frame(width: iconSize, height: iconSize)
-                .background(RoundedRectangle(cornerRadius: 7).fill(tint))
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(tint))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
         }

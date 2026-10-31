@@ -31,7 +31,7 @@ struct AcknowledgementsView: View {
                 Text(AppInfo.thankYou)
                     .frame(maxWidth: .infinity)
                     .multilineTextAlignment(.center)
-                    .padding(.top, 12)
+                    .padding(.top, Theme.Spacing.md)
             }
         }
         .listStyle(.insetGrouped)
@@ -55,18 +55,18 @@ private struct AcknowledgementRow: View {
 
     var body: some View {
         Link(destination: item.url) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.md) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(item.name)
-                        .font(.body)
-                        .foregroundStyle(.primary)
+                        .textStyle(.body)
+                        .foregroundStyle(Theme.Colors.textPrimary)
                     Text(item.detail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                     if let meta {
                         Text(meta)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                 }
                 .multilineTextAlignment(.leading)
@@ -93,10 +93,10 @@ struct LicenseDetailView: View {
     var body: some View {
         ScrollView {
             Text(FirebaseLicenseText.text)
-                .font(.footnote.monospaced())
+                .textStyle(.caption).monospaced()
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
+                .padding(Theme.Spacing.lg)
         }
         .navigationTitle("Firebase iOS SDK License")
         .navigationBarTitleDisplayMode(.inline)

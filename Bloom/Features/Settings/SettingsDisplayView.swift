@@ -28,11 +28,11 @@ struct SettingsDisplayView: View {
             }
 
             Section {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Label("Text size", systemImage: "textformat.size")
                     Text("Bloom follows your iPhone\u{2019}s text size. You can change it in iOS Settings under Display & Brightness.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
                 Button("Open iOS Settings") {
                     NotificationManager.shared.openSettings()
