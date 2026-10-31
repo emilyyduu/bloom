@@ -19,6 +19,8 @@ struct SectionHeader: View {
             .textStyle(.callout)
             .fontWeight(.semibold)
             .foregroundStyle(Theme.Colors.textSecondary)
+            // Form and List headers are capitalised by the system.
+            .textCase(nil)
     }
 }
 

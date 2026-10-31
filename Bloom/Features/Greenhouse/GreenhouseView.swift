@@ -137,11 +137,7 @@ struct GreenhouseView: View {
 
     private var streaksPane: some View {
         VStack(alignment: .leading, spacing: isCompactHeight ? 10 : Theme.Spacing.lg) {
-            Text("VIEW STREAKS")
-                .textStyle(.caption)
-                .fontWeight(.semibold)
-                .tracking(1.5)
-                .foregroundStyle(Theme.Colors.textSecondary)
+            SectionHeader("View streaks")
 
             streaksCard
 

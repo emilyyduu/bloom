@@ -23,7 +23,7 @@ struct NotificationsView: View {
                 PhoneAlertsCard()
 
                 if !friendService.pendingIncoming.isEmpty {
-                    Section("Requests") {
+                    Section {
                         ForEach(friendService.pendingIncoming) { request in
                             IncomingRequestRow(
                                 request: request,
@@ -34,11 +34,13 @@ struct NotificationsView: View {
                                 onDecline: { decline(request) }
                             )
                         }
+                    } header: {
+                        SectionHeader("Requests")
                     }
                 }
 
                 if !activity.items.isEmpty {
-                    Section("Activity") {
+                    Section {
                         ForEach(activity.items) { item in
                             Button {
                                 if let target = ActivityDestination(item: item) { destination = target }
@@ -47,6 +49,8 @@ struct NotificationsView: View {
                             }
                             .buttonStyle(.plain)
                         }
+                    } header: {
+                        SectionHeader("Activity")
                     }
                 }
 

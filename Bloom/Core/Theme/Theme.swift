@@ -154,7 +154,7 @@ enum Theme {
         case body       // 17  reading text
         case callout    // 15  supporting text
         case caption    // 13  meta: dates, counts
-        case label      // 12  tags and small uppercase labels
+        case label      // 12  tags and small labels
 
         var size: CGFloat {
             switch self {
