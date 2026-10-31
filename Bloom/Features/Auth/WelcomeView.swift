@@ -8,7 +8,6 @@ struct WelcomeView: View {
     @State private var isShowingAbout = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var plantsVisible = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -30,13 +29,6 @@ struct WelcomeView: View {
             }
         }
         .background(Theme.Colors.background.ignoresSafeArea())
-        .onAppear {
-            if reduceMotion {
-                plantsVisible = true
-            } else {
-                withAnimation(.easeOut(duration: 0.8).delay(0.2)) { plantsVisible = true }
-            }
-        }
         .sheet(isPresented: $isShowingSignUp) { SignUpView() }
         .sheet(isPresented: $isShowingLogIn) { LogInView() }
         .sheet(isPresented: $isShowingAbout) {
@@ -70,12 +62,6 @@ struct WelcomeView: View {
                 .padding(.top, Theme.Spacing.xs)
         }
         .multilineTextAlignment(.center)
-    }
-
-    private func plant(_ name: String, size: Theme.TextStyle) -> some View {
-        Image(systemName: name)
-            .textStyle(size)
-            .foregroundStyle(Theme.Colors.actionFill)
     }
 
     private var actions: some View {
