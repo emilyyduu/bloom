@@ -9,7 +9,8 @@ struct AcknowledgementsView: View {
             group("Packages used by Firebase", systemImage: "shippingbox.and.arrow.backward", items: AppInfo.firebasePackages)
             group("Services and data", systemImage: "cloud", items: AppInfo.services)
             group("Apple frameworks and assets", systemImage: "apple.logo", items: AppInfo.appleFrameworks)
-            group("Design and tools", systemImage: "pencil.and.ruler", items: AppInfo.designTools)
+            group("Fonts", systemImage: "textformat", items: AppInfo.fonts)
+            group("Design and tools",systemImage: "pencil.and.ruler", items: AppInfo.designTools)
             group("Learning sources", systemImage: "graduationcap", items: AppInfo.learningSources)
 
             Section {

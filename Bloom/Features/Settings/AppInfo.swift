@@ -137,6 +137,14 @@ enum AppInfo {
                         url: link("https://www.figma.com")),
     ]
 
+    // The bundled typeface. DM Sans is distributed under the SIL Open Font
+    // License 1.1, which requires its licence text to travel with the font.
+    static let fonts: [Acknowledgement] = [
+        Acknowledgement(name: "DM Sans", detail: "The typeface used across Bloom. Copyright The DM Sans Project Authors",
+                        license: "SIL Open Font License 1.1",
+                        url: link("https://github.com/googlefonts/dm-fonts")),
+    ]
+
     static let learningSources: [Acknowledgement] = [
         Acknowledgement(name: "FIT3178 lab materials, Monash University",
                         detail: "Notifications and Firestore messaging labs",
