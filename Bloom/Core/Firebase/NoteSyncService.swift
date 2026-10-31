@@ -21,6 +21,10 @@ final class NoteSyncService {
 
     private var isRestoring = false
     private var isSyncingPending = false
+
+    // Set while an account is being deleted, so a background backup or
+    // restore can't write the account's notes back to Firestore.
+    var isSuspended = false
     // Bumped on sign out. A run still in flight for the previous account
     // only clears its own in progress flag, never the next account's.
     private var generation = 0
@@ -385,7 +389,7 @@ final class NoteSyncService {
     // owned by a different account (e.g. a previous sign-in's unsynced
     // draft still sitting in the local store) is never uploaded.
     func syncPending(context: ModelContext) async {
-        guard !isSyncingPending, let uid = Auth.auth().currentUser?.uid,
+        guard !isSuspended, !isSyncingPending, let uid = Auth.auth().currentUser?.uid,
               ownsContext(context, uid: uid) else { return }
         isSyncingPending = true
         let startedGeneration = generation
@@ -418,7 +422,7 @@ final class NoteSyncService {
     // If that download fails the note is skipped, not inserted, so the
     // next restore retries it instead of losing the photo for good.
     func restore(context: ModelContext) async {
-        guard !isRestoring, let uid = Auth.auth().currentUser?.uid,
+        guard !isSuspended, !isRestoring, let uid = Auth.auth().currentUser?.uid,
               ownsContext(context, uid: uid) else { return }
         isRestoring = true
         let startedGeneration = generation

@@ -46,6 +46,19 @@ final class StoreManager {
         return container.mainContext === context
     }
 
+    // Forgets the account's container and deletes its store files from disk
+    // (the .store file and its -shm and -wal companions). Used when an
+    // account is deleted.
+    func deleteStore(for uid: String) {
+        containers[uid] = nil
+        guard let url = try? storeURL(for: uid) else { return }
+        let folder = url.deletingLastPathComponent()
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        for file in files where file.hasPrefix(url.lastPathComponent) {
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(file))
+        }
+    }
+
     private func storeURL(for uid: String) throws -> URL {
         let support = try FileManager.default.url(
             for: .applicationSupportDirectory,

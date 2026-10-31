@@ -75,6 +75,15 @@ actor AvatarCache {
         writeToDisk(data, uid: uid, key: key)
     }
 
+    // Removes every cached picture of this person, in memory and on disk.
+    func removeAll(for uid: String) {
+        memory.removeAllObjects()
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        for file in files where file.hasPrefix("\(uid)_") {
+            try? FileManager.default.removeItem(at: directory.appendingPathComponent(file))
+        }
+    }
+
     private func writeToDisk(_ data: Data, uid: String, key: String) {
         let directory = directory
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

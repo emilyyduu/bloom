@@ -59,6 +59,7 @@ final class AuthService: ObservableObject {
 
     enum AuthServiceError: Error {
         case missingVerificationID
+        case cannotReauthenticate
     }
 
     // Phone
@@ -108,6 +109,46 @@ final class AuthService: ObservableObject {
         } catch let error as NSError where error.code == AuthErrorCode.userNotFound.rawValue {
             return
         }
+    }
+
+    // Signing in again, which Firebase requires shortly before it will
+    // delete an account. How to do it depends on how the account signs in.
+    enum ReauthMethod {
+        case password
+        case phone
+    }
+
+    var reauthMethod: ReauthMethod? {
+        let providers = Auth.auth().currentUser?.providerData.map(\.providerID) ?? []
+        if providers.contains("password") { return .password }
+        if providers.contains("phone") { return .phone }
+        return nil
+    }
+
+    func reauthenticate(password: String) async throws {
+        guard let user = Auth.auth().currentUser, let email = user.email else {
+            throw AuthServiceError.cannotReauthenticate
+        }
+        let credential = EmailAuthProvider.credential(withEmail: email, password: password)
+        try await user.reauthenticate(with: credential)
+    }
+
+    // Texts a code to the number on the account and returns the id to
+    // confirm it with.
+    func startPhoneReauthentication() async throws -> String {
+        guard let number = Auth.auth().currentUser?.phoneNumber else {
+            throw AuthServiceError.cannotReauthenticate
+        }
+        return try await startPhoneVerification(phoneNumber: number)
+    }
+
+    func reauthenticate(verificationID: String, code: String) async throws {
+        guard let user = Auth.auth().currentUser else { throw AuthServiceError.cannotReauthenticate }
+        let credential = PhoneAuthProvider.provider().credential(
+            withVerificationID: verificationID,
+            verificationCode: code
+        )
+        try await user.reauthenticate(with: credential)
     }
 
     func signOut() throws {
