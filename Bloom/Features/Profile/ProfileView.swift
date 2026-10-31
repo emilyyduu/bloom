@@ -70,16 +70,16 @@ struct ProfileView: View {
     // ScrollView so scroll position survives rotation.
     private var screenLayout: AnyLayout {
         isCompactHeight
-            ? AnyLayout(HStackLayout(alignment: .top, spacing: 24))
-            : AnyLayout(VStackLayout(spacing: 20))
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.xl))
+            : AnyLayout(VStackLayout(spacing: Theme.Spacing.xl))
     }
 
     // At accessibility sizes the two buttons stack instead of
     // squeezing their labels.
     private var buttonLayout: AnyLayout {
         dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(spacing: 12))
-            : AnyLayout(HStackLayout(spacing: 12))
+            ? AnyLayout(VStackLayout(spacing: Theme.Spacing.md))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.md))
     }
 
     var body: some View {
@@ -92,16 +92,16 @@ struct ProfileView: View {
                         headerBlock
                             .frame(maxWidth: isCompactHeight ? 260 : .infinity)
 
-                        VStack(spacing: 20) {
+                        VStack(spacing: Theme.Spacing.xl) {
                             actionButtons
                             pinnedSection
                             rowsCard
                         }
                         .frame(maxWidth: .infinity)
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.top, Theme.Spacing.sm)
+                    .padding(.bottom, Theme.Spacing.xl)
                     .frame(maxWidth: isCompactHeight ? 900 : 700)
                     .frame(maxWidth: .infinity)
                 }
@@ -109,7 +109,7 @@ struct ProfileView: View {
             // Matches the rest of the root screens, so the clear area
             // behind the header isn't a different colour than the
             // content beneath it.
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.Colors.background)
             .navigationTitle("Profile")
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: Destination.self) { destination in
@@ -154,7 +154,7 @@ struct ProfileView: View {
     // MARK: - Header
 
     private var headerBlock: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             EditableAvatar(
                 model: myAvatar,
                 uid: myUID,
@@ -170,17 +170,17 @@ struct ProfileView: View {
             VStack(spacing: 2) {
                 if isLoadingProfile {
                     Text("Loading...")
-                        .font(.title2)
+                        .textStyle(.heading)
                         .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 } else {
                     Text(shownName)
-                        .font(.title2)
+                        .textStyle(.heading)
                         .fontWeight(.bold)
                     if !username.isEmpty {
                         Text("@\(username)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.callout)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                 }
             }
@@ -196,13 +196,13 @@ struct ProfileView: View {
         Button {
             path.append(.friends)
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: Theme.Spacing.xs) {
                 Text("\(friendCount)")
                     .fontWeight(.bold)
                 Text(friendCountLabel)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
-            .font(.subheadline)
+            .textStyle(.callout)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
@@ -230,8 +230,7 @@ struct ProfileView: View {
             }
             .disabled(isLoadingProfile || username.isEmpty || myUID == nil)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
+        .buttonStyle(.bloomSecondary)
     }
 
     // MARK: - Pinned
@@ -239,22 +238,22 @@ struct ProfileView: View {
     // Up to three pinned notes, newest pin first. Tapping one opens the
     // full note; press and hold offers Unpin.
     private var pinnedSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             SectionHeader("Pinned")
                 .accessibilityAddTraits(.isHeader)
 
             if pinnedNotes.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: Theme.Spacing.sm) {
                     Image(systemName: "pin")
-                        .font(.title3)
+                        .textStyle(.heading)
                         .accessibilityHidden(true)
                     Text("Nothing pinned yet. Press and hold a note, then choose Pin to profile.")
-                        .font(.subheadline)
+                        .textStyle(.callout)
                         .multilineTextAlignment(.center)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
                 .frame(maxWidth: .infinity)
-                .padding(16)
+                .padding(Theme.Spacing.lg)
                 .profileCardBackground()
             } else {
                 ForEach(pinnedNotes) { note in
@@ -275,11 +274,11 @@ struct ProfileView: View {
     private var rowsCard: some View {
         VStack(spacing: 0) {
             row("Friends", systemImage: "person.2", destination: .friends, badge: friendService.pendingIncoming.count)
-            Divider().padding(.leading, 16)
+            Divider().padding(.leading, Theme.Spacing.lg)
             row("Circles", systemImage: "circle.grid.2x2", destination: .circles)
-            Divider().padding(.leading, 16)
+            Divider().padding(.leading, Theme.Spacing.lg)
             row("Your Journals", systemImage: "book.closed", destination: .journals)
-            Divider().padding(.leading, 16)
+            Divider().padding(.leading, Theme.Spacing.lg)
             row("Settings", systemImage: "gear", destination: .settings)
         }
         .profileCardBackground()
@@ -287,32 +286,32 @@ struct ProfileView: View {
 
     private func row(_ title: String, systemImage: String, destination: Destination, badge: Int = 0) -> some View {
         NavigationLink(value: destination) {
-            HStack(spacing: 12) {
+            HStack(spacing: Theme.Spacing.md) {
                 // A fixed icon column keeps the titles aligned, since
                 // the SF Symbols differ in width.
                 Image(systemName: systemImage)
                     .frame(width: rowIconWidth)
                     .accessibilityHidden(true)
                 Text(title)
-                Spacer(minLength: 8)
+                Spacer(minLength: Theme.Spacing.sm)
                 if badge > 0 {
                     Text("\(badge)")
-                        .font(.caption)
+                        .textStyle(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(Color(.systemBackground))
-                        .padding(.horizontal, 8)
+                        .foregroundStyle(Theme.Colors.surface)
+                        .padding(.horizontal, Theme.Spacing.sm)
                         .padding(.vertical, 2)
-                        .background(Capsule().fill(Color.accentColor))
+                        .background(Capsule().fill(Theme.Colors.actionFill))
                         .accessibilityHidden(true)
                 }
                 Image(systemName: "chevron.right")
-                    .font(.footnote)
+                    .textStyle(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .accessibilityHidden(true)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.vertical, Theme.Spacing.md)
             .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
@@ -381,14 +380,14 @@ private struct PinnedNoteCard: View {
     @ScaledMetric(relativeTo: .body) private var thumbnailSize: CGFloat = 64
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(alignment: .top, spacing: Theme.Spacing.md) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(note.createdAt, format: .dateTime.day().month(.abbreviated).year())
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                     Text(note.text)
-                        .font(.subheadline)
+                        .textStyle(.callout)
                         .lineLimit(4)
                         .multilineTextAlignment(.leading)
                 }
@@ -399,7 +398,7 @@ private struct PinnedNoteCard: View {
                         .resizable()
                         .scaledToFill()
                         .frame(width: thumbnailSize, height: thumbnailSize)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                         .accessibilityLabel("Photo")
                 }
             }
@@ -407,18 +406,18 @@ private struct PinnedNoteCard: View {
             if !note.sharedWithFriends {
                 VStack(alignment: .leading, spacing: 2) {
                     Label("Only you", systemImage: "lock.fill")
-                        .font(.caption)
+                        .textStyle(.caption)
                         .fontWeight(.medium)
                     Text("Share this note so friends can see it on your profile.")
-                        .font(.caption)
+                        .textStyle(.caption)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
-        .padding(16)
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .profileCardBackground()
-        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityHint("Opens the full note")
     }
@@ -429,8 +428,8 @@ private extension View {
     // matching the cards on Greenhouse.
     func profileCardBackground() -> some View {
         self
-            .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Colors.surfaceMuted))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Colors.separator, lineWidth: 1))
     }
 }
 

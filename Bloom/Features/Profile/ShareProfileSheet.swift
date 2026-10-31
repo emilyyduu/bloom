@@ -37,22 +37,22 @@ struct ShareProfileSheet: View {
             ScrollView {
                 Group {
                     if isCompactHeight {
-                        HStack(alignment: .center, spacing: 32) {
+                        HStack(alignment: .center, spacing: Theme.Spacing.xxl) {
                             qrCode
-                            VStack(spacing: 20) {
+                            VStack(spacing: Theme.Spacing.xl) {
                                 identity
                                 actions
                             }
                         }
                     } else {
-                        VStack(spacing: 20) {
+                        VStack(spacing: Theme.Spacing.xl) {
                             identity
                             qrCode
                             actions
                         }
                     }
                 }
-                .padding()
+                .padding(Theme.Spacing.lg)
                 .frame(maxWidth: 700)
                 .frame(maxWidth: .infinity)
             }
@@ -82,11 +82,11 @@ struct ShareProfileSheet: View {
 
             VStack(spacing: 2) {
                 Text(displayName)
-                    .font(.title2)
+                    .textStyle(.heading)
                     .fontWeight(.bold)
                 Text("@\(username)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             .multilineTextAlignment(.center)
             .accessibilityElement(children: .combine)
@@ -102,8 +102,8 @@ struct ShareProfileSheet: View {
                 .interpolation(.none)
                 .resizable()
                 .scaledToFit()
-                .padding(16)
-                .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+                .padding(Theme.Spacing.lg)
+                .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Color.white))
                 .frame(maxWidth: 260)
                 .accessibilityLabel("QR code for your Bloom profile")
                 .accessibilityHint("Friends can scan it to add you")
@@ -111,14 +111,13 @@ struct ShareProfileSheet: View {
     }
 
     private var actions: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             if let url {
                 ShareLink(item: url, message: Text("Add me on Bloom! I'm @\(username)")) {
                     Label("Share link", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.bloomPrimary)
             }
 
             Button {
@@ -135,8 +134,7 @@ struct ShareProfileSheet: View {
                 )
                 .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
+            .buttonStyle(.bloomSecondary)
             .accessibilityValue(didCopy ? "Copied to the clipboard" : "")
         }
         .frame(maxWidth: 400)

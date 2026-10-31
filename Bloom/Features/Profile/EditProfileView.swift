@@ -61,7 +61,7 @@ struct EditProfileView: View {
             // The photo saves on its own as soon as it's chosen, it
             // isn't part of the Save button below.
             Section {
-                VStack(spacing: 8) {
+                VStack(spacing: Theme.Spacing.sm) {
                     EditableAvatar(
                         model: myAvatar,
                         uid: Auth.auth().currentUser?.uid,
@@ -83,8 +83,8 @@ struct EditProfileView: View {
                     .textInputAutocapitalization(.words)
                 if let displayNameValidationError {
                     Text(displayNameValidationError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.error)
                 }
             } header: {
                 SectionHeader("Display name")
@@ -98,8 +98,8 @@ struct EditProfileView: View {
                     .autocorrectionDisabled()
                 if let usernameValidationError {
                     Text(usernameValidationError)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.error)
                 }
             } header: {
                 SectionHeader("Username")
