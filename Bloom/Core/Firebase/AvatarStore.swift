@@ -5,7 +5,7 @@ import FirebaseFirestore
 // Where a profile picture's bytes live in the cloud. MyAvatar and
 // AvatarCache only talk to this protocol, so moving to Cloud Storage
 // later means writing one new type and changing `current`.
-protocol AvatarStore {
+nonisolated protocol AvatarStore: Sendable {
     // Stores the picture and marks the profile as having one, as a
     // single atomic write. Returns the updatedAt that was written, which
     // is also what other devices key their caches on.
@@ -17,7 +17,8 @@ protocol AvatarStore {
 }
 
 enum AvatarStores {
-    static let current: AvatarStore = FirestoreAvatarStore()
+    // Assigned once and never changed, so it can be read from any actor.
+    nonisolated static let current: AvatarStore = FirestoreAvatarStore()
 }
 
 enum AvatarStoreError: Error {
@@ -29,7 +30,7 @@ enum AvatarStoreError: Error {
 // written in the same batch, so a profile never claims a picture that
 // isn't there. Kept out of the users document so listing friends never
 // downloads picture bytes.
-struct FirestoreAvatarStore: AvatarStore {
+nonisolated struct FirestoreAvatarStore: AvatarStore {
     private var db: Firestore { Firestore.firestore() }
 
     private func userDocument(uid: String) -> DocumentReference {
@@ -71,7 +72,7 @@ struct FirestoreAvatarStore: AvatarStore {
 // handing back something bigger.
 enum AvatarProcessor {
     static let side: CGFloat = 256
-    static let maxBytes = 100_000
+    nonisolated static let maxBytes = 100_000
 
     static func uploadData(from image: UIImage) -> Data? {
         let square = croppedSquare(image)

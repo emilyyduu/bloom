@@ -28,7 +28,7 @@ struct ActivityItem: Identifiable, Equatable {
 
     // Skips a document that doesn't decode instead of crashing, like
     // ChatChannel.init?(document:) in the messaging lab.
-    init?(document: QueryDocumentSnapshot) {
+    nonisolated init?(document: QueryDocumentSnapshot) {
         let data = document.data()
         guard let typeString = data["type"] as? String,
               let kind = Kind(rawValue: typeString),

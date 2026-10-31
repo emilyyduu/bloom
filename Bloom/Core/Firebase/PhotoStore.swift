@@ -5,7 +5,7 @@ import FirebaseFirestore
 // Where a note's photo bytes live in the cloud. NoteSyncService and
 // FriendPhotoCache only talk to this protocol, so moving to Cloud
 // Storage later means writing one new type and changing `current`.
-protocol PhotoStore {
+nonisolated protocol PhotoStore: Sendable {
     func upload(_ data: Data, ownerUID: String, noteID: String) async throws
     // nil means there is no photo stored for that note.
     func download(ownerUID: String, noteID: String) async throws -> Data?
@@ -13,13 +13,14 @@ protocol PhotoStore {
 }
 
 enum PhotoStores {
-    static let current: PhotoStore = FirestorePhotoStore()
+    // Assigned once and never changed, so it can be read from any actor.
+    nonisolated static let current: PhotoStore = FirestorePhotoStore()
 }
 
 // users/{uid}/photos/{noteId} with exactly two fields: data and
 // updatedAt. Kept out of the note document so listing notes never
 // downloads photo bytes.
-struct FirestorePhotoStore: PhotoStore {
+nonisolated struct FirestorePhotoStore: PhotoStore {
     private var db: Firestore { Firestore.firestore() }
 
     private func document(ownerUID: String, noteID: String) -> DocumentReference {

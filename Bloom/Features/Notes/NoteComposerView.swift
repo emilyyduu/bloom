@@ -70,7 +70,7 @@ struct NoteComposerView: View {
     }
 
     init(draft: Note? = nil, attaching: MediaReviewDraft? = nil) {
-        let existingMedia = draft?.mediaLogEntry.map(MediaReviewDraft.init(entry:))
+        let existingMedia = draft?.mediaLogEntry.map { MediaReviewDraft(entry: $0) }
         _mediaDraft = State(initialValue: attaching ?? existingMedia)
         _originalMediaDraft = State(initialValue: existingMedia)
         let existingAudio = Self.audioDraft(for: draft)
@@ -480,7 +480,7 @@ struct NoteComposerView: View {
         draft = newDraft
         originalText = newDraft.text
         text = newDraft.text
-        let existingMedia = newDraft.mediaLogEntry.map(MediaReviewDraft.init(entry:))
+        let existingMedia = newDraft.mediaLogEntry.map { MediaReviewDraft(entry: $0) }
         mediaDraft = existingMedia
         originalMediaDraft = existingMedia
         discardSessionAudio()

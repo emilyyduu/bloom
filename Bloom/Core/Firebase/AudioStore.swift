@@ -5,7 +5,7 @@ import FirebaseFirestore
 // PhotoStore. NoteSyncService and FriendAudioCache only talk to this
 // protocol, so moving to Cloud Storage later is one new type and a
 // change to `current`.
-protocol AudioStore {
+nonisolated protocol AudioStore: Sendable {
     func upload(_ data: Data, ownerUID: String, noteID: String) async throws
     // nil means there is no memo stored for that note.
     func download(ownerUID: String, noteID: String) async throws -> Data?
@@ -13,7 +13,8 @@ protocol AudioStore {
 }
 
 enum AudioStores {
-    static let current: AudioStore = FirestoreAudioStore()
+    // Assigned once and never changed, so it can be read from any actor.
+    nonisolated static let current: AudioStore = FirestoreAudioStore()
 }
 
 enum AudioStoreError: Error {
@@ -22,14 +23,14 @@ enum AudioStoreError: Error {
 
 enum AudioLimits {
     // A Firestore document is capped at 1 MiB, stay well under it.
-    static let maxBytes = 800_000
+    nonisolated static let maxBytes = 800_000
     static let maxSeconds = 60
 }
 
 // users/{uid}/audio/{noteId} with exactly two fields: data and
 // updatedAt. Kept out of the note document so listing notes never
 // downloads audio bytes.
-struct FirestoreAudioStore: AudioStore {
+nonisolated struct FirestoreAudioStore: AudioStore {
     private var db: Firestore { Firestore.firestore() }
 
     private func document(ownerUID: String, noteID: String) -> DocumentReference {

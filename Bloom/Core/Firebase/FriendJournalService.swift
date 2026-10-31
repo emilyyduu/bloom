@@ -29,7 +29,7 @@ struct FriendDay: Equatable {
     let start: Date
     let end: Date
 
-    init(containing date: Date = Date(), calendar: Calendar = .current) {
+    nonisolated init(containing date: Date = Date(), calendar: Calendar = .current) {
         start = calendar.startOfDay(for: date)
         end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
     }

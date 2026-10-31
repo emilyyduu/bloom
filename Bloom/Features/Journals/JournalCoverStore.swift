@@ -126,9 +126,9 @@ final class JournalCoverStore: ObservableObject {
 // edge is at most 600 pixels (never enlarging it) and encodes it as JPEG
 // at 0.7.
 enum CoverImageProcessor {
-    static let aspect: CGFloat = 3.0 / 4.0
-    static let longEdge: CGFloat = 600
-    static let quality: CGFloat = 0.7
+    nonisolated static let aspect: CGFloat = 3.0 / 4.0
+    nonisolated static let longEdge: CGFloat = 600
+    nonisolated static let quality: CGFloat = 0.7
 
     nonisolated static func coverJPEG(from data: Data) -> Data? {
         // A thumbnail decode keeps a huge photo from being fully decoded,

@@ -4,7 +4,7 @@ import Testing
 
 // A stand-in for Note, so the index is tested without SwiftData.
 @MainActor
-private struct TestItem: JournalItem {
+private struct TestItem: @MainActor JournalItem {
     let id = UUID()
     let createdAt: Date
     var isJournalEntry = true

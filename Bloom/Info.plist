@@ -17,5 +17,12 @@
 	</array>
 	<key>TMDBAPIKey</key>
 	<string>3a14970e5e82a8209d2a07e96b30949d</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>DMSans_18pt-SemiBold.ttf</string>
+		<string>DMSans_18pt-Regular.ttf</string>
+		<string>DMSans_18pt-Medium.ttf</string>
+		<string>DMSans_18pt-Bold.ttf</string>
+	</array>
 </dict>
 </plist>

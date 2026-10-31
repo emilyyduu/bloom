@@ -5,7 +5,7 @@ import FirebaseFirestore
 // keyed by Firebase Auth uid. This is what makes an account findable by
 // someone else, by username or by a matched phone number, it is not a
 // public profile.
-struct FirestoreUser: Codable, Identifiable {
+struct FirestoreUser: nonisolated Codable, Identifiable {
     @DocumentID var id: String?
     var username: String
     // Optional so profiles created before display names existed still
