@@ -17,15 +17,15 @@ struct WelcomeView: View {
         GeometryReader { proxy in
             ScrollView {
                 VStack(spacing: 0) {
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Theme.Spacing.xl)
                     brand
-                    Spacer(minLength: 24)
+                    Spacer(minLength: Theme.Spacing.xl)
                     plantRow
-                    Spacer(minLength: 32)
+                    Spacer(minLength: Theme.Spacing.xxl)
                     actions
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 24)
+                .padding(.horizontal, Theme.Spacing.xxl)
+                .padding(.vertical, Theme.Spacing.xl)
                 .frame(maxWidth: 500)
                 .frame(maxWidth: .infinity)
                 // Fills the screen when there is room so the buttons sit at
@@ -34,14 +34,7 @@ struct WelcomeView: View {
                 .frame(minHeight: proxy.size.height)
             }
         }
-        .background(
-            LinearGradient(
-                colors: [Color(.systemBackground), Theme.Colors.welcomeGradientBottom],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
+        .background(Theme.Colors.background.ignoresSafeArea())
         .onAppear {
             if reduceMotion {
                 plantsVisible = true
@@ -67,7 +60,7 @@ struct WelcomeView: View {
     // MARK: Sections
 
     private var brand: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             ZStack {
                 Circle().fill(Theme.Colors.actionFill)
                 Image(systemName: "leaf.fill")
@@ -78,16 +71,15 @@ struct WelcomeView: View {
             .accessibilityHidden(true)
 
             Text("Bloom")
-                .font(.system(.largeTitle, design: .serif))
-                .fontWeight(.bold)
+                .textStyle(.display)
                 .accessibilityAddTraits(.isHeader)
             Text("A shared garden of memories")
-                .font(.headline)
-                .foregroundStyle(Theme.Colors.welcomeSecondaryText)
+                .textStyle(.subheading)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Text("Write small notes through the day and watch your garden grow.")
-                .font(.subheadline)
-                .foregroundStyle(Theme.Colors.welcomeSecondaryText)
-                .padding(.top, 4)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .padding(.top, Theme.Spacing.xs)
         }
         .multilineTextAlignment(.center)
     }
@@ -95,72 +87,41 @@ struct WelcomeView: View {
     // Seedling, leaf, flower. Purely decorative, so VoiceOver skips it,
     // and with Reduce Motion on it is simply shown without fading in.
     private var plantRow: some View {
-        HStack(alignment: .bottom, spacing: 28) {
-            plant("sprout.fill", size: .title2)
+        HStack(alignment: .bottom, spacing: Theme.Spacing.xxl) {
+            plant("sprout.fill", size: .heading)
             plant("leaf.fill", size: .title)
-            plant("camera.macro", size: .largeTitle)
+            plant("camera.macro", size: .display)
         }
         .opacity(plantsVisible ? 1 : 0)
         .accessibilityHidden(true)
     }
 
-    private func plant(_ name: String, size: Font.TextStyle) -> some View {
+    private func plant(_ name: String, size: Theme.TextStyle) -> some View {
         Image(systemName: name)
-            .font(.system(size, design: .default))
+            .textStyle(size)
             .foregroundStyle(Theme.Colors.actionFill)
     }
 
     private var actions: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             Button { isShowingSignUp = true } label: {
                 Text("Sign Up")
             }
-            .buttonStyle(WelcomeButtonStyle(isProminent: true))
+            .buttonStyle(.bloomPrimary)
             .accessibilityIdentifier("welcome.signUp")
 
             Button { isShowingLogIn = true } label: {
                 Text("Log In")
             }
-            .buttonStyle(WelcomeButtonStyle(isProminent: false))
+            .buttonStyle(.bloomSecondary)
             .accessibilityIdentifier("welcome.logIn")
 
             Button("About Bloom") { isShowingAbout = true }
-                .font(.footnote)
-                .foregroundStyle(Theme.Colors.actionFill)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.greenText)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("welcome.about")
         }
-    }
-}
-
-// Full width rounded button, at least 50 points tall. Primary is filled,
-// secondary is bordered. Both colours come from Theme and were checked in
-// light and dark mode.
-private struct WelcomeButtonStyle: ButtonStyle {
-    let isProminent: Bool
-
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        configuration.label
-            .font(.headline)
-            .foregroundStyle(isProminent ? Theme.Colors.onActionFill : Theme.Colors.actionFill)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, minHeight: 50)
-            .background {
-                if isProminent {
-                    shape.fill(Theme.Colors.actionFill)
-                }
-            }
-            .overlay {
-                if !isProminent {
-                    shape.strokeBorder(Theme.Colors.actionFill, lineWidth: 1.5)
-                }
-            }
-            .contentShape(shape)
-            .opacity(configuration.isPressed ? 0.7 : (isEnabled ? 1 : 0.5))
     }
 }
 
