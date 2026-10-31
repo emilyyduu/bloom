@@ -393,6 +393,80 @@ describe('friendships', () => {
   });
 });
 
+describe('blocking', () => {
+  test('a person manages their own block list, nobody else sees it', async () => {
+    await assertSucceeds(setDoc(userDoc(as(ALICE), ALICE, 'blocks', DAVE), { createdAt: ts(0) }));
+    await assertSucceeds(getDoc(userDoc(as(ALICE), ALICE, 'blocks', DAVE)));
+    await assertFails(getDoc(userDoc(as(DAVE), ALICE, 'blocks', DAVE)));
+    await assertFails(getDoc(userDoc(as(BOB), ALICE, 'blocks', DAVE)));
+    await assertFails(setDoc(userDoc(as(BOB), ALICE, 'blocks', CAROL), { createdAt: ts(0) }));
+    await assertFails(setDoc(userDoc(as(ALICE), ALICE, 'blocks', ALICE), { createdAt: ts(0) }));
+    await assertFails(setDoc(userDoc(as(ALICE), ALICE, 'blocks', CAROL), { createdAt: ts(0), reason: 'x' }));
+    await assertSucceeds(deleteDoc(userDoc(as(ALICE), ALICE, 'blocks', DAVE)));
+  });
+
+  test('a blocked person cannot send a friend request, an unblocked one can', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), DAVE, 'blocks', BOB), { createdAt: ts(0) });
+    });
+    const request = (from, to) => ({ fromUID: from, toUID: to, status: 'pending', createdAt: ts(0) });
+    await assertFails(setDoc(doc(as(BOB), 'friendships', `${BOB}_${DAVE}`), request(BOB, DAVE)));
+    await assertSucceeds(setDoc(doc(as(CAROL), 'friendships', `${CAROL}_${DAVE}`), request(CAROL, DAVE)));
+    await assertSucceeds(deleteDoc(userDoc(as(DAVE), DAVE, 'blocks', BOB)));
+    await assertSucceeds(setDoc(doc(as(BOB), 'friendships', `${BOB}_${DAVE}`), request(BOB, DAVE)));
+  });
+
+  test('blocking can remove the friendship from either side of the query', async () => {
+    const mine = query(collection(as(ALICE), 'friendships'), where('fromUID', '==', ALICE), where('toUID', '==', BOB));
+    const snap = await assertSucceeds(getDocs(mine));
+    if (snap.size !== 1) throw new Error(`expected 1 friendship, got ${snap.size}`);
+    await assertSucceeds(deleteDoc(snap.docs[0].ref));
+    const theirs = query(collection(as(ALICE), 'friendships'), where('fromUID', '==', BOB), where('toUID', '==', ALICE));
+    await assertSucceeds(getDocs(theirs));
+  });
+});
+
+describe('reports', () => {
+  const report = (overrides = {}) => ({
+    reporterUID: BOB, reportedUID: ALICE, kind: 'note', reason: 'spam',
+    noteOwnerUID: ALICE, noteId: 'today', contentPreview: 'hello', createdAt: ts(0), ...overrides,
+  });
+  const ref = (db, id) => doc(db, 'reports', id);
+
+  test('anyone signed in can report a note, comment or person once', async () => {
+    await assertSucceeds(setDoc(ref(as(BOB), `${BOB}_note_today`), report()));
+    await assertSucceeds(setDoc(ref(as(BOB), `${BOB}_comment_c1`), report({ kind: 'comment', commentId: 'c1' })));
+    await assertSucceeds(setDoc(ref(as(DAVE), `${DAVE}_user_${ALICE}`), {
+      reporterUID: DAVE, reportedUID: ALICE, kind: 'user', reason: 'harassment', details: 'x', createdAt: ts(0),
+    }));
+    await assertFails(setDoc(ref(as(BOB), `${BOB}_note_today`), report()));
+  });
+
+  test('reports must be well formed', async () => {
+    const db = as(BOB);
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ reporterUID: ALICE })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ reportedUID: BOB })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ reason: 'dislike' })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ kind: 'photo' })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ details: 'x'.repeat(501) })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ contentPreview: 'x'.repeat(501) })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ extra: true })));
+    await assertFails(setDoc(ref(db, `${BOB}_note_today`), report({ createdAt: ts(48 * HOUR) })));
+    await assertFails(setDoc(ref(db, 'any_id_at_all'), report()));
+    await assertFails(setDoc(ref(db, `${BOB}_comment_c1`), report({ kind: 'comment' })));
+  });
+
+  test('signed out users cannot report, and nobody can read, edit or delete reports', async () => {
+    await assertFails(setDoc(ref(env.unauthenticatedContext().firestore(), `${BOB}_note_today`), report()));
+    await setDoc(ref(as(BOB), `${BOB}_note_today`), report());
+    await assertFails(getDoc(ref(as(BOB), `${BOB}_note_today`)));
+    await assertFails(getDoc(ref(as(ALICE), `${BOB}_note_today`)));
+    await assertFails(updateDoc(ref(as(BOB), `${BOB}_note_today`), { reason: 'other' }));
+    await assertFails(deleteDoc(ref(as(BOB), `${BOB}_note_today`)));
+    await assertFails(getDocs(collection(as(BOB), 'reports')));
+  });
+});
+
 describe('streaks', () => {
   test('owner and friends read, strangers do not', async () => {
     await assertSucceeds(getDoc(doc(as(ALICE), 'streaks', ALICE)));
