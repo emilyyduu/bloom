@@ -14,6 +14,7 @@ import {
   Bytes,
   Timestamp,
   collection,
+  collectionGroup,
   deleteDoc,
   deleteField,
   doc,
@@ -221,6 +222,65 @@ describe('photos, audio and comments follow the same visibility', () => {
   });
 });
 
+describe('account deletion queries', () => {
+  const commentOf = (uid) => query(collectionGroup(as(uid), 'comments'), where('authorUID', '==', uid));
+
+  test('a person can find only their own comments across all notes', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), ALICE, 'notes', 'old', 'comments', 'b1'), { authorUID: BOB, text: 'x', createdAt: ts(0) });
+    });
+    const snap = await assertSucceeds(getDocs(commentOf(BOB)));
+    if (snap.size !== 1) throw new Error(`expected 1 comment, got ${snap.size}`);
+    await assertFails(getDocs(query(collectionGroup(as(BOB), 'comments'), where('authorUID', '==', ALICE))));
+    await assertFails(getDocs(collectionGroup(as(BOB), 'comments')));
+  });
+
+  test('an author can delete their comment even on an old note', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), ALICE, 'notes', 'old', 'comments', 'b1'), { authorUID: BOB, text: 'x', createdAt: ts(0) });
+    });
+    await assertSucceeds(deleteDoc(userDoc(as(BOB), ALICE, 'notes', 'old', 'comments', 'b1')));
+  });
+
+  test('a person can find and delete the feed items they wrote, not others', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), ALICE, 'activity', 'note_n1'), {
+        type: 'note', fromUID: BOB, noteOwnerUID: BOB, noteId: 'n1', createdAt: ts(0),
+      });
+    });
+    const mine = query(collectionGroup(as(BOB), 'activity'), where('fromUID', '==', BOB));
+    const snap = await assertSucceeds(getDocs(mine));
+    if (snap.size !== 1) throw new Error(`expected 1 item, got ${snap.size}`);
+    await assertFails(getDocs(query(collectionGroup(as(BOB), 'activity'), where('fromUID', '==', ALICE))));
+    await assertFails(getDocs(query(collectionGroup(as(DAVE), 'activity'), where('fromUID', '==', BOB))));
+    await assertSucceeds(deleteDoc(userDoc(as(BOB), ALICE, 'activity', 'note_n1')));
+  });
+
+  test('reactions carry reactorUID, which must be the reactor, and can be found by it', async () => {
+    const good = { kind: 'love', createdAt: ts(0), reactorUID: BOB };
+    await assertSucceeds(setDoc(userDoc(as(BOB), ALICE, 'notes', 'today', 'reactions', BOB), good));
+    await assertFails(setDoc(userDoc(as(BOB), ALICE, 'notes', 'today', 'reactions', BOB), { ...good, reactorUID: ALICE }));
+    const snap = await assertSucceeds(getDocs(query(collectionGroup(as(BOB), 'reactions'), where('reactorUID', '==', BOB))));
+    if (snap.size !== 1) throw new Error(`expected 1 reaction, got ${snap.size}`);
+    await assertFails(getDocs(query(collectionGroup(as(BOB), 'reactions'), where('reactorUID', '==', ALICE))));
+    await assertSucceeds(deleteDoc(userDoc(as(BOB), ALICE, 'notes', 'today', 'reactions', BOB)));
+  });
+
+  test('the owner can erase everything under their own account', async () => {
+    const db = as(ALICE);
+    for (const id of ['today', 'private', 'old', 'oldPinned']) {
+      await assertSucceeds(deleteDoc(userDoc(db, ALICE, 'notes', id, 'comments', 'c1')).catch(() => {}));
+      await assertSucceeds(deleteDoc(userDoc(db, ALICE, 'notes', id)));
+    }
+    for (const kind of ['photos', 'audio']) {
+      await assertSucceeds(deleteDoc(userDoc(db, ALICE, kind, 'today')));
+    }
+    await assertSucceeds(deleteDoc(doc(db, 'streaks', ALICE)));
+    await assertSucceeds(deleteDoc(doc(db, 'friendships', `${ALICE}_${BOB}`)));
+    await assertSucceeds(deleteDoc(userDoc(db, ALICE)));
+  });
+});
+
 describe('writing notes', () => {
   test('owner can write a valid note, others cannot', async () => {
     await assertSucceeds(setDoc(userDoc(as(ALICE), ALICE, 'notes', 'n1'), note()));
@@ -288,10 +348,11 @@ describe('activity feed', () => {
     await assertFails(setDoc(feed(as(ALICE), 'note_n1'), noteActivity({ fromUID: ALICE, noteOwnerUID: ALICE })));
   });
 
-  test('an item cannot be edited, only the owner reads or deletes it', async () => {
+  test('an item cannot be edited; the owner and its sender can read it, nobody else', async () => {
     await setDoc(feed(as(BOB), 'note_n1'), noteActivity());
     await assertFails(updateDoc(feed(as(BOB), 'note_n1'), { preview: 'changed' }));
-    await assertFails(getDoc(feed(as(BOB), 'note_n1')));
+    await assertSucceeds(getDoc(feed(as(BOB), 'note_n1')));
+    await assertFails(getDoc(feed(as(DAVE), 'note_n1')));
     await assertSucceeds(getDoc(feed(as(ALICE), 'note_n1')));
     await assertSucceeds(deleteDoc(feed(as(ALICE), 'note_n1')));
   });

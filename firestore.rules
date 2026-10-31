@@ -165,10 +165,12 @@ service cloud.firestore {
 
           allow create, update: if signedIn()
             && request.auth.uid == reactorId
-            && request.resource.data.keys().hasOnly(['kind', 'createdAt'])
+            && request.resource.data.keys().hasOnly(['kind', 'createdAt', 'reactorUID'])
             && request.resource.data.keys().hasAll(['kind', 'createdAt'])
             && request.resource.data.kind in ['love', 'laugh', 'wow', 'sad', 'clap', 'sprout']
             && request.resource.data.createdAt is timestamp
+            && (!('reactorUID' in request.resource.data)
+                || request.resource.data.reactorUID == request.auth.uid)
             && (request.auth.uid == userId
                 || (areFriends(request.auth.uid, userId)
                     && noteIsShared(userId, noteId)));
@@ -323,6 +325,20 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
 
       allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Collection group queries, used by account deletion so a person can find
+    // and remove what they wrote on other people's notes and feeds. Each rule
+    // only matches the author's own documents, so the query has to filter on
+    // the author's own uid.
+    match /{path=**}/comments/{commentId} {
+      allow read: if signedIn() && resource.data.authorUID == request.auth.uid;
+    }
+    match /{path=**}/reactions/{reactorId} {
+      allow read: if signedIn() && resource.data.reactorUID == request.auth.uid;
+    }
+    match /{path=**}/activity/{activityId} {
+      allow read, delete: if signedIn() && resource.data.fromUID == request.auth.uid;
     }
 
     // Everything else is closed, including the retired sharedNotes collection.

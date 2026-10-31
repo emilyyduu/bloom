@@ -197,6 +197,9 @@ final class NoteReactionsListener: ObservableObject {
                 try await reference.setData([
                     "kind": newKind.rawValue,
                     "createdAt": Timestamp(date: Date()),
+                    // Lets account deletion find my reactions on other
+                    // people's notes. The document id is the same uid.
+                    "reactorUID": myUID,
                 ])
             } else {
                 try await reference.delete()
