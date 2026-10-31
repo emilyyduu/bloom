@@ -126,44 +126,43 @@ struct GreenhouseView: View {
     }
 
     private var gardenPane: some View {
-        VStack(alignment: .leading, spacing: isCompactHeight ? 10 : 16) {
+        VStack(alignment: .leading, spacing: isCompactHeight ? 10 : Theme.Spacing.lg) {
             gardenSwitcher
             gardenCard
         }
-        .padding(isCompactHeight ? 10 : 16)
+        .padding(isCompactHeight ? 10 : Theme.Spacing.lg)
         .frame(maxWidth: isCompactHeight ? 340 : .infinity)
     }
 
     private var streaksPane: some View {
-        VStack(alignment: .leading, spacing: isCompactHeight ? 10 : 16) {
+        VStack(alignment: .leading, spacing: isCompactHeight ? 10 : Theme.Spacing.lg) {
             Text("VIEW STREAKS")
-                .font(.caption)
+                .textStyle(.caption)
                 .fontWeight(.semibold)
                 .tracking(1.5)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
 
             streaksCard
 
             if let selectedCircle, isSelectedCircleEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                     Text("Add people to \(selectedCircle.name)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.callout)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                     Button("Add people") { route = .circle(selectedCircle.id) }
-                        .buttonStyle(.borderedProminent)
-                        .frame(minHeight: 44)
+                        .buttonStyle(.bloomPrimary)
                 }
             } else if hasNoFriends {
                 Text("Add friends from Profile to grow your shared garden.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             } else if selectedCircle == nil, allFriends.count > Self.allFriendsLimit {
                 Text("Showing \(Self.allFriendsLimit) of \(allFriends.count) friends. Use circles to choose who appears.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
-        .padding(isCompactHeight ? 10 : 16)
+        .padding(isCompactHeight ? 10 : Theme.Spacing.lg)
         .frame(maxWidth: .infinity)
     }
 
@@ -187,16 +186,16 @@ struct GreenhouseView: View {
                 Text("Garden: \(selectionName)")
                     .lineLimit(2)
                 Image(systemName: "chevron.down")
-                    .font(.caption)
+                    .textStyle(.caption)
                     .accessibilityHidden(true)
             }
-            .font(.subheadline)
+            .textStyle(.callout)
             .fontWeight(.medium)
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 12)
+            .foregroundStyle(Theme.Colors.textPrimary)
+            .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, 6)
             .frame(minHeight: 44)
-            .background(Color(.secondarySystemBackground), in: Capsule())
+            .background(Theme.Colors.surfaceMuted, in: Capsule())
         }
         .accessibilityLabel("Garden: \(selectionName)")
         .accessibilityHint("Choose All friends or a circle")
@@ -206,25 +205,25 @@ struct GreenhouseView: View {
     // here so the page still scrolls when a finger starts on the
     // card. Tapping it opens the full screen interactive version.
     private var gardenCard: some View {
-        RoundedRectangle(cornerRadius: 28)
+        RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
             .fill(Theme.Colors.gardenCardBackground)
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: isCompactHeight ? 260 : .infinity)
             .overlay {
                 GardenRealityView(plants: plants, selectionName: selectionName)
-                    .padding(8)
+                    .padding(Theme.Spacing.sm)
             }
             .overlay(alignment: .topTrailing) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(8)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .padding(Theme.Spacing.sm)
                     .background(.thinMaterial, in: Circle())
                     .padding(10)
                     .accessibilityHidden(true)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 28))
-            .contentShape(RoundedRectangle(cornerRadius: 28))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             .onTapGesture {
                 isShowingFullScreenGarden = true
             }
@@ -241,9 +240,9 @@ struct GreenhouseView: View {
                 }
             }
         }
-        .padding(.vertical, 4)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
+        .padding(.vertical, Theme.Spacing.xs)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Colors.surfaceMuted))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Colors.separator, lineWidth: 1))
     }
 }
 
@@ -274,7 +273,7 @@ private struct GardenStreakRow: View {
         case .blooming: return Theme.Colors.blooming
         case .wilting: return Theme.Colors.wilting
         case .dead: return Theme.Colors.dead
-        case nil: return .secondary
+        case nil: return Theme.Colors.textSecondary
         }
     }
 
@@ -299,8 +298,8 @@ private struct GardenStreakRow: View {
     // column next to them.
     private var rowLayout: AnyLayout {
         dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 12))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.md))
     }
 
     @ViewBuilder
@@ -326,16 +325,16 @@ private struct GardenStreakRow: View {
     }
 
     private var identity: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.md) {
             avatar
                 .overlay(alignment: .bottomTrailing) {
                     // The plant's state stays visible as a small leaf
                     // on the corner of the avatar.
                     Image(systemName: iconName)
-                        .font(.caption2)
+                        .textStyle(.caption)
                         .foregroundStyle(iconColor)
-                        .padding(4)
-                        .background(Circle().fill(Color(.secondarySystemBackground)))
+                        .padding(Theme.Spacing.xs)
+                        .background(Circle().fill(Theme.Colors.surfaceMuted))
                         .offset(x: 4, y: 4)
                         .accessibilityHidden(true)
                 }
@@ -343,17 +342,17 @@ private struct GardenStreakRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(plant.shownName)
-                    .font(.body)
+                    .textStyle(.body)
                     .fontWeight(.medium)
                 if plant.displayName != nil {
                     Text("@\(plant.username)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
                 Text(statusWord)
-                    .font(.caption)
+                    .textStyle(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.Colors.textPrimary)
             }
 
             if !dynamicTypeSize.isAccessibilitySize {
@@ -365,11 +364,11 @@ private struct GardenStreakRow: View {
     private var streakValue: some View {
         VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 0) {
             Text(streakText)
-                .font(.title3)
+                .textStyle(.heading)
                 .fontWeight(.bold)
             Text("days")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil, alignment: .leading)
     }
@@ -379,7 +378,7 @@ private struct GardenStreakRow: View {
             identity
             streakValue
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, isCompactHeight ? 6 : 10)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(plant.shownName), \(statusWord.lowercased()), \(accessibilityStreakDescription)")
