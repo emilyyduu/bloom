@@ -110,6 +110,7 @@ struct HomeView: View {
                 }
 
                 streakLine
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.md)
 

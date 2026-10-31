@@ -237,17 +237,7 @@ struct LibraryView: View {
 
         Group {
             if visible.isEmpty {
-                VStack(spacing: 0) {
-                    LazyVGrid(columns: columns, spacing: Theme.Spacing.xl) {
-                        AddMediaTile(action: onAddMedia)
-                    }
-                    .padding(Theme.Spacing.lg)
-                    ContentUnavailableView(
-                        "Nothing logged yet",
-                        systemImage: "film",
-                        description: Text("Movies and shows you log will show up here.")
-                    )
-                }
+                emptyState
             } else {
                 VStack(spacing: 0) {
                     if options.hasActiveFilters {
@@ -270,6 +260,32 @@ struct LibraryView: View {
         .sheet(item: $selectedEntry) { entry in
             MediaLogEntryDetailView(entry: entry)
         }
+    }
+
+    // Same layout as the empty state in Today's Notes: icon, title,
+    // subheading and a full width primary button.
+    private var emptyState: some View {
+        VStack(spacing: Theme.Spacing.lg) {
+            VStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "film")
+                    .textStyle(.display)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .accessibilityHidden(true)
+                Text("Nothing logged yet")
+                    .textStyle(.heading)
+                Text("Movies and shows you log will show up here.")
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            .multilineTextAlignment(.center)
+            .accessibilityElement(children: .combine)
+
+            Button("Log a movie or show", action: onAddMedia)
+                .buttonStyle(.bloomPrimary)
+        }
+        .padding(.horizontal, Theme.Spacing.screenEdge)
+        .frame(maxWidth: 400)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func grid(of shown: [MediaLogEntry]) -> some View {

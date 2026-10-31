@@ -4,8 +4,8 @@ import Foundation
 // placeholder addresses: replace both once the documents are hosted, this is
 // the only place they are written down. Sign up and About read them from here.
 enum LegalLinks {
-    static let terms = "https://example.com/bloom/terms"
-    static let privacyPolicy = "https://example.com/bloom/privacy"
+    static let terms = "https://bloom-726b7.web.app/terms"
+    static let privacyPolicy = "https://bloom-726b7.web.app/privacy"
 
     // Where people can reach the developer. Shown in About, and it is the
     // contact App Store Connect asks for.

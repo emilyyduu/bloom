@@ -2,6 +2,8 @@
 
 Effective date: November 1, 2026
 
+*Bloom is a student project. This policy was written by the developer and has not been reviewed by a lawyer.*
+
 ## Who we are
 Bloom is made by Emily Du, based in Victoria, Australia.
 Contact: eduu0005@student.monash.edu.
@@ -15,7 +17,7 @@ Contact: eduu0005@student.monash.edu.
 - You can delete your account, and everything we hold about it, inside the app.
 
 ## Minimum age
-You must be at least 16 to use Bloom, and you confirm this when you sign up. We do not knowingly collect data from anyone younger. If you think a younger person has an account, contact us and we will delete it. [PLACEHOLDER: lawyer to confirm this wording and whether any further steps are needed.]
+You must be at least 16 to use Bloom, and you confirm this when you sign up. We do not knowingly collect data from anyone younger. If you think a younger person has an account, contact us and we will delete it.
 
 ## What we collect and why
 
@@ -40,14 +42,14 @@ You must be at least 16 to use Bloom, and you confirm this when you sign up. We 
 | Settings such as reminder time and appearance | To remember your choices | Your device only |
 
 ### Movie and show search
-When you search the Library, your search words are sent to The Movie Database (TMDB) to get results, and posters are downloaded from TMDB. TMDB sees your IP address and the search words. Bloom does not send your name or account to TMDB. See TMDB's privacy policy: [PLACEHOLDER: TMDB privacy policy URL]. This product uses the TMDB API but is not endorsed or certified by TMDB.
+When you search the Library, your search words are sent to The Movie Database (TMDB) to get results, and posters are downloaded from TMDB. TMDB sees your IP address and the search words. Bloom does not send your name or account to TMDB. See TMDB's privacy policy: https://www.themoviedb.org/privacy-policy. This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ### Camera, microphone and notifications
 These are optional. Bloom asks only when you use the feature that needs it. Photos you pick with the system photo picker are shared with Bloom only for the photos you choose. Bloom does not ask for access to your contacts or location.
-Notifications are created by the app while it is running, and the daily reminder is scheduled on your device. Bloom does not send push notifications from a server. [PLACEHOLDER: update if you add push.]
+Notifications are created by the app while it is running, and the daily reminder is scheduled on your device. Bloom does not send push notifications from a server. If that changes, we will update this policy first.
 
 ### Signing in
-Phone sign in uses Google's Firebase Authentication, which sends the text message and may use device checks (for example a silent notification or a reCAPTCHA check) to stop abuse. Google may see technical details such as your IP address and device type when you sign in or use the app. [PLACEHOLDER: confirm exactly what Firebase collects, see Firebase's privacy documentation, and update this and the App Privacy answers.]
+Phone sign in uses Google's Firebase Authentication, which sends the text message and may use device checks (for example a silent notification or a reCAPTCHA check) to stop abuse. Google may see technical details such as your IP address and device type when you sign in or use the app. Google explains what Firebase collects at https://firebase.google.com/support/privacy.
 
 ## Who can see your information
 - **Only you:** your drafts, notes you have not shared, circles, blocked people, movie log, covers and settings.
@@ -58,22 +60,23 @@ Phone sign in uses Google's Firebase Authentication, which sends the text messag
 - We do not sell your data and do not use it for advertising.
 
 ## Reports and blocking
-You can report a note, a comment or a person, and block people. A report holds your account id, the id of the person or content, the reason, anything you add, and a copy of up to 500 characters of the text you saw. The developer reads reports to decide whether to remove content or close an account. The person reported is not told who reported them. We keep reports for [PLACEHOLDER: retention period], then delete them. [PLACEHOLDER: lawyer to review.]
+You can report a note, a comment or a person, and block people. A report holds your account id, the id of the person or content, the reason, anything you add, and a copy of up to 500 characters of the text you saw. The developer reads reports to decide whether to remove content or close an account. The person reported is not told who reported them. We keep reports only for as long as we need them to deal with the report and keep Bloom safe, then delete them.
 Blocking removes any friendship between you and the other person, stops them sending you requests, and hides what they write. They are not told.
 
 ## Keeping and deleting your data
 Your data stays until you delete it or delete your account. Deleting a note removes it from your device and from our database, along with its photo, voice memo and comments.
 To delete your account, open Settings, then Delete account. You sign in again to confirm. Bloom then erases from our database your profile, picture, notes, photos, voice memos, circles, notification feed, streak, friendships, your comments and reactions on friends' notes, and the notification items you sent to friends. It deletes your sign in, and it removes your data from your device. If a step cannot finish you stay signed in and can try again.
-Limits: a copy may remain in Google's backups and logs for [PLACEHOLDER: period]. Anything you posted that a friend has already seen, copied or screenshotted is outside our control. Reactions you made on friends' notes before November 1, 2026 may remain until the note is deleted.
+Limits: a copy may remain in Google's backups and logs for a limited time after you delete something. We don't control how long. Anything you posted that a friend has already seen, copied or screenshotted is outside our control. Reactions you made on friends' notes before November 1, 2026 may remain until the note is deleted.
 
 ## Your choices and rights
-You can edit your profile, delete notes, stop sharing, remove or block friends, and turn off permissions in iOS Settings. You can ask us to access or correct your data at the email above. Depending on where you live (for example Australia) you may have further rights, including to complain to a regulator. [PLACEHOLDER: lawyer to list rights and regulators, for example the Privacy Act 1988 and the Office of the Australian Information Commissioner.]
+You can edit your profile, delete notes, stop sharing, remove or block friends, and turn off permissions in iOS Settings. You can ask us to access or correct your data at the email above. Contact us first and we will try to sort out any problem.
+Depending on where you live you may have further rights. In Australia, the Privacy Act 1988 and the Australian Privacy Principles apply to some organisations, and you can complain to the Office of the Australian Information Commissioner (https://www.oaic.gov.au). If you live somewhere else, such as the European Union or the United Kingdom, you may have other rights, for example to ask us to delete your data or give you a copy of it.
 
 ## Security
 Data travels over encrypted connections and is stored in Google's cloud, protected by access rules that we write and test. It is not end to end encrypted, so we and Google's systems can technically access it. No system is perfectly secure.
 
 ## Changes
-We will update this policy when the app changes and show the effective date above. [PLACEHOLDER: describe how you will notify users of material changes.]
+We will update this policy when the app changes and show the effective date above. For big changes we will tell you before they apply, for example by email.
 
 ## Contact
 Emily Du, eduu0005@student.monash.edu
