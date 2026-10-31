@@ -47,6 +47,12 @@ struct SettingsView: View {
                 }
                 .foregroundStyle(Theme.Colors.error)
 
+                NavigationLink {
+                    DeleteAccountView()
+                } label: {
+                    SettingsRowLabel("Delete account", subtitle: "Erase your account and data", systemImage: "trash", tint: Theme.Colors.error)
+                }
+
                 FormErrorText(message: errorMessage)
             } header: {
                 SectionHeader("Account")
