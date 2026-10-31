@@ -68,7 +68,7 @@ struct MediaPosterThumbnail: View {
     var body: some View {
         poster
             .frame(width: width, height: height)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .accessibilityHidden(true)
     }
 
@@ -80,12 +80,12 @@ struct MediaPosterThumbnail: View {
             AsyncImage(url: url) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
-                Rectangle().fill(Color(.secondarySystemBackground))
+                Rectangle().fill(Theme.Colors.surfaceMuted)
             }
         } else {
             Rectangle()
-                .fill(Color(.secondarySystemBackground))
-                .overlay { Image(systemName: "film").foregroundStyle(.secondary) }
+                .fill(Theme.Colors.surfaceMuted)
+                .overlay { Image(systemName: "film").foregroundStyle(Theme.Colors.textSecondary) }
         }
     }
 }
@@ -107,7 +107,7 @@ struct MediaReviewSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    VStack(spacing: 8) {
+                    VStack(spacing: Theme.Spacing.sm) {
                         MediaPosterThumbnail(
                             fileName: draft.posterFileName,
                             path: draft.posterPath,
@@ -115,14 +115,14 @@ struct MediaReviewSheet: View {
                             height: 180
                         )
                         Text(draft.title)
-                            .font(.headline)
+                            .textStyle(.subheading)
                             .multilineTextAlignment(.center)
                         Text(subtitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.callout)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, Theme.Spacing.sm)
                     .accessibilityElement(children: .combine)
                 }
 
@@ -183,17 +183,17 @@ struct MediaDraftCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: Theme.Spacing.md) {
                 MediaPosterThumbnail(fileName: draft.posterFileName, path: draft.posterPath)
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     Text(draft.title)
-                        .font(.subheadline)
+                        .textStyle(.callout)
                         .fontWeight(.medium)
                     StarRatingView(rating: draft.rating)
                     if let line = draft.firstReviewLine {
                         Text(line)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                             .lineLimit(2)
                     }
                 }
@@ -201,7 +201,7 @@ struct MediaDraftCard: View {
             }
             .accessibilityElement(children: .combine)
 
-            HStack(spacing: 16) {
+            HStack(spacing: Theme.Spacing.lg) {
                 Button("Edit", action: onEdit)
                     .frame(minHeight: 44)
                     .accessibilityLabel("Edit review of \(draft.title)")

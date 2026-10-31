@@ -6,8 +6,8 @@ import SwiftUI
 struct SharedIndicator: View {
     var body: some View {
         Label("Shared", systemImage: "person.2.fill")
-            .font(.caption2)
+            .textStyle(.caption)
             .fontWeight(.medium)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.Colors.textSecondary)
     }
 }

@@ -116,10 +116,10 @@ private struct OwnerNoteDetail: View {
     }
 
     private var noteBody: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             if !note.text.isEmpty {
                 Text(note.text)
-                    .font(.body)
+                    .textStyle(.body)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -128,7 +128,7 @@ private struct OwnerNoteDetail: View {
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .accessibilityLabel("Photo")
             }
 
@@ -145,8 +145,8 @@ private struct OwnerNoteDetail: View {
     // Words as well as icons, so the state never relies on colour.
     private var statusChips: some View {
         let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 8))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.sm))
         return layout {
             chip(
                 note.sharedWithFriends ? "Shared with friends" : "Only you",
@@ -160,12 +160,12 @@ private struct OwnerNoteDetail: View {
 
     private func chip(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
-            .font(.caption)
+            .textStyle(.caption)
             .fontWeight(.medium)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color(.secondarySystemBackground), in: Capsule())
+            .background(Theme.Colors.surfaceMuted, in: Capsule())
     }
 }
 
@@ -192,26 +192,26 @@ private struct ViewerNoteDetail: View {
     }
 
     private var noteBody: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             if let author {
                 // Pushes onto the sheet's own stack, so Back returns to the note.
                 NavigationLink {
                     FriendProfileView(friend: author)
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         AvatarView(user: author, size: 44, relativeTo: .body)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(author.shownName)
-                                .font(.headline)
+                                .textStyle(.subheading)
                             Text("@\(author.username)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .textStyle(.callout)
+                                .foregroundStyle(Theme.Colors.textSecondary)
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "chevron.right")
-                            .font(.footnote)
-                            .foregroundStyle(.tertiary)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                             .accessibilityHidden(true)
                     }
                     .frame(minHeight: 44)
@@ -224,7 +224,7 @@ private struct ViewerNoteDetail: View {
 
             if !note.text.isEmpty {
                 Text(note.text)
-                    .font(.body)
+                    .textStyle(.body)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -293,7 +293,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                     portraitLayout
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.Colors.background)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -336,7 +336,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     private var portraitLayout: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     noteBody()
                     if commentsEnabled {
                         ReactionsSection(listener: reactions)
@@ -352,7 +352,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                     )
                     .id("comments")
                 }
-                .padding()
+                .padding(Theme.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -375,13 +375,13 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
     private var landscapeLayout: some View {
         AnyLayout(HStackLayout(alignment: .top, spacing: 0)) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     noteBody()
                     if commentsEnabled {
                         ReactionsSection(listener: reactions)
                     }
                 }
-                .padding()
+                .padding(Theme.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -396,7 +396,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                         draft: draft,
                         focusInput: { isInputFocused = true }
                     )
-                    .padding()
+                    .padding(Theme.Spacing.lg)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .scrollDismissesKeyboard(.interactively)
@@ -423,15 +423,15 @@ struct LiveFailedNotice: View {
     var body: some View {
         HStack {
             Label(text, systemImage: "exclamationmark.triangle")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Spacer(minLength: 8)
             Button("Retry", action: retry)
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .frame(minHeight: 44)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, Theme.Spacing.sm)
     }
 }
 
@@ -457,9 +457,9 @@ private struct CommentsSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             Text(heading)
-                .font(.headline)
+                .textStyle(.subheading)
                 .accessibilityAddTraits(.isHeader)
 
             if !commentsEnabled {
@@ -469,7 +469,7 @@ private struct CommentsSection: View {
                 case .loading:
                     ProgressView("Loading comments")
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, Theme.Spacing.lg)
                 case .permissionDenied:
                     notice("You can\u{2019}t see these comments", systemImage: "lock")
                 case .missingIndex:
@@ -510,24 +510,23 @@ private struct CommentsSection: View {
 
     // My own note that isn't shared yet.
     private var disabledState: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             Text("Share with friends to let them comment")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
             if let onShare {
                 Button("Share with friends", action: onShare)
-                    .buttonStyle(.bordered)
-                    .frame(minHeight: 44)
+                    .buttonStyle(.bloomSecondary)
             }
         }
     }
 
     private func notice(_ text: String, systemImage: String) -> some View {
         Label(text, systemImage: systemImage)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .textStyle(.callout)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
+            .padding(.vertical, Theme.Spacing.sm)
     }
 
     private func startReply(to comment: NoteComment, threadID: String) {
@@ -563,19 +562,19 @@ private struct CommentThreadView: View {
     private var indent: CGFloat { dynamicTypeSize.isAccessibilitySize ? 8 : 18 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             row(thread.top, parentDeleted: thread.parentDeleted)
 
             if !thread.replies.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                     ForEach(thread.replies) { reply in
                         row(reply, parentDeleted: false)
                     }
                 }
-                .padding(.leading, 12)
+                .padding(.leading, Theme.Spacing.md)
                 .overlay(alignment: .leading) {
                     Rectangle()
-                        .fill(Color(.separator))
+                        .fill(Theme.Colors.separator)
                         .frame(width: 2)
                         .accessibilityHidden(true)
                 }
@@ -616,7 +615,7 @@ struct CommentRow: View {
         let mention = String(comment.text.prefix { !$0.isWhitespace })
         if let range = attributed.range(of: mention) {
             attributed[range].font = .body.bold()
-            attributed[range].foregroundColor = .accentColor
+            attributed[range].foregroundColor = Theme.Colors.greenText
         }
         return attributed
     }
@@ -630,7 +629,7 @@ struct CommentRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
             AvatarView(
                 uid: comment.authorUID,
                 name: name,
@@ -645,19 +644,19 @@ struct CommentRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(name)
-                            .font(.subheadline)
+                            .textStyle(.callout)
                             .fontWeight(.semibold)
                         Text(comment.createdAt, format: .relative(presentation: .named))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     if parentDeleted {
                         Text("In reply to a deleted comment")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     Text(styledText)
-                        .font(.body)
+                        .textStyle(.body)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityElement(children: .ignore)
@@ -665,7 +664,7 @@ struct CommentRow: View {
 
                 Button(action: onReply) {
                     Text("Reply")
-                        .font(.subheadline)
+                        .textStyle(.callout)
                         .fontWeight(.semibold)
                         .frame(minWidth: 44, minHeight: 44, alignment: .leading)
                         .contentShape(Rectangle())
@@ -715,18 +714,18 @@ struct CommentInputBar: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.error)
             }
 
             if let reply = draft.reply {
-                HStack(spacing: 8) {
+                HStack(spacing: Theme.Spacing.sm) {
                     Text("Replying to \(reply.toName)")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.callout)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityLabel("Replying to \(reply.toName)")
                     Button {
@@ -740,13 +739,13 @@ struct CommentInputBar: View {
                 }
             }
 
-            HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: Theme.Spacing.sm) {
                 TextField("Add a comment", text: $draft.text, axis: .vertical)
                     .lineLimit(1...4)
                     .focused(isFocused)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
+                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.vertical, Theme.Spacing.sm)
+                    .background(Theme.Colors.surfaceMuted, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .accessibilityLabel("Add a comment")
 
                 Button(action: send) {
@@ -759,15 +758,15 @@ struct CommentInputBar: View {
 
             if text.count >= NoteComment.maxLength - 100 {
                 Text("\(text.count) of \(NoteComment.maxLength)")
-                    .font(.caption2)
+                    .textStyle(.caption)
                     .monospacedDigit()
-                    .foregroundStyle(text.count >= NoteComment.maxLength ? .red : .secondary)
+                    .foregroundStyle(text.count >= NoteComment.maxLength ? Theme.Colors.error : Theme.Colors.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .accessibilityLabel("\(text.count) of \(NoteComment.maxLength) characters used")
             }
         }
-        .padding(.horizontal, isEmbedded ? 0 : 16)
-        .padding(.vertical, isEmbedded ? 0 : 8)
+        .padding(.horizontal, isEmbedded ? 0 : Theme.Spacing.lg)
+        .padding(.vertical, isEmbedded ? 0 : Theme.Spacing.sm)
         .background { if !isEmbedded { Rectangle().fill(.bar) } }
         // Cut by whole characters so an emoji is never split.
         .onChange(of: draft.text) { _, newValue in

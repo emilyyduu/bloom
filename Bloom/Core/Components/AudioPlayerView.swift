@@ -137,8 +137,8 @@ struct AudioPlayerView: View {
 
     private var layout: AnyLayout {
         dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(spacing: 12))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Theme.Spacing.md))
     }
 
     private var isPlaying: Bool { player.state == .playing }
@@ -146,13 +146,13 @@ struct AudioPlayerView: View {
     private var lengthText: String { Self.format(player.duration) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             layout {
                 Button {
                     player.toggle()
                 } label: {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                        .font(.largeTitle)
+                        .textStyle(.display)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.borderless)
@@ -162,15 +162,15 @@ struct AudioPlayerView: View {
                     .accessibilityHidden(true)
 
                 Text(statusText)
-                    .font(.caption)
+                    .textStyle(.caption)
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
 
             if case .failed(let message) = player.state {
                 Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.error)
             }
         }
         .onDisappear { player.stop() }

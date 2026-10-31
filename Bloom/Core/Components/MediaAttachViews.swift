@@ -27,7 +27,7 @@ struct MediaNotePickerList: View {
                     } label: {
                         Text(note.text.isEmpty ? "Untitled note" : note.text)
                             .lineLimit(3)
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Theme.Colors.textPrimary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .frame(minHeight: 44)
                     }
@@ -58,11 +58,11 @@ struct MediaAttachChoiceSheet: View {
         NavigationStack {
             List {
                 Section {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         MediaPosterThumbnail(fileName: draft.posterFileName, path: draft.posterPath)
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                             Text(draft.title)
-                                .font(.subheadline)
+                                .textStyle(.callout)
                                 .fontWeight(.medium)
                             StarRatingView(rating: draft.rating)
                         }

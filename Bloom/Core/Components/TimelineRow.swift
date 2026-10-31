@@ -19,12 +19,12 @@ struct TimelineRow<Card: View>: View {
     private var timeLabel: some View {
         VStack(spacing: 0) {
             Text(time.value)
-                .font(.caption)
+                .textStyle(.caption)
                 .fontWeight(.medium)
             if let period = time.period {
                 Text(period)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
     }
@@ -35,9 +35,9 @@ struct TimelineRow<Card: View>: View {
                 timeLabel
                 card()
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, Theme.Spacing.lg)
         } else {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: Theme.Spacing.md) {
                 VStack(spacing: 6) {
                     timeLabel
                     TimelineConnector(isLast: isLast)
@@ -46,7 +46,7 @@ struct TimelineRow<Card: View>: View {
 
                 card()
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, Theme.Spacing.lg)
         }
     }
 }
@@ -57,11 +57,11 @@ private struct TimelineConnector: View {
     var body: some View {
         VStack(spacing: 0) {
             Circle()
-                .fill(Color.accentColor)
+                .fill(Theme.Colors.actionFill)
                 .frame(width: 8, height: 8)
             if !isLast {
                 Rectangle()
-                    .fill(Color(.separator))
+                    .fill(Theme.Colors.separator)
                     .frame(width: 1)
             }
         }
@@ -76,11 +76,11 @@ private struct TimelineCardStyle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .padding(16)
+            .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 24).fill(Color(.secondarySystemBackground)))
-            .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(Color(.separator), lineWidth: 1))
-            .contentShape(RoundedRectangle(cornerRadius: 24))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).fill(Theme.Colors.surfaceMuted))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).strokeBorder(Theme.Colors.separator, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
             .onTapGesture(perform: onTap)
     }
 }
@@ -107,11 +107,11 @@ struct NoteTimelineCard: View {
     }
 
     private var card: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            HStack(alignment: .top, spacing: Theme.Spacing.md) {
                 if !note.text.isEmpty {
                     Text(note.text)
-                        .font(.body)
+                        .textStyle(.body)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
@@ -120,7 +120,7 @@ struct NoteTimelineCard: View {
                         .resizable()
                         .scaledToFill()
                         .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                         .clipped()
                 }
             }
@@ -156,10 +156,10 @@ struct FriendTimelineCard: View {
     let onTap: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             if !note.text.isEmpty {
                 Text(note.text)
-                    .font(.body)
+                    .textStyle(.body)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 

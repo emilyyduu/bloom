@@ -18,27 +18,27 @@ struct MediaLogEntryDetailView: View {
         NavigationStack {
             Form {
                 Section {
-                    VStack(spacing: 12) {
+                    VStack(spacing: Theme.Spacing.md) {
                         posterImage
                             .frame(height: 220)
                             .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                             .accessibilityHidden(true)
 
                         Text(entry.title)
-                            .font(.headline)
+                            .textStyle(.subheading)
                             .multilineTextAlignment(.center)
 
                         if let releaseYear = entry.releaseYear {
                             Text(String(releaseYear))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .textStyle(.callout)
+                                .foregroundStyle(Theme.Colors.textSecondary)
                         }
 
                         StarRatingView(rating: entry.rating, font: .title3)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, Theme.Spacing.sm)
                 }
 
                 Section {
@@ -46,7 +46,7 @@ struct MediaLogEntryDetailView: View {
                         Text(review)
                     } else {
                         Text("No review yet")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     Button("Edit rating and review") { isShowingEdit = true }
                         .frame(minHeight: 44)
@@ -61,7 +61,7 @@ struct MediaLogEntryDetailView: View {
                         } label: {
                             Text(note.text.isEmpty ? "Untitled note" : note.text)
                                 .lineLimit(3)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Theme.Colors.textPrimary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .accessibilityHint("Opens the note")
@@ -140,11 +140,11 @@ struct MediaLogEntryDetailView: View {
                 .scaledToFit()
         } else {
             Rectangle()
-                .fill(Color(.secondarySystemBackground))
+                .fill(Theme.Colors.surfaceMuted)
                 .overlay {
                     Image(systemName: "film")
-                        .font(.largeTitle)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.display)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
         }
     }

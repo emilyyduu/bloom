@@ -13,7 +13,7 @@ struct StarRatingView: View {
             }
         }
         .font(font)
-        .foregroundStyle(.yellow)
+        .foregroundStyle(Theme.Palette.mustard)
         .accessibilityElement()
         .accessibilityLabel("\(rating) out of 5 stars")
     }
@@ -25,26 +25,26 @@ struct StarRatingPicker: View {
     @Binding var rating: Int
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Spacing.sm) {
             ForEach(1...5, id: \.self) { star in
                 Button {
                     rating = star
                 } label: {
                     Image(systemName: star <= rating ? "star.fill" : "star")
-                        .font(.title2)
+                        .textStyle(.heading)
                         .frame(minWidth: 44, minHeight: 44)
                 }
                 .accessibilityLabel("\(star) star\(star == 1 ? "" : "s")")
                 .accessibilityAddTraits(star == rating ? .isSelected : [])
             }
         }
-        .foregroundStyle(.yellow)
+        .foregroundStyle(Theme.Palette.mustard)
         .buttonStyle(.plain)
     }
 }
 
 #Preview {
-    VStack(spacing: 20) {
+    VStack(spacing: Theme.Spacing.xl) {
         StarRatingView(rating: 3)
         StarRatingPicker(rating: .constant(4))
     }

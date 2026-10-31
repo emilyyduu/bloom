@@ -78,10 +78,10 @@ struct AvatarView: View {
                     .scaledToFill()
             } else {
                 Circle()
-                    .fill(Color.accentColor.opacity(0.18))
+                    .fill(Theme.Palette.greenTint)
                 Text(initials)
                     .font(.system(size: diameter * 0.38, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.Colors.greenText)
             }
         }
         .frame(width: diameter, height: diameter)
@@ -143,16 +143,16 @@ struct EditableAvatar: View {
             .overlay {
                 if model.isWorking {
                     ProgressView()
-                        .padding(12)
+                        .padding(Theme.Spacing.md)
                         .background(.regularMaterial, in: Circle())
                 }
             }
             .overlay(alignment: .bottomTrailing) {
                 Image(systemName: "camera.fill")
-                    .font(.caption)
-                    .foregroundStyle(Color(.systemBackground))
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.surface)
                     .padding(7)
-                    .background(Circle().fill(Color.accentColor))
+                    .background(Circle().fill(Theme.Colors.actionFill))
                     .accessibilityHidden(true)
             }
         }

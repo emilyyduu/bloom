@@ -40,10 +40,10 @@ struct MediaSearchView: View {
                 }
 
                 Text("This product uses the TMDB API but is not endorsed or certified by TMDB.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding()
+                    .padding(Theme.Spacing.lg)
             }
             .navigationTitle("Log a Movie or Show")
             .navigationBarTitleDisplayMode(.inline)
@@ -89,14 +89,14 @@ private struct MediaSearchResultRow: View {
     let result: SearchResult
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.md) {
             posterImage
                 .frame(width: 46, height: 69)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(result.title)
-                    .font(.body)
+                    .textStyle(.body)
 
                 HStack(spacing: 6) {
                     Text(result.mediaType == "movie" ? "Movie" : "TV Show")
@@ -104,8 +104,8 @@ private struct MediaSearchResultRow: View {
                         Text(String(releaseYear))
                     }
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
     }
@@ -116,14 +116,14 @@ private struct MediaSearchResultRow: View {
             AsyncImage(url: url) { image in
                 image.resizable().scaledToFill()
             } placeholder: {
-                Rectangle().fill(Color(.secondarySystemBackground))
+                Rectangle().fill(Theme.Colors.surfaceMuted)
             }
         } else {
             Rectangle()
-                .fill(Color(.secondarySystemBackground))
+                .fill(Theme.Colors.surfaceMuted)
                 .overlay {
                     Image(systemName: "film")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
         }
     }

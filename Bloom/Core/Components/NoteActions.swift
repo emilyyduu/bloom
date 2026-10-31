@@ -240,8 +240,8 @@ extension View {
 struct PinIndicator: View {
     var body: some View {
         Image(systemName: "pin.fill")
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+            .textStyle(.caption)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .accessibilityLabel("Pinned")
     }
 }
@@ -264,15 +264,15 @@ struct CommentBubbleButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: Theme.Spacing.xs) {
                 Image(systemName: "bubble.left")
                 if let count, count > 0 {
                     Text("\(count)")
-                        .font(.caption)
+                        .textStyle(.caption)
                         .monospacedDigit()
                 }
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .frame(minWidth: 44, minHeight: 44)
         }
         .buttonStyle(.borderless)

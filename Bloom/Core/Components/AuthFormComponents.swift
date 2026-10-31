@@ -40,7 +40,7 @@ struct FormErrorText: View {
 
     var body: some View {
         if let message {
-            Text(message).foregroundStyle(.red).font(.footnote)
+            Text(message).foregroundStyle(Theme.Colors.error).textStyle(.caption)
         }
     }
 }
@@ -58,7 +58,7 @@ struct AuthErrorText: View {
                     .accessibilityHidden(true)
                 Text(message)
             }
-            .font(.footnote)
+            .textStyle(.caption)
             .foregroundStyle(Theme.Colors.error)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(message)

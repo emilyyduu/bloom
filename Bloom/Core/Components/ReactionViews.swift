@@ -18,14 +18,14 @@ struct ReactionsSection: View {
     // Six across normally, two rows of three at large text sizes.
     private var columns: [GridItem] {
         let count = dynamicTypeSize >= .xxxLarge ? 3 : 6
-        return Array(repeating: GridItem(.flexible(), spacing: 8), count: count)
+        return Array(repeating: GridItem(.flexible(), spacing: Theme.Spacing.sm), count: count)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isCompact ? 4 : 12) {
+        VStack(alignment: .leading, spacing: isCompact ? Theme.Spacing.xs : Theme.Spacing.md) {
             if !isCompact {
                 Text("Reactions")
-                    .font(.headline)
+                    .textStyle(.subheading)
                     .accessibilityAddTraits(.isHeader)
             }
 
@@ -33,7 +33,7 @@ struct ReactionsSection: View {
             case .loading:
                 ProgressView("Loading reactions")
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, Theme.Spacing.lg)
             case .permissionDenied:
                 notice("You can\u{2019}t see these reactions", systemImage: "lock")
             case .missingIndex:
@@ -41,7 +41,7 @@ struct ReactionsSection: View {
             case .failed:
                 LiveFailedNotice(text: "Couldn\u{2019}t load reactions", retry: listener.retry)
             case .loaded:
-                LazyVGrid(columns: columns, spacing: 8) {
+                LazyVGrid(columns: columns, spacing: Theme.Spacing.sm) {
                     ForEach(ReactionKind.allCases) { kind in
                         ReactionButton(
                             kind: kind,
@@ -55,7 +55,7 @@ struct ReactionsSection: View {
 
                 if !listener.reactions.isEmpty {
                     Button("See who reacted") { isShowingReactors = true }
-                        .font(.subheadline)
+                        .textStyle(.callout)
                         .frame(minHeight: 44)
                 }
             }
@@ -74,10 +74,10 @@ struct ReactionsSection: View {
 
     private func notice(_ text: String, systemImage: String) -> some View {
         Label(text, systemImage: systemImage)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .textStyle(.callout)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, 8)
+            .padding(.vertical, Theme.Spacing.sm)
     }
 }
 
@@ -93,25 +93,25 @@ private struct ReactionButton: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 Text(kind.emoji)
-                    .font(.title3)
+                    .textStyle(.heading)
                 Text("\(count)")
-                    .font(.caption)
+                    .textStyle(.caption)
                     .fontWeight(isSelected ? .bold : .regular)
                     .monospacedDigit()
-                    .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+                    .foregroundStyle(isSelected ? Theme.Colors.textPrimary : Theme.Colors.textSecondary)
             }
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .fill(isSelected ? Theme.Palette.greenTint : Theme.Colors.surfaceMuted)
             )
             .overlay {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: 12).strokeBorder(Color.accentColor, lineWidth: 2)
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).strokeBorder(Theme.Colors.actionFill, lineWidth: 2)
                 }
             }
-            .contentShape(RoundedRectangle(cornerRadius: 12))
+            .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(kind.title), \(count) \(count == 1 ? "reaction" : "reactions")")
@@ -162,7 +162,7 @@ private struct ReactorRow: View {
     private var name: String { author?.shownName ?? "Someone" }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.md) {
             AvatarView(
                 uid: reaction.id,
                 name: name,
@@ -174,11 +174,11 @@ private struct ReactorRow: View {
             .accessibilityHidden(true)
 
             Text(name)
-                .font(.body)
+                .textStyle(.body)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Text(reaction.kind.emoji)
-                .font(.title2)
+                .textStyle(.heading)
                 .accessibilityHidden(true)
         }
         .frame(minHeight: 44)
