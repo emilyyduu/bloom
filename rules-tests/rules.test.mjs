@@ -348,10 +348,10 @@ describe('activity feed', () => {
     await assertFails(setDoc(feed(as(ALICE), 'note_n1'), noteActivity({ fromUID: ALICE, noteOwnerUID: ALICE })));
   });
 
-  test('an item cannot be edited; the owner and its sender can read it, nobody else', async () => {
+  test('an item cannot be edited; only the owner reads it by path, the sender can only list and delete their own', async () => {
     await setDoc(feed(as(BOB), 'note_n1'), noteActivity());
     await assertFails(updateDoc(feed(as(BOB), 'note_n1'), { preview: 'changed' }));
-    await assertSucceeds(getDoc(feed(as(BOB), 'note_n1')));
+    await assertFails(getDoc(feed(as(BOB), 'note_n1')));
     await assertFails(getDoc(feed(as(DAVE), 'note_n1')));
     await assertSucceeds(getDoc(feed(as(ALICE), 'note_n1')));
     await assertSucceeds(deleteDoc(feed(as(ALICE), 'note_n1')));

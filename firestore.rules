@@ -122,6 +122,40 @@ service cloud.firestore {
         && resource.data.fromUID == request.auth.uid;
     }
 
+    // A report about a note, a comment or a person. Anyone signed in can file
+    // one, as themselves, once per target (the id says who reported what, so
+    // a second report of the same thing is refused). Nobody can read, change
+    // or delete reports from the app: they are reviewed in the Firebase
+    // console. contentPreview is what the reporter saw, so a report is still
+    // useful after the content is deleted.
+    function validReport(reportId) {
+      let d = request.resource.data;
+      let base = d.reporterUID + '_' + d.kind + '_';
+      return d.keys().hasOnly(['reporterUID', 'reportedUID', 'kind', 'reason', 'details', 'noteOwnerUID', 'noteId', 'commentId', 'contentPreview', 'createdAt'])
+        && d.keys().hasAll(['reporterUID', 'reportedUID', 'kind', 'reason', 'createdAt'])
+        && d.reporterUID == request.auth.uid
+        && d.reportedUID is string
+        && d.reportedUID.size() >= 1
+        && d.reportedUID.size() <= 128
+        && d.reportedUID != request.auth.uid
+        && d.kind in ['note', 'comment', 'user']
+        && d.reason in ['spam', 'harassment', 'inappropriate', 'other']
+        && (!('details' in d) || (d.details is string && d.details.size() <= 500))
+        && (!('contentPreview' in d) || (d.contentPreview is string && d.contentPreview.size() <= 500))
+        && (!('noteOwnerUID' in d) || (d.noteOwnerUID is string && d.noteOwnerUID.size() <= 128))
+        && (!('noteId' in d) || (d.noteId is string && d.noteId.size() <= 128))
+        && (!('commentId' in d) || (d.commentId is string && d.commentId.size() <= 128))
+        && d.createdAt is timestamp
+        && d.createdAt <= request.time + duration.value(5, 'm')
+        && ((d.kind == 'user' && reportId == base + d.reportedUID)
+            || (d.kind == 'note' && 'noteOwnerUID' in d && 'noteId' in d && reportId == base + d.noteId)
+            || (d.kind == 'comment' && 'noteOwnerUID' in d && 'noteId' in d && 'commentId' in d && reportId == base + d.commentId));
+    }
+
+    match /reports/{reportId} {
+      allow create: if signedIn() && validReport(reportId);
+    }
+
     match /users/{userId} {
       allow read: if signedIn();
       allow create, update: if signedIn()
@@ -284,6 +318,19 @@ service cloud.firestore {
           && areFriends(request.auth.uid, userId);
       }
 
+      // Blocked people: users/{userId}/blocks/{blockedUID}. Private to the
+      // owner. Whoever is listed here cannot send this person a friend
+      // request (see the friendships rules), and the app hides what they write.
+      match /blocks/{blockedUID} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+
+        allow create: if signedIn()
+          && request.auth.uid == userId
+          && blockedUID != userId
+          && request.resource.data.keys().hasOnly(['createdAt'])
+          && request.resource.data.createdAt is timestamp;
+      }
+
       // Circles: named groups of friends, private to their owner.
       // users/{userId}/circles/{circleId}. Membership is checked in the app.
       match /circles/{circleId} {
@@ -320,7 +367,8 @@ service cloud.firestore {
         && friendshipId == request.resource.data.fromUID + '_' + request.resource.data.toUID
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt is timestamp
-        && exists(/databases/$(database)/documents/users/$(request.resource.data.toUID));
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.toUID))
+        && !exists(/databases/$(database)/documents/users/$(request.resource.data.toUID)/blocks/$(request.auth.uid));
 
       // Only the person who received the request can accept it, and
       // nothing except the status can change.
