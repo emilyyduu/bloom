@@ -438,7 +438,7 @@
 				INFOPLIST_FILE = Bloom/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Bloom uses the camera so you can take a photo to add to a note.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom checks your contacts to help you find friends who are already using the app.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom reads the phone numbers in your contacts and sends them to its server to check which belong to Bloom accounts, so you can find friends. Your contacts are not saved to your account.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bloom records voice memos you attach to your notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -475,7 +475,7 @@
 				INFOPLIST_FILE = Bloom/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Bloom uses the camera so you can take a photo to add to a note.";
-				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom checks your contacts to help you find friends who are already using the app.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "Bloom reads the phone numbers in your contacts and sends them to its server to check which belong to Bloom accounts, so you can find friends. Your contacts are not saved to your account.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Bloom records voice memos you attach to your notes.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
