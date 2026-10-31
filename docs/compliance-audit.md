@@ -339,3 +339,41 @@ Effort: S under 2 hours, M half a day to a day, L several days.
 3. Export and fix the Firestore rules, because the "today only" limit and contact search depend on them (items 5, 6).
 4. Privacy policy hosted and linked, plus the privacy manifest and App Privacy answers (items 3, 7, 10).
 5. TMDB logo, key and terms, plus an App Review demo account (items 8, 9, 13).
+
+---
+
+## Status after the compliance branch (2026-11-01)
+
+Checked with: full Swift suite (216 passed), Firestore rules emulator tests (53 passed, 1 todo), app builds. Nothing here says Bloom is compliant with any law. "Done" means the change is in the code or docs. Items that need you, the Firebase console, App Store Connect or a lawyer are marked Manual.
+
+### Must fix
+| # | Item | Status | What is left |
+|---|---|---|---|
+| 1 | In-app account deletion | Done | Deploy rules and indexes first. Test with a throwaway email account and a phone account |
+| 2 | Report and block | Done | Check `reports` in the console daily (docs/moderation.md). Deploy the rules, the report and block rules were once lost in a rewrite (76b6b05 restores them) |
+| 3 | Privacy policy and Terms, linked in app | Partly | Pages written and hosted in `site/`, links in sign up and About. Deploy hosting. No lawyer has reviewed them (the Terms say so) |
+| 4 | Sign up consent and age | Done | Box is checked when Sign Up is tapped, not by disabling the button |
+| 5 | Firestore rules | Done | Deploy. Open: any signed in user can list `users` (username search needs it), usernames are not unique, the pin limit is app only |
+| 6 | Overstated claims | Done | Check the App Store description and screenshots by hand |
+| 7 | Privacy manifest | Done | Compare with Product, Archive, Generate Privacy Report |
+| 8 | TMDB logo | Done | Re-read TMDB's terms for commercial use and image caching |
+| 9 | App Review demo accounts | Partly | Instructions written, you create the two accounts |
+| 10 | App Privacy and age rating answers | Partly | Drafted in docs/app-store-connect.md, you enter them |
+
+### Should fix
+| # | Item | Status | What is left |
+|---|---|---|---|
+| 11 | Remove production print | Done | |
+| 12 | ITSAppUsesNonExemptEncryption | Done | |
+| 13 | TMDB key out of the repo | Partly | Key now comes from the gitignored `Config/Secrets.xcconfig`. Rotate it (old key is in git history). Restrict the Firebase API key to the bundle id and enable App Check |
+| 14 | SF Symbol brand mark | Done | |
+| 15 | Student ID, unit, university in About | Decided to keep | |
+| 16 | DM Sans licence | Partly | Acknowledged in the app. `DMSans-OFL.txt` is in the repo but not shown in the app |
+| 17 | Text field traits and focus | Done | VoiceOver and hardware keyboard still need a hands on pass |
+| 18 | Password reset, safe profile creation | Done | |
+| 19 | Contacts wording | Replaced | Contact matching was removed instead |
+| 20 | Content filtering and rate limits | Skipped by choice | Report and block only |
+| 21 | Legacy sharedNotes | Partly | Code removed and rules closed. Delete the collection in the console |
+
+### Nice to have
+Not started: VoiceOver, contrast and largest Dynamic Type pass, email verification and a stronger password rule, file protection on local audio and covers, a tinted app icon file, the iOS 26.5 deployment target.
