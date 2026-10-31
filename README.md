@@ -2,7 +2,7 @@
 
 *A shared garden of memories*
 
-Bloom is a journaling app for iOS, private unless you choose to share. Through the day you add short notes, with text and optionally a photo, a voice memo, or a movie or show you watched, and each one lands straight in today's timeline. There is no publish button. Notes stay on your device and in your own backup (stored with Google Firebase, not end to end encrypted) unless you choose to share them. Friends only see the notes you share from today, plus any you pin to your profile, and the more you post, the better your plant grows in the Shared Garden.
+Bloom is a journaling app for iOS, private unless you choose to share. Through the day you add short notes, with text and optionally a photo, a voice memo, or a movie or show you watched, and each one lands straight in today's timeline. There is no publish button. Notes stay on your device and in your own backup (stored with Google Firebase, not end to end encrypted) unless you choose to share them. Your Library of movies and shows is backed up the same way and is never shared. Friends only see the notes you share from today, plus any you pin to your profile, and the more you post, the better your plant grows in the Shared Garden.
 
 Built for FIT3178 (iOS App Development) at Monash University by Emily Du (student ID 34942238).
 
@@ -26,6 +26,7 @@ The app is complete for the unit submission. Everything listed below is built an
 **Library**
 - Search movies and TV shows (TMDB), rate them from 1 to 5 stars and add a review of up to 280 characters
 - Attach an entry to a note, or log it on its own
+- Entries are backed up privately to your account, with the TMDB poster link rather than the image, and come back when you sign in on a new install. Friends never see them
 - Sort by date added, stars or title, and filter by movie or TV show, stars, and whether it has a review
 
 **Friends and sharing**
@@ -110,6 +111,7 @@ Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentic
 | `users/{uid}/photos/{noteId}` | A small compressed photo for a note |
 | `users/{uid}/audio/{noteId}` | A small voice memo for a note |
 | `users/{uid}/avatar/current` | A small profile picture |
+| `users/{uid}/library/{entryId}` | A private backup of a Library entry: TMDB id, type, title, year, poster path (not the image), rating, review, logged date and the id of its note. Only its owner can read it |
 | `users/{uid}/circles/{circleId}` | A private circle: its name and up to 10 member ids |
 | `users/{uid}/activity/{id}` | Items in a person's notification list |
 | `friendships/{from_to}` | A friend request and its status |
@@ -173,7 +175,8 @@ If only one feature uses a file, it goes in that feature. If two or more use it,
 
 - **No push notifications.** Friend alerts are local notifications that Bloom posts while it is running, so nothing arrives when the app is closed. Real push needs a paid Apple Developer account, Firebase Cloud Messaging and Cloud Functions
 - **Photos, voice memos and avatars are stored in Firestore**, as small compressed copies with size limits, not in Cloud Storage. Each sits behind a store protocol, so moving them later means changing one type
-- **Library entries and journal covers stay on the device.** They are not backed up, and friends never see them
+- **Journal covers stay on the device.** They are not backed up, and friends never see them
+- **Library entries are backed up, but posters are not.** An entry is saved privately at `users/{uid}/library` with its TMDB poster path, and a restore downloads the poster from TMDB again. Entries logged before backup existed have no poster path, so after a restore they show without a poster
 - **The "today only" view is enforced by the app.** The database rules would still let a modified app read older shared notes
 - **Usernames are not unique**, which is why the share link uses the account id
 - **A note is shared with all your friends, not with one circle.** Circles only choose who you see, not who can read a note

@@ -14,7 +14,7 @@ import FirebaseFirestore
 //                            notes, and the feed items I wrote for friends
 //   friendships              every request, accepted or not, involving me
 //   my notes                 each with its comments and reactions
-//   my other collections     photos, voice memos, avatar, circles, feed
+//   my other collections     photos, voice memos, avatar, circles, library, feed
 //   streaks/{uid} and users/{uid}
 // Then the Firebase user, the account's store file, voice memo and photo
 // files, covers, saved settings and cached pictures on this device.
@@ -38,11 +38,13 @@ final class AccountDeletionService {
         let localFiles = noteFiles(for: uid)
 
         NoteSyncService.shared.isSuspended = true
+        LibrarySyncService.shared.isSuspended = true
         do {
             try await eraseCloudData(uid: uid)
             try await user.delete()
         } catch {
             NoteSyncService.shared.isSuspended = false
+            LibrarySyncService.shared.isSuspended = false
             throw error
         }
 
@@ -50,6 +52,7 @@ final class AccountDeletionService {
         // state. What is left is on this device.
         await removeLocalData(uid: uid, files: localFiles)
         NoteSyncService.shared.isSuspended = false
+        LibrarySyncService.shared.isSuspended = false
     }
 
     // MARK: - Firestore
@@ -77,7 +80,7 @@ final class AccountDeletionService {
             try await commitDeletes(of: page.documents.map(\.reference))
         }
 
-        for name in ["photos", "audio", "avatar", "circles", "activity"] {
+        for name in ["photos", "audio", "avatar", "circles", "library", "activity"] {
             try await delete(userReference.collection(name))
         }
         try await db.collection("streaks").document(uid).delete()

@@ -102,6 +102,7 @@ struct MediaLogEntryDetailView: View {
                 NavigationStack {
                     MediaNotePickerList { note in
                         entry.note = note
+                        entry.queueBackup()
                         try? context.save()
                         isShowingAttach = false
                     }
@@ -131,6 +132,7 @@ struct MediaLogEntryDetailView: View {
 
     private func detach() {
         entry.note = nil
+        entry.queueBackup()
         try? context.save()
     }
 

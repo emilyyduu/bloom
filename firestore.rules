@@ -60,6 +60,32 @@ service cloud.firestore {
             || (resource != null && resource.data.get('phoneNumber', null) == d.phoneNumber));
     }
 
+    // A Library entry: required tmdbID, mediaType, title, rating and
+    // loggedAt, optional year, posterPath, reviewText and noteID. A poster
+    // path looks like "/abc123.jpg".
+    function validLibraryEntry() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['tmdbID', 'mediaType', 'title', 'year', 'posterPath', 'rating', 'reviewText', 'loggedAt', 'noteID'])
+        && d.keys().hasAll(['tmdbID', 'mediaType', 'title', 'rating', 'loggedAt'])
+        && d.tmdbID is int
+        && d.tmdbID > 0
+        && d.mediaType in ['movie', 'tv']
+        && d.title is string
+        && d.title.size() >= 1
+        && d.title.size() <= 300
+        && (!('year' in d) || (d.year is int && d.year >= 1800 && d.year <= 3000))
+        && (!('posterPath' in d)
+            || (d.posterPath is string
+                && d.posterPath.size() <= 100
+                && d.posterPath.matches('^/[A-Za-z0-9_.-]+$')))
+        && d.rating is int
+        && d.rating >= 1
+        && d.rating <= 5
+        && (!('reviewText' in d) || (d.reviewText is string && d.reviewText.size() <= 280))
+        && d.loggedAt is timestamp
+        && (!('noteID' in d) || (d.noteID is string && d.noteID.size() >= 1 && d.noteID.size() <= 128));
+    }
+
     function validNote() {
       let d = request.resource.data;
       return d.keys().hasOnly(['text', 'createdAt', 'isDraft', 'updatedAt', 'sharedWithFriends', 'hasPhoto', 'hasAudio', 'audioSeconds', 'isPinned', 'pinnedAt'])
@@ -347,6 +373,17 @@ service cloud.firestore {
           && request.resource.data.memberUIDs.size() <= 10
           && request.resource.data.createdAt is timestamp
           && request.resource.data.updatedAt is timestamp;
+      }
+
+      // Library backup: users/{userId}/library/{entryId}. A movie or show the
+      // owner logged. Private to the owner, never readable by friends. The
+      // poster is only its TMDB path, never the image.
+      match /library/{entryId} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && validLibraryEntry();
       }
     }
 

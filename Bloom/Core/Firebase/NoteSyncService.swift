@@ -223,7 +223,10 @@ final class NoteSyncService {
             try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(fileName))
         }
         note.deleteAudioFile()
-        note.mediaLogEntry?.note = nil
+        if let entry = note.mediaLogEntry {
+            entry.note = nil
+            entry.queueBackup()
+        }
         context.delete(note)
         try? context.save()
         return noteID
@@ -421,9 +424,13 @@ final class NoteSyncService {
     // hasPhoto also gets its photo document downloaded into Documents.
     // If that download fails the note is skipped, not inserted, so the
     // next restore retries it instead of losing the photo for good.
-    func restore(context: ModelContext) async {
+    // Returns false when the fetch failed or a note was skipped because its
+    // photo or memo didn't download, so the caller can retry. Returns true
+    // when nothing is left to retry, including when the run didn't start.
+    @discardableResult
+    func restore(context: ModelContext) async -> Bool {
         guard !isSuspended, !isRestoring, let uid = Auth.auth().currentUser?.uid,
-              ownsContext(context, uid: uid) else { return }
+              ownsContext(context, uid: uid) else { return true }
         isRestoring = true
         let startedGeneration = generation
         defer { if startedGeneration == generation { isRestoring = false } }
@@ -443,10 +450,11 @@ final class NoteSyncService {
         do {
             snapshot = try await db.collection("users").document(uid).collection("notes").getDocuments()
         } catch {
-            return
+            return false
         }
 
         var restored = 0
+        var skippedForDownload = false
 
         for document in snapshot.documents {
             guard !existingIDs.contains(document.documentID),
@@ -466,6 +474,7 @@ final class NoteSyncService {
                         restoredPhotoFileName = try FileManager.writePhotoData(photoData)
                     }
                 } catch {
+                    skippedForDownload = true
                     continue
                 }
             }
@@ -482,6 +491,7 @@ final class NoteSyncService {
                     if let restoredPhotoFileName {
                         try? FileManager.default.removeItem(at: FileManager.documentsDirectory.appendingPathComponent(restoredPhotoFileName))
                     }
+                    skippedForDownload = true
                     continue
                 }
             }
@@ -512,9 +522,26 @@ final class NoteSyncService {
 
         try? context.save()
 
+        if restored > 0 {
+            await StreakSyncService.shared.sync(context: context)
+            await NotificationScheduler.shared.refreshReminders(context: context)
+        }
+        return !skippedForDownload
+    }
 
-        guard restored > 0 else { return }
-        await StreakSyncService.shared.sync(context: context)
-        await NotificationScheduler.shared.refreshReminders(context: context)
+    // Restore, retried a few times with a growing pause when the fetch or a
+    // download fails (for example a weak connection right after sign-in),
+    // so notes don't stay missing until the next time the app is opened.
+    // Stops if the account signs out meanwhile.
+    func restoreWithRetry(context: ModelContext) async {
+        let startedGeneration = generation
+        let delays: [UInt64] = [2, 5, 10, 20]
+        var attempt = 0
+        while !(await restore(context: context)) {
+            guard attempt < delays.count, startedGeneration == generation else { return }
+            try? await Task.sleep(nanoseconds: delays[attempt] * 1_000_000_000)
+            guard !Task.isCancelled, startedGeneration == generation else { return }
+            attempt += 1
+        }
     }
 }

@@ -26,7 +26,7 @@ enum AppInfo {
 
     // MARK: About text
 
-    static let aboutText = "Bloom is a journal for the small moments of your day, private unless you choose to share. Write notes with text, photos, voice memos and the movies or shows you've watched, share the ones you choose with friends, and watch your Greenhouse grow as your streaks do. Notes are saved on your device first and backed up to your account. Friends see the notes you share from today and your pinned notes."
+    static let aboutText = "Bloom is a journal for the small moments of your day, private unless you choose to share. Write notes with text, photos, voice memos and the movies or shows you've watched, share the ones you choose with friends, and watch your Greenhouse grow as your streaks do. Notes and your Library are saved on your device first and backed up to your account. Friends see the notes you share from today and your pinned notes."
 
     // Only features that exist in the app today.
     static let features: [Feature] = [
@@ -121,7 +121,7 @@ enum AppInfo {
     // Each framework is listed because the project imports it.
     static let appleFrameworks: [Acknowledgement] = [
         Acknowledgement(name: "SwiftUI", detail: "All of Bloom's screens", url: appleDocs),
-        Acknowledgement(name: "SwiftData", detail: "Notes and movie logs saved on your device", url: appleDocs),
+        Acknowledgement(name: "SwiftData", detail: "Notes and movie logs saved on your device, before they are backed up", url: appleDocs),
         Acknowledgement(name: "UserNotifications", detail: "Reminders and friend alerts", url: appleDocs),
         Acknowledgement(name: "PhotosUI", detail: "Choosing photos for notes and covers", url: appleDocs),
         Acknowledgement(name: "AVFoundation", detail: "Recording and playing voice memos", url: appleDocs),

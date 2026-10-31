@@ -12,6 +12,7 @@ enum AccountDefaults {
 
     static let shareToCircleConfirmedBase = "hasConfirmedShareToCircle"
     static let pendingDeletionsBase = "pendingNoteDeletions"
+    static let pendingLibraryDeletionsBase = "pendingLibraryDeletions"
 
     // Whether this account has already seen the one time "All your
     // friends can read this note and comment on it" confirmation.
@@ -37,6 +38,25 @@ enum AccountDefaults {
     static func removePendingDeletion(_ noteID: String, uid: String?) {
         let ids = pendingDeletions(uid: uid).filter { $0 != noteID }
         UserDefaults.standard.set(ids, forKey: key(pendingDeletionsBase, uid: uid))
+    }
+
+    // Ids (UUID strings) of Library entries deleted on this device whose
+    // cloud copies may not be gone yet. Same idea as the notes list above:
+    // restore skips them and syncPending keeps retrying.
+    static func pendingLibraryDeletions(uid: String?) -> [String] {
+        UserDefaults.standard.stringArray(forKey: key(pendingLibraryDeletionsBase, uid: uid)) ?? []
+    }
+
+    static func addPendingLibraryDeletion(_ entryID: String, uid: String?) {
+        var ids = pendingLibraryDeletions(uid: uid)
+        guard !ids.contains(entryID) else { return }
+        ids.append(entryID)
+        UserDefaults.standard.set(ids, forKey: key(pendingLibraryDeletionsBase, uid: uid))
+    }
+
+    static func removePendingLibraryDeletion(_ entryID: String, uid: String?) {
+        let ids = pendingLibraryDeletions(uid: uid).filter { $0 != entryID }
+        UserDefaults.standard.set(ids, forKey: key(pendingLibraryDeletionsBase, uid: uid))
     }
 
     // The feed's "unread" cut off. Opening the notifications screen moves

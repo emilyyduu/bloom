@@ -48,6 +48,7 @@ final class AuthService: ObservableObject {
         MyAvatar.shared.reset()
         JournalCoverStore.shared.reset()
         NoteSyncService.shared.reset()
+        LibrarySyncService.shared.reset()
         ProfileLinkCoordinator.shared.reset()
         ActivityStore.shared.stopListening()
         ActivityRouter.shared.reset()

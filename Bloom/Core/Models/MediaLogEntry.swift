@@ -1,10 +1,10 @@
 import Foundation
 import SwiftData
 
-// A movie or TV show the user has logged with a star rating. Unlike a
-// Note, there is nothing private about where this data comes from, the
-// catalogue details are fetched from TMDB, but the log entry itself
-// still only lives in SwiftData, same as notes.
+// A movie or TV show the user has logged with a star rating. Local first
+// in SwiftData and backed up privately to users/{uid}/library/{id} by
+// LibrarySyncService, never shared with friends. The backup keeps the
+// TMDB poster path, not the image.
 @Model
 final class MediaLogEntry {
     var id: UUID
@@ -13,6 +13,14 @@ final class MediaLogEntry {
     var mediaType: String // "movie" or "tv"
     var releaseYear: Int?
     var posterFileName: String?
+    // TMDB's poster path, which the backup stores so a restore can
+    // download the poster again. nil for an entry logged before backup
+    // existed, or for a title with no poster. Additive, so SwiftData's
+    // lightweight migration needs nothing from existing rows.
+    var posterPath: String?
+    // When the entry last reached Firestore. nil means not backed up yet
+    // or changed since, so LibrarySyncService.syncPending uploads it.
+    var syncedAt: Date?
     var rating: Int // 1 to 5
     // An optional short review, at most MediaLogEntry.reviewLimit
     // characters. Additive with a nil default, so SwiftData's

@@ -30,7 +30,8 @@ extension MediaLogEntry {
 
     // Creates and inserts an entry from a finished review. The poster
     // is downloaded once in the background if there isn't one on disk
-    // yet. The caller saves the context.
+    // yet, and the entry is queued for backup. The caller saves the
+    // context.
     @MainActor
     static func create(from draft: MediaReviewDraft, note: Note?, in context: ModelContext) -> MediaLogEntry {
         let entry = MediaLogEntry(
@@ -42,14 +43,16 @@ extension MediaLogEntry {
             rating: draft.rating
         )
         entry.reviewText = draft.trimmedReview
+        entry.posterPath = draft.posterPath
         context.insert(entry)
         entry.note = note
 
         if draft.posterFileName == nil, let posterPath = draft.posterPath {
             Task { @MainActor in
                 guard let fileName = try? await TMDBService.shared.downloadPoster(path: posterPath) else { return }
-                // The entry may have been removed while downloading.
-                guard !entry.isDeleted, entry.modelContext != nil else {
+                // The entry may have been removed while downloading, or
+                // given a poster meanwhile by LibrarySyncService.
+                guard !entry.isDeleted, entry.modelContext != nil, entry.posterFileName == nil else {
                     try? FileManager.default.removeItem(at: posterURL(fileName: fileName))
                     return
                 }
@@ -57,25 +60,38 @@ extension MediaLogEntry {
                 try? context.save()
             }
         }
+        entry.queueBackup()
         return entry
     }
 
-    // Applies an edited rating and review.
+    // Applies an edited rating and review, and queues the change for backup.
+    @MainActor
     func apply(_ draft: MediaReviewDraft) {
         rating = draft.rating
         reviewText = draft.trimmedReview
+        queueBackup()
     }
 
-    // Deletes the entry and its poster file. The caller saves.
+    // Marks the entry as not backed up and uploads it in the background.
+    // Failures are silent: syncedAt stays nil, so syncPending retries.
+    @MainActor
+    func queueBackup() {
+        syncedAt = nil
+        LibrarySyncService.shared.upload(self)
+    }
+
+    // Deletes the entry, its poster file and its backup. The caller saves.
     @MainActor
     func deleteCompletely(in context: ModelContext) {
         if let posterFileName {
             try? FileManager.default.removeItem(at: Self.posterURL(fileName: posterFileName))
         }
+        let entryID = id.uuidString
         context.delete(self)
+        LibrarySyncService.shared.entryDeleted(id: entryID, context: context)
     }
 
-    private static func posterURL(fileName: String) -> URL {
+    static func posterURL(fileName: String) -> URL {
         FileManager.documentsDirectory
             .appendingPathComponent(postersDirectoryName, isDirectory: true)
             .appendingPathComponent(fileName)

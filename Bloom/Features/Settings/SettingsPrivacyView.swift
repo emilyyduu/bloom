@@ -268,6 +268,7 @@ struct SettingsPrivacyView: View {
         isBackingUp = true
         Task {
             await NoteSyncService.shared.syncPending(context: context)
+            await LibrarySyncService.shared.syncPending(context: context)
             isBackingUp = false
         }
     }

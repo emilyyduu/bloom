@@ -37,7 +37,7 @@ You must be at least 16 to use Bloom, and you confirm this when you sign up. We 
 | Comments, replies and reactions | Social features on shared notes | Our database |
 | Notification feed items (who did what, with a short preview) | To show your in-app notifications list | Our database |
 | Reports you send about a note, comment or person | To keep Bloom safe | Our database. Only the developer can read them |
-| Movie and show log (rating, review, poster) | Your Library | Your device only. It is not backed up |
+| Movie and show log (title, year, rating, review, and the TMDB poster link, not the image) | Your Library | Your device, and a private backup in our database. Only you can see it |
 | Journal cover photos | Decoration | Your device only |
 | Settings such as reminder time and appearance | To remember your choices | Your device only |
 
@@ -64,8 +64,8 @@ You can report a note, a comment or a person, and block people. A report holds y
 Blocking removes any friendship between you and the other person, stops them sending you requests, and hides what they write. They are not told.
 
 ## Keeping and deleting your data
-Your data stays until you delete it or delete your account. Deleting a note removes it from your device and from our database, along with its photo, voice memo and comments.
-To delete your account, open Settings, then Delete account. You sign in again to confirm. Bloom then erases from our database your profile, picture, notes, photos, voice memos, circles, notification feed, streak, friendships, your comments and reactions on friends' notes, and the notification items you sent to friends. It deletes your sign in, and it removes your data from your device. If a step cannot finish you stay signed in and can try again.
+Your data stays until you delete it or delete your account. Deleting a note removes it from your device and from our database, along with its photo, voice memo and comments. Deleting a movie or show from your Library removes it from your device and from our database.
+To delete your account, open Settings, then Delete account. You sign in again to confirm. Bloom then erases from our database your profile, picture, notes, photos, voice memos, circles, Library, notification feed, streak, friendships, your comments and reactions on friends' notes, and the notification items you sent to friends. It deletes your sign in, and it removes your data from your device. If a step cannot finish you stay signed in and can try again.
 Limits: a copy may remain in Google's backups and logs for a limited time after you delete something. We don't control how long. Anything you posted that a friend has already seen, copied or screenshotted is outside our control. Reactions you made on friends' notes before November 1, 2026 may remain until the note is deleted.
 
 ## Your choices and rights

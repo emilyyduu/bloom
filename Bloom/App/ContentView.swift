@@ -126,9 +126,10 @@ struct ContentView: View {
             friendService.startListening()
             ActivityStore.shared.startListening()
             BlockService.shared.startListening()
+            // Notes first, so Today's Notes isn't held up by reminders or streaks.
+            await restoreAndSyncNotes()
             await NotificationScheduler.shared.refreshReminders(context: context)
             await StreakSyncService.shared.sync(context: context)
-            await restoreAndSyncNotes()
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
@@ -140,11 +141,13 @@ struct ContentView: View {
         }
     }
 
-    // Restore first so reinstalled notes exist, then the one-time photo
-    // backfill (which skips notes restore just gave a photo backup),
-    // then upload whatever is still pending.
+    // Restore first so reinstalled notes exist (then the Library, which
+    // links to them), then the one-time photo backfill (which skips notes
+    // restore just gave a photo backup), then upload whatever is pending.
     private func restoreAndSyncNotes() async {
-        await NoteSyncService.shared.restore(context: context)
+        await NoteSyncService.shared.restoreWithRetry(context: context)
+        // After the notes, so each entry can be linked back to its note.
+        await LibrarySyncService.shared.restoreWithRetry(context: context)
         if !hasBackfilledPhotoSync {
             NoteSyncService.shared.queuePhotosForBackfill(context: context)
             hasBackfilledPhotoSync = true
@@ -153,6 +156,7 @@ struct ContentView: View {
         // somehow has before the pending notes upload.
         Note.unpinDrafts(in: context)
         await NoteSyncService.shared.syncPending(context: context)
+        await LibrarySyncService.shared.syncPending(context: context)
     }
 }
 

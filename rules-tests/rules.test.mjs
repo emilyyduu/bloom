@@ -100,6 +100,13 @@ beforeEach(async () => {
 
 const userDoc = (db, uid, ...rest) => doc(db, 'users', uid, ...rest);
 
+function libraryEntry(overrides = {}) {
+  return {
+    tmdbID: 603, mediaType: 'movie', title: 'The Matrix', year: 1999, posterPath: '/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg',
+    rating: 5, reviewText: 'Mind blown', loggedAt: ts(-HOUR), noteID: 'today', ...overrides,
+  };
+}
+
 describe('friends reading notes', () => {
   test('owner reads every note', async () => {
     for (const id of ['today', 'private', 'old', 'oldPinned']) {
@@ -278,6 +285,17 @@ describe('account deletion queries', () => {
     await assertSucceeds(deleteDoc(doc(db, 'streaks', ALICE)));
     await assertSucceeds(deleteDoc(doc(db, 'friendships', `${ALICE}_${BOB}`)));
     await assertSucceeds(deleteDoc(userDoc(db, ALICE)));
+  });
+
+  test('the owner can list and erase their whole library, nobody else can', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), ALICE, 'library', 'e1'), libraryEntry());
+      await setDoc(userDoc(ctx.firestore(), ALICE, 'library', 'e2'), libraryEntry());
+    });
+    await assertFails(getDocs(collection(as(BOB), 'users', ALICE, 'library')));
+    const snap = await assertSucceeds(getDocs(collection(as(ALICE), 'users', ALICE, 'library')));
+    if (snap.size !== 2) throw new Error(`expected 2 entries, got ${snap.size}`);
+    for (const d of snap.docs) await assertSucceeds(deleteDoc(d.ref));
   });
 });
 
@@ -541,6 +559,86 @@ describe('circles and private collections', () => {
     await assertFails(getDoc(userDoc(as(BOB), ALICE, 'circles', 'c')));
     await assertFails(setDoc(userDoc(as(ALICE), ALICE, 'circles', 'd'), circle({ name: 'x'.repeat(31) })));
     await assertFails(setDoc(userDoc(as(ALICE), ALICE, 'circles', 'e'), circle({ memberUIDs: Array.from({ length: 11 }, (_, i) => `u${i}`) })));
+  });
+});
+
+describe('library backup', () => {
+  const entry = (db, id = 'e1') => userDoc(db, ALICE, 'library', id);
+
+  test('the owner writes a full entry, a minimal one and edits it', async () => {
+    const db = as(ALICE);
+    await assertSucceeds(setDoc(entry(db), libraryEntry()));
+    await assertSucceeds(setDoc(entry(db, 'e2'), {
+      tmdbID: 1, mediaType: 'tv', title: 'Show', rating: 1, loggedAt: ts(0),
+    }));
+    await assertSucceeds(setDoc(entry(db), libraryEntry({ rating: 2, reviewText: 'Changed my mind' })));
+    await assertSucceeds(updateDoc(entry(db), { rating: 3 }));
+    await assertSucceeds(deleteDoc(entry(db)));
+  });
+
+  test('the library is private: friends, strangers and signed out users get nothing', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(entry(ctx.firestore()), libraryEntry());
+    });
+    await assertSucceeds(getDoc(entry(as(ALICE))));
+    await assertFails(getDoc(entry(as(BOB))));
+    await assertFails(getDoc(entry(as(DAVE))));
+    await assertFails(getDoc(entry(env.unauthenticatedContext().firestore())));
+    await assertFails(setDoc(entry(as(BOB), 'e9'), libraryEntry()));
+    await assertFails(setDoc(entry(env.unauthenticatedContext().firestore(), 'e9'), libraryEntry()));
+    await assertFails(updateDoc(entry(as(BOB)), { rating: 1 }));
+    await assertFails(deleteDoc(entry(as(BOB))));
+    await assertFails(deleteDoc(entry(as(DAVE))));
+  });
+
+  test('required fields must be present and extra fields are refused', async () => {
+    const db = as(ALICE);
+    for (const field of ['tmdbID', 'mediaType', 'title', 'rating', 'loggedAt']) {
+      const { [field]: _gone, ...rest } = libraryEntry();
+      await assertFails(setDoc(entry(db), rest));
+    }
+    await assertFails(setDoc(entry(db), libraryEntry({ extra: 1 })));
+    await assertFails(setDoc(entry(db), libraryEntry({ posterData: Bytes.fromUint8Array(new Uint8Array(10)) })));
+    await assertFails(setDoc(entry(db), libraryEntry({ ownerUID: ALICE })));
+  });
+
+  test('rating is a whole number from 1 to 5', async () => {
+    const db = as(ALICE);
+    for (const rating of [0, 6, -1]) await assertFails(setDoc(entry(db), libraryEntry({ rating })));
+    await assertFails(setDoc(entry(db), libraryEntry({ rating: 3.5 })));
+    await assertFails(setDoc(entry(db), libraryEntry({ rating: '4' })));
+    for (const rating of [1, 5]) await assertSucceeds(setDoc(entry(db), libraryEntry({ rating })));
+  });
+
+  test('review is at most 280 characters', async () => {
+    const db = as(ALICE);
+    await assertSucceeds(setDoc(entry(db), libraryEntry({ reviewText: 'x'.repeat(280) })));
+    await assertFails(setDoc(entry(db), libraryEntry({ reviewText: 'x'.repeat(281) })));
+    await assertFails(setDoc(entry(db), libraryEntry({ reviewText: 5 })));
+  });
+
+  test('types and sizes of the other fields are checked', async () => {
+    const db = as(ALICE);
+    await assertFails(setDoc(entry(db), libraryEntry({ mediaType: 'book' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ tmdbID: '603' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ tmdbID: 0 })));
+    await assertFails(setDoc(entry(db), libraryEntry({ title: '' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ title: 'x'.repeat(301) })));
+    await assertSucceeds(setDoc(entry(db), libraryEntry({ title: 'x'.repeat(300) })));
+    await assertFails(setDoc(entry(db), libraryEntry({ year: '1999' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ year: 1 })));
+    await assertFails(setDoc(entry(db), libraryEntry({ loggedAt: 'yesterday' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ noteID: 7 })));
+    await assertFails(setDoc(entry(db), libraryEntry({ noteID: 'x'.repeat(129) })));
+  });
+
+  test('only a poster path is stored, never an image or a link', async () => {
+    const db = as(ALICE);
+    await assertSucceeds(setDoc(entry(db), libraryEntry({ posterPath: '/abc.jpg' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ posterPath: Bytes.fromUint8Array(new Uint8Array(10)) })));
+    await assertFails(setDoc(entry(db), libraryEntry({ posterPath: 'https://example.com/a.jpg' })));
+    await assertFails(setDoc(entry(db), libraryEntry({ posterPath: '/' + 'a'.repeat(100) })));
+    await assertFails(setDoc(entry(db), libraryEntry({ posterPath: 5 })));
   });
 });
 
