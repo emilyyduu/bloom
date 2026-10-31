@@ -29,7 +29,7 @@ The app is complete for the unit submission. Everything listed below is built an
 - Sort by date added, stars or title, and filter by movie or TV show, stars, and whether it has a review
 
 **Friends and sharing**
-- Find people by username (not case sensitive) or by matching your phone contacts, then send, accept or decline requests
+- Find people by username (not case sensitive), a QR code or a link, then send, accept or decline requests
 - Share your profile with a QR code or a `bloom://add/{uid}` link
 - A friend's profile shows their pinned notes and a "View [name]'s notes" button, which opens only what they shared today
 - Circles: named, private groups of up to 10 friends, with up to 10 circles. They choose who appears in the Greenhouse and on Home. They never decide who can read a note
@@ -70,7 +70,6 @@ The app is complete for the unit submission. Everything listed below is built an
 | Accounts | Firebase Authentication (phone and email) |
 | Backup, sharing and friend data | Cloud Firestore |
 | Garden | RealityKit |
-| Friend discovery | Contacts framework |
 | Photos and camera | PhotosUI, UIImagePickerController |
 | Voice memos | AVFoundation |
 | Notifications | UserNotifications |
@@ -96,7 +95,7 @@ Dependencies are added with Swift Package Manager: the Firebase iOS SDK 12.19.2 
 5. In Firestore, publish security rules for the collections below. The rules are set in the Firebase console and are not stored in this repository.
 6. Create the composite index on `notes` (`sharedWithFriends` ascending, `createdAt` descending). If it is missing, the Xcode console prints a link that creates it.
 7. Get a free API key from [themoviedb.org](https://www.themoviedb.org) and put it in `Bloom/Info.plist` as the `TMDBAPIKey` string.
-8. Choose an iPhone simulator and run. The camera, contacts and microphone usage descriptions are already set in the target's build settings, and the `bloom` URL scheme is registered in `Info.plist`.
+8. Choose an iPhone simulator and run. The camera and microphone usage descriptions are already set in the target's build settings, and the `bloom` URL scheme is registered in `Info.plist`.
 
 Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentication, Sign-in method, Phone, Phone numbers for testing). Email sign-up works everywhere, so use it on simulators. To test friends, run two simulators signed in as different accounts. The simulator has no camera, so Take photo shows a message there.
 
@@ -136,7 +135,7 @@ cd rules-tests
 npx firebase deploy --only firestore:rules,firestore:indexes --config ../firebase.json --project bloom-726b7
 ```
 
-What the rules enforce for friends: an accepted friend can read a shared note only if it is pinned or was created in the last 30 hours, and the same goes for its photo, voice memo, comments and reactions. The app narrows this to the viewer's calendar day, which a rule cannot know. Three tests are marked todo: any signed in user can still list `users` and read `phoneNumber`. Those need an app change.
+What the rules enforce for friends: an accepted friend can read a shared note only if it is pinned or was created in the last 30 hours, and the same goes for its photo, voice memo, comments and reactions. The app narrows this to the viewer's calendar day, which a rule cannot know. Phone numbers are no longer stored in Firestore. One test is marked todo: any signed in user can still list `users`, because username search needs it.
 
 ## Running the tests
 

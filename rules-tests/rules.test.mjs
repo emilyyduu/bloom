@@ -15,6 +15,7 @@ import {
   Timestamp,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -72,7 +73,6 @@ beforeEach(async () => {
         usernameLower: `user_${uid}`,
         displayName: uid,
         createdAt: ts(-100 * HOUR),
-        phoneNumber: `6140000${uid.length}000`,
       });
     }
     await setDoc(doc(db, 'friendships', `${ALICE}_${BOB}`), {
@@ -374,11 +374,20 @@ describe('profiles', () => {
     await assertFails(setDoc(userDoc(db, 'erin'), profile({ displayName: 'x'.repeat(41) })));
   });
 
-  test('a phone number is accepted only when it matches the verified one', async () => {
+  test('a new profile cannot carry a phone number', async () => {
     const token = { phone_number: '+61400000009' };
-    await assertSucceeds(setDoc(userDoc(as('erin', token), 'erin'), profile({ phoneNumber: '61400000009' })));
-    await assertFails(setDoc(userDoc(as('erin', token), 'erin'), profile({ phoneNumber: '61411111111' })));
-    await assertFails(setDoc(userDoc(as('erin'), 'erin'), profile({ phoneNumber: '61400000009' })));
+    await assertFails(setDoc(userDoc(as('erin', token), 'erin'), profile({ phoneNumber: '61400000009' })));
+  });
+
+  test('a profile that still holds a legacy phone number can keep it unchanged or remove it, not change it', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), 'frank'), profile({ username: 'frank_1', usernameLower: 'frank_1', phoneNumber: '61400000009' }));
+    });
+    const db = as('frank');
+    await assertFails(updateDoc(userDoc(db, 'frank'), { phoneNumber: '61411111111' }));
+    await assertSucceeds(updateDoc(userDoc(db, 'frank'), { displayName: 'Frank' }));
+    await assertSucceeds(updateDoc(userDoc(db, 'frank'), { phoneNumber: deleteField() }));
+    await assertFails(updateDoc(userDoc(db, 'frank'), { phoneNumber: '61400000009' }));
   });
 
   test('a user can delete only their own profile', async () => {
@@ -419,21 +428,11 @@ describe('closed collections', () => {
   });
 });
 
-// These describe the behaviour we want but the app cannot have yet. They are
-// marked todo so they are reported without failing the run. See the Phase 2
-// notes: fixing them needs an app change.
+// This describes the behaviour we want but the app cannot have yet: username
+// search needs every signed in user to be able to list profiles. It is marked
+// todo so it is reported without failing the run.
 describe('known gaps (todo)', () => {
-  test('a stranger should not be able to look up a phone number', { todo: 'needs an app change' }, async () => {
-    const q = query(collection(as(DAVE), 'users'), where('phoneNumber', 'in', ['61400000004000']));
-    await assertFails(getDocs(q));
-  });
-
-  test('a stranger should not be able to read another profile\'s phone number', { todo: 'needs an app change' }, async () => {
-    const snap = await getDoc(userDoc(as(DAVE), ALICE));
-    if (snap.data()?.phoneNumber !== undefined) throw new Error('phoneNumber is readable by any signed in user');
-  });
-
-  test('a stranger should not be able to list every user', { todo: 'needs an app change' }, async () => {
+  test('a stranger should not be able to list every user', { todo: 'username search needs it' }, async () => {
     await assertFails(getDocs(collection(as(DAVE), 'users')));
   });
 });

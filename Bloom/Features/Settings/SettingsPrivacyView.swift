@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 import FirebaseAuth
 import AVFoundation
-import Contacts
 import Photos
 import UserNotifications
 
@@ -28,17 +27,6 @@ enum PermissionReader {
         switch NotificationManager.shared.authorizationStatus {
         case .authorized, .provisional, .ephemeral: return .allowed
         case .denied: return .denied
-        default: return .notAsked
-        }
-    }
-
-    static func contacts() -> PermissionStatus {
-        let status = CNContactStore.authorizationStatus(for: .contacts)
-        if #available(iOS 18, *), status == .limited { return .limited }
-        switch status {
-        case .authorized: return .allowed
-        case .denied: return .denied
-        case .restricted: return .restricted
         default: return .notAsked
         }
     }
@@ -96,7 +84,6 @@ struct SettingsPrivacyView: View {
     // became active, since they can change in iOS Settings.
     private struct PermissionSnapshot {
         var notifications = PermissionStatus.notAsked
-        var contacts = PermissionStatus.notAsked
         var camera = PermissionStatus.notAsked
         var microphone = PermissionStatus.notAsked
         var photos = PermissionStatus.notAsked
@@ -208,7 +195,6 @@ struct SettingsPrivacyView: View {
     private var permissionsSection: some View {
         Section {
             permissionRow("Notifications", systemImage: "bell", status: permissions.notifications)
-            permissionRow("Contacts", systemImage: "person.crop.circle", status: permissions.contacts)
             permissionRow("Camera", systemImage: "camera", status: permissions.camera)
             permissionRow("Microphone", systemImage: "mic", status: permissions.microphone)
             permissionRow("Photos", systemImage: "photo", status: permissions.photos)
@@ -257,7 +243,6 @@ struct SettingsPrivacyView: View {
         await NotificationManager.shared.refresh()
         permissions = PermissionSnapshot(
             notifications: PermissionReader.notifications(),
-            contacts: PermissionReader.contacts(),
             camera: PermissionReader.camera(),
             microphone: PermissionReader.microphone(),
             photos: PermissionReader.photos()

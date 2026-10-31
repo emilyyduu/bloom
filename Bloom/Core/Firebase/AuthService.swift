@@ -32,6 +32,7 @@ final class AuthService: ObservableObject {
             }
             self.uid = user?.uid
             self.isSignedIn = user != nil
+            if user != nil { Task { await self.removeLegacyPhoneNumber() } }
         }
     }
 
@@ -104,28 +105,36 @@ final class AuthService: ObservableObject {
 
     // User profile
 
-    // Creates the small Firestore record, username and, for phone
-    // sign-ups, the verified phone number, that makes an account
-    // findable by someone else. Called once, immediately after sign-up
-    // succeeds. The security rules only allow displayName, username,
-    // usernameLower, createdAt and phoneNumber on this document, email
-    // is never written here, and displayName, username and
+    // Creates the small Firestore record, username and display name, that
+    // makes an account findable by someone else. Called once, immediately
+    // after sign-up succeeds. The security rules only allow displayName,
+    // username, usernameLower and createdAt on this document (plus the
+    // avatar flags). Email and phone number are never written here, they
+    // stay in Firebase Authentication. displayName, username and
     // usernameLower are always written together.
-    // Merges rather than overwrites, so a record already holding a
-    // phone number can't be clobbered by a later call without one.
-    func createUserProfile(displayName: String, username: String, phoneNumber: String?) async throws {
+    func createUserProfile(displayName: String, username: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         let displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        var data: [String: Any] = [
+        let data: [String: Any] = [
             "displayName": displayName,
             "username": username,
             "usernameLower": username.lowercased(),
             "createdAt": Date(),
         ]
-        if let phoneNumber { data["phoneNumber"] = phoneNumber }
 
         try await Firestore.firestore().collection("users").document(uid).setData(data, merge: true)
+    }
+
+    // Earlier builds stored the verified phone number on the profile so
+    // contacts could be matched. Nothing reads it any more, so it is
+    // removed from any profile that still has it.
+    func removeLegacyPhoneNumber() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let reference = Firestore.firestore().collection("users").document(uid)
+        guard let snapshot = try? await reference.getDocument(),
+              snapshot.get("phoneNumber") != nil else { return }
+        try? await reference.updateData(["phoneNumber": FieldValue.delete()])
     }
 }

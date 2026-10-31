@@ -82,8 +82,7 @@ struct PhoneVerificationView: View {
         performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
             try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
             if isNewAccount {
-                let phoneNumber = Auth.auth().currentUser?.phoneNumber.map(PhoneNumber.normalized)
-                try await AuthService.shared.createUserProfile(displayName: displayName, username: username, phoneNumber: phoneNumber)
+                try await AuthService.shared.createUserProfile(displayName: displayName, username: username)
             }
         }
     }

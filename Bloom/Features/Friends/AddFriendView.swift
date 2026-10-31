@@ -1,36 +1,20 @@
 import SwiftUI
 
-// Finding a friend works two ways: searching by username, or matching
-// against the device's own contacts. Either path ends the same way, a
-// friend request that the other person still has to accept.
+// Finding a friend by searching for their username. It ends in a friend
+// request that the other person still has to accept.
 struct AddFriendView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var friendService = FriendService.shared
 
-    private enum Mode: String, CaseIterable {
-        case username = "Username"
-        case contacts = "Phone Contacts"
-    }
-
-    @State private var mode: Mode = .username
     @State private var query = ""
     @State private var results: [FirestoreUser] = []
     @State private var isSearching = false
     @State private var errorMessage: String?
     @State private var requestErrorMessage: String?
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                modePicker
-                    .padding(Theme.Spacing.lg)
-                    .onChange(of: mode) { _, newMode in
-                        results = []
-                        errorMessage = nil
-                        if newMode == .contacts { loadContacts() }
-                    }
-
                 List(results) { user in
                     HStack(spacing: Theme.Spacing.md) {
                         AvatarView(user: user, size: 40)
@@ -80,24 +64,6 @@ struct AddFriendView: View {
         }
     }
 
-    // The segmented style truncates "Username"/"Phone Contacts" at
-    // accessibility sizes, so it becomes a menu instead; the binding is
-    // unchanged either way, so the current choice is never lost.
-    @ViewBuilder
-    private var modePicker: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            Picker("Mode", selection: $mode) {
-                ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.menu)
-        } else {
-            Picker("Mode", selection: $mode) {
-                ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-        }
-    }
-
     @ViewBuilder
     private func actionView(for user: FirestoreUser) -> some View {
         switch relationship(for: user) {
@@ -122,7 +88,7 @@ struct AddFriendView: View {
     }
 
     private func searchByUsername() {
-        guard mode == .username, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         isSearching = true
         errorMessage = nil
         Task {
@@ -130,19 +96,6 @@ struct AddFriendView: View {
                 results = try await friendService.searchByUsername(query)
             } catch {
                 errorMessage = "Check your connection and try again."
-            }
-            isSearching = false
-        }
-    }
-
-    private func loadContacts() {
-        isSearching = true
-        errorMessage = nil
-        Task {
-            do {
-                results = try await friendService.searchByContacts()
-            } catch {
-                errorMessage = "Bloom needs permission to check your contacts for this."
             }
             isSearching = false
         }

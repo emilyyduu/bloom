@@ -1,7 +1,6 @@
 import Foundation
 import FirebaseAuth
 import FirebaseFirestore
-import Contacts
 import Combine
 
 enum FriendRequestStatus: String, Codable {
@@ -27,7 +26,7 @@ enum FriendRelationship {
     case incomingPending
 }
 
-// Handles finding a friend, by username or by matching phone contacts,
+// Handles finding a friend by username,
 // and the request-then-accept flow that follows. This service only
 // manages who is connected to whom; notes are shared through
 // sharedWithFriends on the note itself.
@@ -88,49 +87,6 @@ final class FriendService: ObservableObject {
 
         let myUID = Auth.auth().currentUser?.uid
         return snapshot.decoded(as: FirestoreUser.self).filter { $0.id != myUID }
-    }
-
-    // Matches phone numbers already saved in the user's contacts against
-    // registered Bloom accounts. The numbers are not stored by the app, but
-    // they are sent to Firestore as query values (30 at a time), so Google
-    // receives them. Whether someone could use the same query to test
-    // arbitrary numbers depends on the Firestore security rules.
-    func searchByContacts() async throws -> [FirestoreUser] {
-        let store = CNContactStore()
-
-        let granted = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
-            store.requestAccess(for: .contacts) { granted, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume(returning: granted)
-                }
-            }
-        }
-        guard granted else { return [] }
-
-        let keys: [CNKeyDescriptor] = [CNContactPhoneNumbersKey as CNKeyDescriptor]
-        let request = CNContactFetchRequest(keysToFetch: keys)
-
-        var localNumbers: Set<String> = []
-        try store.enumerateContacts(with: request) { contact, _ in
-            for number in contact.phoneNumbers {
-                localNumbers.insert(PhoneNumber.normalized(number.value.stringValue))
-            }
-        }
-
-        guard !localNumbers.isEmpty else { return [] }
-
-        // Firestore 'in' queries are capped at 30 values, so numbers are
-        // checked in batches rather than one query per contact.
-        var matches: [FirestoreUser] = []
-        for chunk in Array(localNumbers).chunked(into: 30) {
-            let snapshot = try await db.collection("users")
-                .whereField("phoneNumber", in: chunk)
-                .getDocuments()
-            matches.append(contentsOf: snapshot.decoded(as: FirestoreUser.self))
-        }
-        return matches
     }
 
     // Requests:

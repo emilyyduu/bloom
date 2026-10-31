@@ -124,7 +124,6 @@ enum AppInfo {
         Acknowledgement(name: "SwiftData", detail: "Notes and movie logs saved on your device", url: appleDocs),
         Acknowledgement(name: "UserNotifications", detail: "Reminders and friend alerts", url: appleDocs),
         Acknowledgement(name: "PhotosUI", detail: "Choosing photos for notes and covers", url: appleDocs),
-        Acknowledgement(name: "Contacts", detail: "Finding friends from your contacts", url: appleDocs),
         Acknowledgement(name: "AVFoundation", detail: "Recording and playing voice memos", url: appleDocs),
         Acknowledgement(name: "RealityKit", detail: "The 3D Greenhouse garden", url: appleDocs),
         Acknowledgement(name: "SF Symbols and Apple Color Emoji", detail: "Icons and emoji used across the app", url: appleDocs),

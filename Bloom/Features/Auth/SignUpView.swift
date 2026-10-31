@@ -181,7 +181,7 @@ struct SignUpView: View {
                 verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
             case .email:
                 try await AuthService.shared.signUpWithEmail(email: email, password: password)
-                try await AuthService.shared.createUserProfile(displayName: displayName, username: username, phoneNumber: nil)
+                try await AuthService.shared.createUserProfile(displayName: displayName, username: username)
             }
         }
     }

@@ -4,7 +4,7 @@ import FirebaseFirestore
 
 // Changes the display name and username on the users document. The
 // Firestore rules for that document only allow displayName, username,
-// usernameLower, phoneNumber and createdAt, so displayName, username and
+// usernameLower and createdAt, so displayName, username and
 // usernameLower are always written together, and this also clears any
 // leftover "email" field with FieldValue.delete() rather than ever
 // writing one.

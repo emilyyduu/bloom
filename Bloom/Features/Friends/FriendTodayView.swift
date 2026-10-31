@@ -193,7 +193,7 @@ struct FriendNotePhoto: View {
 #Preview {
     NavigationStack {
         FriendTodayView(
-            friend: FirestoreUser(id: "preview", username: "Tom", usernameLower: "tom", phoneNumber: nil, createdAt: Date())
+            friend: FirestoreUser(id: "preview", username: "Tom", usernameLower: "tom", createdAt: Date())
         )
     }
 }
