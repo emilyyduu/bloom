@@ -13,8 +13,15 @@ struct NotificationsView: View {
     // visible while it is open even though lastSeen moves to now.
     @State private var seenCutoff = Date()
 
+    @ObservedObject private var blocks = BlockService.shared
+
+    // The feed without anything from someone I have blocked.
+    private var visibleItems: [ActivityItem] {
+        activity.items.filter { !blocks.isBlocked($0.fromUID) }
+    }
+
     private var isEmpty: Bool {
-        friendService.pendingIncoming.isEmpty && activity.items.isEmpty
+        friendService.pendingIncoming.isEmpty && visibleItems.isEmpty
     }
 
     var body: some View {
@@ -39,9 +46,9 @@ struct NotificationsView: View {
                     }
                 }
 
-                if !activity.items.isEmpty {
+                if !visibleItems.isEmpty {
                     Section {
-                        ForEach(activity.items) { item in
+                        ForEach(visibleItems) { item in
                             Button {
                                 if let target = ActivityDestination(item: item) { destination = target }
                             } label: {

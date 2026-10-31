@@ -20,6 +20,7 @@ enum ActivityNotifier {
         case .accepted: base = AccountDefaults.notifyFriendRequestsBase
         }
         guard let me = Auth.auth().currentUser?.uid, item.fromUID != me,
+              !BlockService.shared.isBlocked(item.fromUID),
               AccountDefaults.isNotificationEnabled(base) else { return }
         let name = await UserProfileCache.shared.profile(uid: item.fromUID)?.shownName ?? "Someone"
 

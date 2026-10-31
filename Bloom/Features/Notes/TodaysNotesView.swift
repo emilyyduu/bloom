@@ -202,6 +202,7 @@ private struct TodaysNoteCard: View {
     @StateObject private var comments = NoteCommentsListener()
     @StateObject private var reactions = NoteReactionsListener()
     @ObservedObject private var commentCounts = CommentCounts.shared
+    @ObservedObject private var blocks = BlockService.shared
     @ObservedObject private var reactionCounts = ReactionCounts.shared
     @FocusState private var isInputFocused: Bool
     @State private var detail: NoteDetailRequest?
@@ -530,10 +531,10 @@ private struct TodaysNoteCard: View {
             notice("Comments aren\u{2019}t available yet", systemImage: "exclamationmark.triangle")
         case .failed:
             LiveFailedNotice(text: "Couldn\u{2019}t load comments", retry: { comments.retry() })
-        case .loaded where comments.comments.isEmpty:
+        case .loaded where comments.visibleComments.isEmpty:
             notice("No comments yet", systemImage: "bubble.left")
         case .loaded:
-            let sorted = comments.comments.sorted { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }
+            let sorted = comments.visibleComments.sorted { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }
             let shown = limit.map { Array(sorted.suffix($0)) } ?? sorted
             ForEach(shown) { comment in
                 CommentRow(
@@ -541,7 +542,8 @@ private struct TodaysNoteCard: View {
                     parentDeleted: false,
                     canDelete: false,
                     onDelete: {},
-                    onReply: { startReply(to: comment) }
+                    onReply: { startReply(to: comment) },
+                    moderationContext: (ownerUID, noteID)
                 )
             }
         }

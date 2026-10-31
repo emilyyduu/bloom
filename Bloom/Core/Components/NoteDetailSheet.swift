@@ -177,6 +177,10 @@ private struct ViewerNoteDetail: View {
     let author: FirestoreUser?
     let focusComments: Bool
 
+    @State private var moderation: ModerationRequest?
+
+    private var authorName: String { author?.shownName ?? "this person" }
+
     var body: some View {
         NoteDetailScaffold(
             title: note.createdAt.formatted(date: .abbreviated, time: .shortened),
@@ -187,8 +191,26 @@ private struct ViewerNoteDetail: View {
             focusComments: focusComments,
             onShare: nil,
             noteBody: { noteBody },
-            menu: { EmptyView() }
+            menu: { moderationMenu }
         )
+        .moderation($moderation)
+    }
+
+    // Report this note or block the person who wrote it.
+    private var moderationMenu: some View {
+        Menu {
+            Button("Report note", systemImage: "flag") {
+                moderation = .report(.note(ownerUID: ownerUID, ownerName: authorName, noteID: note.id ?? "", text: note.text))
+            }
+            .disabled(note.id == nil)
+            Button("Block \(authorName)", systemImage: "hand.raised", role: .destructive) {
+                moderation = .block(uid: ownerUID, name: authorName)
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .frame(minWidth: 44, minHeight: 44)
+        }
+        .accessibilityLabel("More options")
     }
 
     private var noteBody: some View {
@@ -300,10 +322,8 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
-                if isOwner {
-                    ToolbarItem(placement: .primaryAction) {
-                        menu()
-                    }
+                ToolbarItem(placement: .primaryAction) {
+                    menu()
                 }
             }
         }
@@ -344,6 +364,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                     CommentsSection(
                         listener: listener,
                         ownerUID: ownerUID,
+                        noteID: noteID,
                         isOwner: isOwner,
                         commentsEnabled: commentsEnabled,
                         onShare: onShare,
@@ -390,6 +411,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                     CommentsSection(
                         listener: listener,
                         ownerUID: ownerUID,
+                        noteID: noteID,
                         isOwner: isOwner,
                         commentsEnabled: commentsEnabled,
                         onShare: onShare,
@@ -439,7 +461,9 @@ struct LiveFailedNotice: View {
 
 private struct CommentsSection: View {
     @ObservedObject var listener: NoteCommentsListener
+    @ObservedObject private var blocks = BlockService.shared
     let ownerUID: String
+    let noteID: String
     let isOwner: Bool
     let commentsEnabled: Bool
     let onShare: (() -> Void)?
@@ -453,7 +477,7 @@ private struct CommentsSection: View {
 
     private var heading: String {
         guard commentsEnabled, listener.state == .loaded else { return "Comments" }
-        return "Comments \(listener.comments.count)"
+        return "Comments \(listener.visibleComments.count)"
     }
 
     var body: some View {
@@ -476,15 +500,16 @@ private struct CommentsSection: View {
                     notice("Comments aren\u{2019}t available yet", systemImage: "exclamationmark.triangle")
                 case .failed:
                     LiveFailedNotice(text: "Couldn\u{2019}t load comments", retry: listener.retry)
-                case .loaded where listener.comments.isEmpty:
+                case .loaded where listener.visibleComments.isEmpty:
                     notice("No comments yet", systemImage: "bubble.left")
                 case .loaded:
-                    ForEach(CommentThread.threads(from: listener.comments)) { thread in
+                    ForEach(CommentThread.threads(from: listener.visibleComments)) { thread in
                         CommentThreadView(
                             thread: thread,
                             canDelete: { isOwner || $0.authorUID == myUID },
                             onDelete: { commentToDelete = $0 },
-                            onReply: { startReply(to: $0, threadID: $1) }
+                            onReply: { startReply(to: $0, threadID: $1) },
+                            moderationContext: (ownerUID, noteID)
                         )
                     }
                 }
@@ -555,6 +580,7 @@ private struct CommentThreadView: View {
     let canDelete: (NoteComment) -> Bool
     let onDelete: (NoteComment) -> Void
     let onReply: (NoteComment, _ threadID: String) -> Void
+    var moderationContext: (ownerUID: String, noteID: String)? = nil
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -589,7 +615,8 @@ private struct CommentThreadView: View {
             parentDeleted: parentDeleted,
             canDelete: canDelete(comment),
             onDelete: { onDelete(comment) },
-            onReply: { onReply(comment, thread.id) }
+            onReply: { onReply(comment, thread.id) },
+            moderationContext: moderationContext
         )
     }
 }
@@ -601,9 +628,13 @@ struct CommentRow: View {
     let canDelete: Bool
     let onDelete: () -> Void
     let onReply: () -> Void
+    // Where the comment lives. When set, someone else's comment gets a menu
+    // to report it or block its author.
+    var moderationContext: (ownerUID: String, noteID: String)? = nil
 
     @State private var author: FirestoreUser?
     @State private var repliedTo: FirestoreUser?
+    @State private var moderation: ModerationRequest?
 
     private var name: String { author?.shownName ?? "Someone" }
     private var repliedToName: String { repliedTo?.shownName ?? "Someone" }
@@ -673,6 +704,29 @@ struct CommentRow: View {
                 .accessibilityLabel("Reply to \(name)")
             }
 
+            if let context = moderationContext, comment.authorUID != Auth.auth().currentUser?.uid {
+                Menu {
+                    Button("Report comment", systemImage: "flag") {
+                        moderation = .report(.comment(
+                            authorUID: comment.authorUID,
+                            authorName: name,
+                            noteOwnerUID: context.ownerUID,
+                            noteID: context.noteID,
+                            commentID: comment.id,
+                            text: comment.text
+                        ))
+                    }
+                    Button("Block \(name)", systemImage: "hand.raised", role: .destructive) {
+                        moderation = .block(uid: comment.authorUID, name: name)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("More options for the comment by \(name)")
+            }
+
             if canDelete {
                 Button(role: .destructive, action: onDelete) {
                     Image(systemName: "trash")
@@ -682,6 +736,7 @@ struct CommentRow: View {
                 .accessibilityLabel("Delete comment by \(name)")
             }
         }
+        .moderation($moderation)
         .task(id: comment.authorUID) {
             author = await UserProfileCache.shared.profile(uid: comment.authorUID)
         }

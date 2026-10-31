@@ -74,6 +74,7 @@ struct FriendProfileView: View {
 
     @State private var isShowingNewCircle = false
     @State private var alertMessage: String?
+    @State private var moderation: ModerationRequest?
 
     var body: some View {
         ScrollView {
@@ -102,6 +103,25 @@ struct FriendProfileView: View {
             if let uid = friend.id { listener.start(friendUID: uid) }
         }
         .onDisappear { listener.stop() }
+        .toolbar {
+            if let uid = friend.id {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button("Report \(friend.shownName)", systemImage: "flag") {
+                            moderation = .report(.user(uid: uid, name: friend.shownName))
+                        }
+                        Button("Block \(friend.shownName)", systemImage: "hand.raised", role: .destructive) {
+                            moderation = .block(uid: uid, name: friend.shownName)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("More options")
+                }
+            }
+        }
+        .moderation($moderation)
         .sheet(isPresented: $isShowingNewCircle) {
             NewCircleSheet(preselected: friend.id.map { [$0] } ?? [])
         }

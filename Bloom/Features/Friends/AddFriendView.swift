@@ -94,6 +94,7 @@ struct AddFriendView: View {
         Task {
             do {
                 results = try await friendService.searchByUsername(query)
+                    .filter { !BlockService.shared.isBlocked($0.id) }
             } catch {
                 errorMessage = "Check your connection and try again."
             }

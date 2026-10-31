@@ -87,6 +87,11 @@ final class NoteCommentsListener: ObservableObject {
     @Published private(set) var comments: [NoteComment] = []
     @Published private(set) var state: LiveState = .loading
 
+    // The comments without anything written by someone I have blocked.
+    var visibleComments: [NoteComment] {
+        comments.filter { !BlockService.shared.isBlocked($0.authorUID) }
+    }
+
     private let db = Firestore.firestore()
     private var listener: ListenerRegistration?
     private var ownerUID: String?
