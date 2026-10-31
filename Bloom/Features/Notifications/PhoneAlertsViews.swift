@@ -48,17 +48,16 @@ struct PhoneAlertsCard: View {
 
     private func card(title: String, message: String, button: String, action: @escaping () -> Void) -> some View {
         Section {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Label(title, systemImage: "bell.badge")
-                    .font(.headline)
+                    .textStyle(.subheading)
                 Text(message)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 Button(button, action: action)
-                    .buttonStyle(.borderedProminent)
-                    .frame(minHeight: 44)
+                    .buttonStyle(.bloomPrimary)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, Theme.Spacing.xs)
         }
     }
 }

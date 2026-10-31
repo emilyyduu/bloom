@@ -132,7 +132,7 @@ struct ActivityRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
             AvatarView(
                 uid: item.fromUID,
                 name: name,
@@ -143,29 +143,29 @@ struct ActivityRow: View {
             )
             .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(title)
-                    .font(.subheadline)
+                    .textStyle(.callout)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if item.kind == .note, let preview = item.preview, !preview.isEmpty {
                     Text(preview)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                         .lineLimit(2)
                 }
-                HStack(spacing: 8) {
+                HStack(spacing: Theme.Spacing.sm) {
                     Text(relativeTime)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                     // A word as well as colour.
                     if isUnread {
                         Text("New")
-                            .font(.caption2)
+                            .textStyle(.caption)
                             .fontWeight(.bold)
-                            .foregroundStyle(Color(.systemBackground))
+                            .foregroundStyle(Theme.Colors.surface)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Capsule().fill(Color.accentColor))
+                            .background(Capsule().fill(Theme.Colors.actionFill))
                     }
                 }
             }
