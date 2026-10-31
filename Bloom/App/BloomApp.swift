@@ -11,9 +11,6 @@ struct BloomApp: App {
 
     init() {
         FirebaseApp.configure()
-        for family in UIFont.familyNames where family.contains("DM") {
-            print(family, UIFont.fontNames(forFamilyName: family))
-        }
     }
 
     var body: some Scene {
