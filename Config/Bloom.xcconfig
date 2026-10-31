@@ -1,0 +1,5 @@
+// Build settings shared by the Bloom target's Debug and Release builds.
+// Secrets.xcconfig is gitignored. Copy Secrets.example.xcconfig to
+// Secrets.xcconfig and fill it in. If it is missing the build still works,
+// movie search just reports that TMDB is not configured.
+#include? "Secrets.xcconfig"

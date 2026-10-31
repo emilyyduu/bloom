@@ -10,3 +10,6 @@ build/
 
 # Firebase config
 GoogleService-Info.plist
+
+# Local build secrets
+Config/Secrets.xcconfig

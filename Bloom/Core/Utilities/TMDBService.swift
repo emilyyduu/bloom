@@ -19,7 +19,7 @@ enum TMDBServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingAPIKey:
-            return "TMDB is not configured. Add a TMDBAPIKey value to the app's Info.plist."
+            return "Movie search is not available in this build."
         case .noConnection:
             return "Check your connection and try again."
         case .emptyResults:
@@ -31,9 +31,10 @@ enum TMDBServiceError: LocalizedError {
 }
 
 // Talks to TMDB's /search/multi endpoint and downloads posters for
-// logged entries. The API key is never hardcoded, it's read from the
-// TMDBAPIKey entry in Info.plist so it can be added outside source
-// control.
+// logged entries. The API key is not in the source or in Info.plist's
+// text: Info.plist's TMDBAPIKey is filled in at build time from
+// TMDB_API_KEY in the gitignored Config/Secrets.xcconfig. It is still
+// inside the shipped app, so treat it as readable by anyone who has it.
 final class TMDBService {
     static let shared = TMDBService()
 
