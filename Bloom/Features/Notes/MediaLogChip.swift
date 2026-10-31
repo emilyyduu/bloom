@@ -12,7 +12,7 @@ struct MediaLogChip: View {
         Button {
             isShowingDetail = true
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 HStack(spacing: 6) {
                     Image(systemName: "film")
                     Text(entry.title)
@@ -21,17 +21,17 @@ struct MediaLogChip: View {
                 StarRatingView(rating: entry.rating, font: .caption2)
                 if let line = entry.reviewFirstLine {
                     Text(line)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                         .lineLimit(1)
                 }
             }
-            .font(.caption)
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .textStyle(.caption)
+            .foregroundStyle(Theme.Colors.textPrimary)
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+            .background(Theme.Colors.surfaceMuted, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -62,6 +62,6 @@ struct MediaLogChip: View {
         entry.reviewText = "Warm and funny. Marmalade sandwiches forever."
         return entry
     }())
-    .padding()
+    .padding(Theme.Spacing.lg)
     .modelContainer(PreviewContainer.shared)
 }

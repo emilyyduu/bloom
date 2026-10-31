@@ -57,7 +57,7 @@ struct DraftsView: View {
                                     } label: {
                                         Label("Add to Today", systemImage: "calendar.badge.plus")
                                     }
-                                    .tint(.accentColor)
+                                    .tint(Theme.Colors.actionFill)
                                 }
                                 .contextMenu {
                                     Button {
@@ -156,23 +156,23 @@ private struct DraftRow: View {
     let draft: Note
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: Theme.Spacing.md) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 if !draft.text.isEmpty || draft.audioSeconds == nil {
                     Text(draft.text)
-                        .font(.body)
+                        .textStyle(.body)
                         .lineLimit(3)
                 }
                 if draft.hasAudio, let seconds = draft.audioSeconds {
                     Label(AudioPlayerView.format(TimeInterval(seconds)), systemImage: "mic")
-                        .font(.caption)
+                        .textStyle(.caption)
                         .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                         .accessibilityLabel("Voice memo, \(AudioPlayerView.format(TimeInterval(seconds)))")
                 }
                 Text("Saved \(relativeTime(draft.createdAt))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -181,7 +181,7 @@ private struct DraftRow: View {
                     .resizable()
                     .scaledToFill()
                     .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                     .clipped()
             }
         }

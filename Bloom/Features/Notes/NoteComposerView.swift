@@ -324,7 +324,7 @@ struct NoteComposerView: View {
             onMedia: { isShowingMediaSearch = true }
         ) {
             if !isEditingPosted {
-                HStack(spacing: 8) {
+                HStack(spacing: Theme.Spacing.sm) {
                     draftsButton
                     Button("Save as Draft") { save(asDraft: true) }
                         .lineLimit(1)
@@ -393,7 +393,7 @@ struct NoteComposerView: View {
                         insertEmoji(item.emoji)
                     } label: {
                         Text(item.emoji)
-                            .font(.title2)
+                            .textStyle(.heading)
                             .frame(minWidth: 44, minHeight: 44)
                     }
                     .buttonStyle(.plain)
@@ -451,11 +451,11 @@ struct NoteComposerView: View {
                 Image(systemName: "doc.text")
                 if availableDraftsCount > 0 {
                     Text("\(availableDraftsCount)")
-                        .font(.caption2)
+                        .textStyle(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(4)
-                        .background(Circle().fill(Color.red))
+                        .foregroundStyle(Theme.Colors.textOnColor)
+                        .padding(Theme.Spacing.xs)
+                        .background(Circle().fill(Theme.Palette.red))
                         .offset(x: 10, y: -10)
                 }
             }

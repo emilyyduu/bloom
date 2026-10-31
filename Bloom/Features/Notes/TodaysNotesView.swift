@@ -68,20 +68,19 @@ struct TodaysNotesView: View {
             Text("Notes you add today will appear here.")
         } actions: {
             Button("Add note") { isShowingComposer = true }
-                .buttonStyle(.borderedProminent)
-                .frame(minHeight: 44)
+                .buttonStyle(.bloomPrimary)
         }
     }
 
     // MARK: Carousel
 
     private var carousel: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.sm) {
             positionRow
 
             GeometryReader { proxy in
                 ScrollView(.horizontal) {
-                    LazyHStack(spacing: 8) {
+                    LazyHStack(spacing: Theme.Spacing.sm) {
                         ForEach(todaysNotes) { note in
                             TodaysNoteCard(
                                 note: note,
@@ -105,7 +104,7 @@ struct TodaysNotesView: View {
                 .scrollIndicators(.hidden)
             }
             // 16 points under the cards, the tab bar sits below that.
-            .padding(.bottom, 16)
+            .padding(.bottom, Theme.Spacing.lg)
         }
         .onAppear {
             if selectedID == nil { selectedID = ids.last }
@@ -136,10 +135,10 @@ struct TodaysNotesView: View {
 
             if let index = currentIndex {
                 Text("\(index + 1) of \(ids.count)")
-                    .font(.subheadline)
+                    .textStyle(.callout)
                     .fontWeight(.medium)
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .accessibilityLabel("Note \(index + 1) of \(ids.count)")
             }
 
@@ -148,7 +147,7 @@ struct TodaysNotesView: View {
             stepButton(systemImage: "chevron.right", label: "Next note", delta: 1)
                 .keyboardShortcut(.rightArrow, modifiers: .command)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Theme.Spacing.lg)
     }
 
     private func stepButton(systemImage: String, label: String, delta: Int) -> some View {
@@ -218,8 +217,8 @@ private struct TodaysNoteCard: View {
             GeometryReader { proxy in
                 layout(cardHeight: proxy.size.height)
             }
-            .background(RoundedRectangle(cornerRadius: 20).fill(Color(.secondarySystemBackground)))
-            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Colors.surfaceMuted))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
             .accessibilityElement(children: .contain)
             .noteActionDialogs(actions)
             .quickAttachPresentations(quick)
@@ -255,26 +254,26 @@ private struct TodaysNoteCard: View {
         } else if dynamicTypeSize.isAccessibilitySize {
             // The footer isn't pinned at these sizes, it scrolls with the note.
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     header
                     content(cardHeight: cardHeight)
                     footer(isTight: true)
                 }
-                .padding()
+                .padding(Theme.Spacing.lg)
             }
             .scrollDismissesKeyboard(.interactively)
         } else {
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                         header
                         content(cardHeight: cardHeight)
                     }
-                    .padding()
+                    .padding(Theme.Spacing.lg)
                 }
                 footer(isTight: cardHeight < tightHeight)
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.sm)
             }
         }
     }
@@ -287,15 +286,15 @@ private struct TodaysNoteCard: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                         header
                         content(cardHeight: cardHeight)
                     }
-                    .padding()
+                    .padding(Theme.Spacing.lg)
                 }
                 toolsRow
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.sm)
             }
             .frame(maxWidth: .infinity)
 
@@ -303,7 +302,7 @@ private struct TodaysNoteCard: View {
 
             VStack(spacing: 0) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                         if !isShared {
                             onlyYouBlock
                         } else if isSelected {
@@ -315,14 +314,14 @@ private struct TodaysNoteCard: View {
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
+                    .padding(Theme.Spacing.lg)
                 }
                 .scrollDismissesKeyboard(.interactively)
 
                 if isShared && isSelected {
                     inputBar
-                        .padding(.horizontal)
-                        .padding(.bottom, 8)
+                        .padding(.horizontal, Theme.Spacing.lg)
+                        .padding(.bottom, Theme.Spacing.sm)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -339,21 +338,21 @@ private struct TodaysNoteCard: View {
 
     // The date and time, the sharing chip, a pin if pinned, and the menu.
     private var header: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(dateText)
-                    .font(.headline)
-                HStack(spacing: 8) {
+                    .textStyle(.subheading)
+                HStack(spacing: Theme.Spacing.sm) {
                     Label(
                         note.sharedWithFriends ? "Shared with friends" : "Only you",
                         systemImage: note.sharedWithFriends ? "person.2.fill" : "lock.fill"
                     )
-                    .font(.caption)
+                    .textStyle(.caption)
                     .fontWeight(.medium)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color(.tertiarySystemBackground), in: Capsule())
+                    .background(Theme.Colors.surfaceMuted, in: Capsule())
 
                     if note.isPinned { PinIndicator() }
                 }
@@ -373,10 +372,10 @@ private struct TodaysNoteCard: View {
     // The text, photo, voice memo and media chip. Pressing and holding
     // an attachment offers Remove, with a matching VoiceOver action.
     private func content(cardHeight: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             if !note.text.isEmpty {
                 Text(note.text)
-                    .font(.body)
+                    .textStyle(.body)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
@@ -385,7 +384,7 @@ private struct TodaysNoteCard: View {
                     .resizable()
                     .scaledToFill()
                     .frame(maxWidth: .infinity, maxHeight: cardHeight * 0.4)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                     .accessibilityLabel("Photo")
                     .contextMenu {
                         Button("Remove photo", systemImage: "trash", role: .destructive) { quick.removePhoto() }
@@ -420,7 +419,7 @@ private struct TodaysNoteCard: View {
     // keyboard up on a short card the icon row and reactions step aside, so
     // the comment being typed keeps its room.
     private func footer(isTight: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             if !isInputFocused {
                 toolsRow
             }
@@ -441,7 +440,7 @@ private struct TodaysNoteCard: View {
     }
 
     private var toolsRow: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             if let notice = quick.notice {
                 CameraNoticeRow(notice: notice) { quick.notice = nil }
             }
@@ -459,22 +458,21 @@ private struct TodaysNoteCard: View {
     }
 
     private var onlyYouBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Label("Only you", systemImage: "lock.fill")
-                .font(.headline)
+                .textStyle(.subheading)
             Button("Share with friends") { actions.requestShareToggle() }
-                .buttonStyle(.bordered)
-                .frame(minHeight: 44)
+                .buttonStyle(.bloomSecondary)
         }
     }
 
     // What a card that isn't selected shows: counts only.
     private var countsBlock: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(reactionCounts.count(ownerUID: ownerUID, noteID: noteID).map { "Reactions (\($0))" } ?? "Reactions")
-                .font(.headline)
+                .textStyle(.subheading)
             Text(commentCounts.count(ownerUID: ownerUID, noteID: noteID).map { "Comments (\($0))" } ?? "Comments")
-                .font(.headline)
+                .textStyle(.subheading)
             viewAllButton
         }
     }
@@ -482,7 +480,7 @@ private struct TodaysNoteCard: View {
     private var commentsHeader: some View {
         HStack {
             Text(commentsTitle)
-                .font(.headline)
+                .textStyle(.subheading)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
             viewAllButton
@@ -500,7 +498,7 @@ private struct TodaysNoteCard: View {
         Button("View all comments") {
             detail = .mine(note, scrollToComments: true)
         }
-        .font(.subheadline)
+        .textStyle(.callout)
         .frame(minHeight: 44)
     }
 
@@ -540,8 +538,8 @@ private struct TodaysNoteCard: View {
 
     private func notice(_ text: String, systemImage: String) -> some View {
         Label(text, systemImage: systemImage)
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .textStyle(.callout)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 

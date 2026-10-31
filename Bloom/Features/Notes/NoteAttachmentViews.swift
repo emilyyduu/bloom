@@ -12,15 +12,15 @@ struct PhotoAttachmentRow: View {
     let onRemove: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Image(uiImage: image)
                 .resizable()
                 .scaledToFit()
                 .frame(maxHeight: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                 .accessibilityLabel("Attached photo")
 
-            HStack(spacing: 16) {
+            HStack(spacing: Theme.Spacing.lg) {
                 Menu {
                     Button("Take photo", systemImage: "camera", action: onTakePhoto)
                     Button("Choose photo", systemImage: "photo.on.rectangle", action: onChoosePhoto)
@@ -46,7 +46,7 @@ struct VoiceMemoAttachmentRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             AudioPlayerView(
                 source: .local(FileManager.audioDirectory.appendingPathComponent(fileName)),
                 seconds: seconds
@@ -68,12 +68,12 @@ struct CameraNoticeRow: View {
     let onDismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Label(notice.message, systemImage: "camera.badge.ellipsis")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
 
-            HStack(spacing: 16) {
+            HStack(spacing: Theme.Spacing.lg) {
                 if notice.canOpenSettings {
                     Button("Open Settings") { CameraAccess.openSettings() }
                         .frame(minHeight: 44)

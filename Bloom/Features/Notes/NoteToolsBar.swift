@@ -40,8 +40,8 @@ struct NoteToolsBar<Trailing: View>: View {
         VStack(spacing: 0) {
             Divider()
             rows
-                .padding(.horizontal, isCompact ? 0 : 16)
-                .padding(.vertical, 4)
+                .padding(.horizontal, isCompact ? 0 : Theme.Spacing.lg)
+                .padding(.vertical, Theme.Spacing.xs)
         }
         .background { if !isCompact { Rectangle().fill(.bar) } }
     }
@@ -52,7 +52,7 @@ struct NoteToolsBar<Trailing: View>: View {
             stackedRows
         } else {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
+                HStack(spacing: Theme.Spacing.sm) {
                     tools
                     Spacer(minLength: 8)
                     trailing()
@@ -72,7 +72,7 @@ struct NoteToolsBar<Trailing: View>: View {
 
     // Even spacing, left aligned.
     private var tools: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Spacing.sm) {
             NoteToolButton(
                 title: "Take photo",
                 hint: hasPhoto
@@ -151,13 +151,13 @@ private struct NoteToolButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: isAttached ? attachedSymbol : symbol)
-                .font(.title3)
+                .textStyle(.heading)
                 .overlay(alignment: .bottomTrailing) {
                     if isAttached {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.caption2)
+                            .textStyle(.caption)
                             .symbolRenderingMode(.palette)
-                            .foregroundStyle(Color(.systemBackground), Color.accentColor)
+                            .foregroundStyle(Theme.Colors.surface, Theme.Colors.actionFill)
                             .offset(x: 6, y: 4)
                     }
                 }

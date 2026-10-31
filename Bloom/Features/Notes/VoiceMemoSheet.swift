@@ -20,18 +20,18 @@ struct VoiceMemoSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: Theme.Spacing.xl) {
                     content
 
                     if let message = recorder.message {
                         Text(message)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                             .multilineTextAlignment(.center)
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .padding()
+                .padding(Theme.Spacing.lg)
             }
             .navigationTitle("Voice Memo")
             .navigationBarTitleDisplayMode(.inline)
@@ -67,27 +67,26 @@ struct VoiceMemoSheet: View {
     @ViewBuilder
     private var content: some View {
         if recorder.permission == .denied {
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Spacing.sm) {
                 Text("Microphone access is off")
-                    .font(.subheadline)
+                    .textStyle(.callout)
                     .fontWeight(.medium)
                 Text("Turn it on in Settings to record voice memos.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 Button("Open Settings") { recorder.openSettings() }
-                    .buttonStyle(.bordered)
-                    .frame(minHeight: 44)
+                    .buttonStyle(.bloomSecondary)
             }
             .multilineTextAlignment(.center)
         } else if recorder.isRecording {
-            VStack(spacing: 16) {
+            VStack(spacing: Theme.Spacing.lg) {
                 Label {
                     Text("\(AudioPlayerView.format(recorder.elapsed)) of \(limitText)")
-                        .font(.title2)
+                        .textStyle(.heading)
                         .monospacedDigit()
                 } icon: {
                     Image(systemName: "record.circle")
-                        .foregroundStyle(.red)
+                        .foregroundStyle(Theme.Colors.error)
                         .accessibilityHidden(true)
                 }
                 .accessibilityElement(children: .ignore)
@@ -97,20 +96,19 @@ struct VoiceMemoSheet: View {
                     recorder.stop()
                 } label: {
                     Label("Stop", systemImage: "stop.circle.fill")
-                        .frame(minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bloomPrimary)
                 .accessibilityLabel("Stop recording")
             }
         } else if let pending {
-            VStack(spacing: 12) {
+            VStack(spacing: Theme.Spacing.md) {
                 AudioPlayerView(
                     source: .local(FileManager.audioDirectory.appendingPathComponent(pending.fileName)),
                     seconds: pending.seconds
                 )
                 .id(pending.fileName)
 
-                HStack(spacing: 16) {
+                HStack(spacing: Theme.Spacing.lg) {
                     Button("Re-record", systemImage: "mic") { startRecording() }
                         .frame(minHeight: 44)
                         .accessibilityLabel("Record again")
@@ -123,20 +121,19 @@ struct VoiceMemoSheet: View {
                 .buttonStyle(.borderless)
             }
         } else {
-            VStack(spacing: 8) {
+            VStack(spacing: Theme.Spacing.sm) {
                 Button {
                     startRecording()
                 } label: {
                     Label("Record", systemImage: "mic.fill")
-                        .frame(minHeight: 44)
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bloomPrimary)
                 .accessibilityLabel("Record voice memo")
                 .accessibilityHint("Records up to \(VoiceMemoRecorder.limitSeconds) seconds")
 
                 Text("Up to \(limitText)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
     }
