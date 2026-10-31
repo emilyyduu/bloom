@@ -91,9 +91,10 @@ final class FriendService: ObservableObject {
     }
 
     // Matches phone numbers already saved in the user's contacts against
-    // registered Bloom accounts. Only numbers the device already has
-    // saved are ever checked against `users`, nothing is uploaded in
-    // bulk and an arbitrary number can't be probed this way.
+    // registered Bloom accounts. The numbers are not stored by the app, but
+    // they are sent to Firestore as query values (30 at a time), so Google
+    // receives them. Whether someone could use the same query to test
+    // arbitrary numbers depends on the Firestore security rules.
     func searchByContacts() async throws -> [FirestoreUser] {
         let store = CNContactStore()
 

@@ -2,7 +2,7 @@
 
 *A shared garden of memories*
 
-Bloom is a private journaling app for iOS. Through the day you add short notes, with text and optionally a photo, a voice memo, or a movie or show you watched, and each one lands straight in today's timeline. There is no publish button. Notes stay on your device and in your own private backup unless you choose to share them. Friends only see the notes you share from today, plus any you pin to your profile, and the more you post, the better your plant grows in the Shared Garden.
+Bloom is a journaling app for iOS, private unless you choose to share. Through the day you add short notes, with text and optionally a photo, a voice memo, or a movie or show you watched, and each one lands straight in today's timeline. There is no publish button. Notes stay on your device and in your own backup (stored with Google Firebase, not end to end encrypted) unless you choose to share them. Friends only see the notes you share from today, plus any you pin to your profile, and the more you post, the better your plant grows in the Shared Garden.
 
 Built for FIT3178 (iOS App Development) at Monash University by Emily Du (student ID 34942238).
 
@@ -52,12 +52,12 @@ The app is complete for the unit submission. Everything listed below is built an
 **Accounts and data**
 - Sign up and log in with a phone number (SMS) or an email and password
 - Every account on a device gets its own local store, so one account never sees another's notes
-- Notes are saved on the device first, so writing works offline, and are backed up privately to Firestore so they come back after a reinstall
+- Notes are saved on the device first, so writing works offline, and are backed up to your account in Firestore (not end to end encrypted) so they come back after a reinstall
 
 ## How privacy works
 
 - Notes, drafts and photos are saved locally in SwiftData first
-- A private backup of each note is kept at `users/{uid}/notes`, readable only by its owner, unless the note is marked shared
+- A backup of each note is kept at `users/{uid}/notes`. The intent is that only its owner can read it unless the note is marked shared, but that depends on the Firestore rules, which are set in the Firebase console
 - A shared note can be read by your accepted friends, who can then comment, reply and react
 - In the app, friends see only the notes you shared today and your pinned notes. The Firestore rules still allow an accepted friend to read any note you shared, so the "today only" limit is enforced by the app, not the database
 

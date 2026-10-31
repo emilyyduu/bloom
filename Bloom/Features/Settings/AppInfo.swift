@@ -26,7 +26,7 @@ enum AppInfo {
 
     // MARK: About text
 
-    static let aboutText = "Bloom is a private journal for the small moments of your day. Write notes with text, photos, voice memos and the movies or shows you've watched, share the ones you choose with friends, and watch your Greenhouse grow as your streaks do. Notes are saved on your device first and backed up privately, and friends only see the notes you share."
+    static let aboutText = "Bloom is a journal for the small moments of your day, private unless you choose to share. Write notes with text, photos, voice memos and the movies or shows you've watched, share the ones you choose with friends, and watch your Greenhouse grow as your streaks do. Notes are saved on your device first and backed up to your account. Friends see the notes you share from today and your pinned notes."
 
     // Only features that exist in the app today.
     static let features: [Feature] = [
@@ -114,7 +114,7 @@ enum AppInfo {
                         detail: "Movie and TV search and posters. \(tmdbAttribution)",
                         url: link("https://www.themoviedb.org")),
         Acknowledgement(name: "Firebase Authentication and Cloud Firestore",
-                        detail: "Accounts, private backup, friends and sharing",
+                        detail: "Accounts, backup, friends and sharing",
                         url: link("https://firebase.google.com")),
     ]
 
