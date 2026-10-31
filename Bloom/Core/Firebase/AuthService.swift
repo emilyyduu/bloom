@@ -42,7 +42,6 @@ final class AuthService: ObservableObject {
         FriendService.shared.stopListening()
         CircleStore.shared.stopListening()
         GardenService.shared.stopListening()
-        SharedNotesStore.shared.stopListening()
         FriendJournalService.shared.reset()
         MyAvatar.shared.reset()
         JournalCoverStore.shared.reset()

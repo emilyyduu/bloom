@@ -28,9 +28,9 @@ enum FriendRelationship {
 }
 
 // Handles finding a friend, by username or by matching phone contacts,
-// and the request-then-accept flow that follows. Once a request is
-// accepted, SharingService is what actually moves a note between the two
-// accounts; this service only manages who is connected to whom.
+// and the request-then-accept flow that follows. This service only
+// manages who is connected to whom; notes are shared through
+// sharedWithFriends on the note itself.
 @MainActor
 final class FriendService: ObservableObject {
     static let shared = FriendService()

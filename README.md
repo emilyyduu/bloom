@@ -115,7 +115,7 @@ Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentic
 | `users/{uid}/activity/{id}` | Items in a person's notification list |
 | `friendships/{from_to}` | A friend request and its status |
 | `streaks/{uid}` | A person's current streak and last post date, read by friends for the garden |
-| `sharedNotes/{id}` | From the first sharing design (copying a note to one friend). The app now shares with `sharedWithFriends` instead |
+| `sharedNotes/{id}` | Retired. The app no longer reads or writes it. Delete the collection in the Firebase console |
 
 ## Running the tests
 
