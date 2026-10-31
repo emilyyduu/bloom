@@ -24,7 +24,7 @@ struct AddFriendView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 modePicker
-                    .padding()
+                    .padding(Theme.Spacing.lg)
                     .onChange(of: mode) { _, newMode in
                         results = []
                         errorMessage = nil
@@ -32,14 +32,14 @@ struct AddFriendView: View {
                     }
 
                 List(results) { user in
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         AvatarView(user: user, size: 40)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(user.shownName)
                             Text("@\(user.username)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .textStyle(.callout)
+                                .foregroundStyle(Theme.Colors.textSecondary)
                         }
                         Spacer()
                         actionView(for: user)
@@ -58,8 +58,8 @@ struct AddFriendView: View {
                 }
 
                 FormErrorText(message: requestErrorMessage)
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.sm)
             }
             .frame(maxWidth: 500)
             .frame(maxWidth: .infinity)
@@ -101,10 +101,10 @@ struct AddFriendView: View {
         switch relationship(for: user) {
         case .friends:
             Text("Friends")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
         case .outgoingPending:
             Text("Requested")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.Colors.textSecondary)
         case .incomingPending:
             Button("Accept") { accept(user) }
                 .buttonStyle(.borderedProminent)

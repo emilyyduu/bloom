@@ -17,25 +17,25 @@ struct FriendPickerList: View {
                 Button {
                     if isSelected { selected.remove(id) } else { selected.insert(id) }
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         AvatarView(user: friend, size: 40)
                             .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(friend.shownName)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Theme.Colors.textPrimary)
                             Text("@\(friend.username)")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .textStyle(.callout)
+                                .foregroundStyle(Theme.Colors.textSecondary)
                             if isBlocked {
                                 Text("A circle can have up to \(CircleLimits.maxMembers) people")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .textStyle(.caption)
+                                    .foregroundStyle(Theme.Colors.textSecondary)
                             }
                         }
-                        Spacer(minLength: 8)
+                        Spacer(minLength: Theme.Spacing.sm)
                         Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.title3)
-                            .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                            .textStyle(.heading)
+                            .foregroundStyle(isSelected ? Theme.Colors.actionFill : Theme.Colors.textSecondary)
                             .accessibilityHidden(true)
                     }
                     .frame(minHeight: 44)
@@ -91,8 +91,8 @@ struct NewCircleSheet: View {
                     // Empty isn't an error until they try, only a disabled button.
                     if !CircleLimits.trimmed(name).isEmpty, let problem = nameProblem {
                         Label(problem.message, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.error)
                     }
                 } footer: {
                     Text("Only you can see your circles.")
@@ -101,7 +101,7 @@ struct NewCircleSheet: View {
                 Section {
                     if friends.isEmpty {
                         Text("Add friends first, then you can put them in a circle.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     FriendPickerList(friends: friends, selected: $selected, limit: CircleLimits.maxMembers)
                 } header: {
@@ -177,7 +177,7 @@ struct AddPeopleSheet: View {
                 Section {
                     if candidates.isEmpty {
                         Text("Everyone you are friends with is already in this circle.")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     FriendPickerList(friends: candidates, selected: $selected, limit: remaining)
                 } header: {

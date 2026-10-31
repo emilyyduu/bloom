@@ -305,24 +305,28 @@ extension View {
 // MARK: - Button styles
 
 struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .textStyle(.subheading)
             .foregroundStyle(Theme.Colors.onActionFill)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(Theme.Colors.actionFill, in: Capsule())
-            .opacity(configuration.isPressed ? 0.85 : 1)
+            .opacity(configuration.isPressed ? 0.85 : (isEnabled ? 1 : 0.5))
     }
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .textStyle(.subheading)
             .foregroundStyle(Theme.Colors.textPrimary)
             .frame(maxWidth: .infinity, minHeight: 52)
             .background(Theme.Colors.surfaceMuted, in: Capsule())
-            .opacity(configuration.isPressed ? 0.85 : 1)
+            .opacity(configuration.isPressed ? 0.85 : (isEnabled ? 1 : 0.5))
     }
 }
 

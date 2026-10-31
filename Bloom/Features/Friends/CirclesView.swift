@@ -20,7 +20,7 @@ struct CirclesView: View {
                 NavigationLink {
                     FriendsView()
                 } label: {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         Image(systemName: "person.2")
                             .frame(width: 28)
                             .accessibilityHidden(true)
@@ -40,7 +40,7 @@ struct CirclesView: View {
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button("Delete", role: .destructive) { circleToDelete = circle }
                         Button("Rename") { circleToRename = circle }
-                            .tint(.accentColor)
+                            .tint(Theme.Colors.actionFill)
                     }
                     .accessibilityAction(named: "Rename") { circleToRename = circle }
                     .accessibilityAction(named: "Delete") { circleToDelete = circle }
@@ -133,21 +133,21 @@ private struct CircleRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(circle.name)
-                .font(.headline)
-            HStack(spacing: 8) {
+                .textStyle(.subheading)
+            HStack(spacing: Theme.Spacing.sm) {
                 HStack(spacing: -10) {
                     ForEach(members.prefix(4)) { member in
                         AvatarView(user: member, size: 28, relativeTo: .caption)
-                            .overlay(Circle().strokeBorder(Color(.systemBackground), lineWidth: 2))
+                            .overlay(Circle().strokeBorder(Theme.Colors.surface, lineWidth: 2))
                     }
                 }
                 .accessibilityHidden(true)
                 Text("\(count) of \(CircleLimits.maxMembers)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Theme.Spacing.xs)
         .frame(minHeight: 44, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(circle.name), \(count) of \(CircleLimits.maxMembers) people")
@@ -182,8 +182,8 @@ struct RenameCircleSheet: View {
                         .frame(minHeight: 44)
                     if !CircleLimits.trimmed(name).isEmpty, let problem {
                         Label(problem.message, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                            .textStyle(.caption)
+                            .foregroundStyle(Theme.Colors.error)
                     }
                     FormErrorText(message: errorMessage)
                 }

@@ -16,7 +16,7 @@ struct FriendsView: View {
                         Spacer()
                         if !friendService.pendingIncoming.isEmpty {
                             Text("\(friendService.pendingIncoming.count)")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Theme.Colors.textSecondary)
                         }
                     }
                 }
@@ -27,14 +27,14 @@ struct FriendsView: View {
                     NavigationLink {
                         FriendProfileView(friend: friend)
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: Theme.Spacing.md) {
                             AvatarView(user: friend, size: 40)
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(friend.shownName)
                                 Text("@\(friend.username)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .textStyle(.callout)
+                                    .foregroundStyle(Theme.Colors.textSecondary)
                             }
                         }
                     }

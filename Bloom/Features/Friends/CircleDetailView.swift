@@ -51,14 +51,14 @@ struct CircleDetailView: View {
                     NavigationLink {
                         FriendProfileView(friend: member)
                     } label: {
-                        HStack(spacing: 12) {
+                        HStack(spacing: Theme.Spacing.md) {
                             AvatarView(user: member, size: 40)
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(member.shownName)
                                 Text("@\(member.username)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .textStyle(.callout)
+                                    .foregroundStyle(Theme.Colors.textSecondary)
                             }
                         }
                         .frame(minHeight: 44)
@@ -109,7 +109,7 @@ struct CircleDetailView: View {
                     Label("Add people to this circle", systemImage: "person.2")
                 } actions: {
                     Button("Add people") { isShowingAddPeople = true }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.bloomPrimary)
                 }
                 // Sits above the list's action rows without covering them.
                 .padding(.bottom, 220)

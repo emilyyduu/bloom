@@ -77,7 +77,7 @@ struct FriendProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: Theme.Spacing.xl) {
                 header
                 circleMenu
                 pinnedSection
@@ -89,14 +89,13 @@ struct FriendProfileView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(.bloomPrimary)
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
             .frame(maxWidth: 700)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(Theme.Colors.background)
         .navigationTitle(friend.shownName)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -141,8 +140,7 @@ struct FriendProfileView: View {
             Label("Add to circle", systemImage: "circle.grid.2x2")
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
+        .buttonStyle(.bloomSecondary)
     }
 
     private func isIn(_ circle: FriendCircle) -> Bool {
@@ -188,11 +186,11 @@ struct FriendProfileView: View {
 
             VStack(spacing: 2) {
                 Text(friend.shownName)
-                    .font(.title2)
+                    .textStyle(.heading)
                     .fontWeight(.bold)
                 Text("@\(friend.username)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             .multilineTextAlignment(.center)
             .accessibilityElement(children: .combine)
@@ -202,7 +200,7 @@ struct FriendProfileView: View {
     }
 
     private var pinnedSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             SectionHeader("Pinned")
                 .accessibilityAddTraits(.isHeader)
 
@@ -210,7 +208,7 @@ struct FriendProfileView: View {
             case .loading:
                 ProgressView("Loading pinned notes")
                     .frame(maxWidth: .infinity)
-                    .padding(16)
+                    .padding(Theme.Spacing.lg)
             case .permissionDenied:
                 message(
                     "You can't see this friend's notes",
@@ -218,7 +216,7 @@ struct FriendProfileView: View {
                     systemImage: "lock"
                 )
             case .failed:
-                VStack(spacing: 12) {
+                VStack(spacing: Theme.Spacing.md) {
                     message(
                         "Couldn't load pinned notes",
                         detail: "Check your connection and try again.",
@@ -240,24 +238,24 @@ struct FriendProfileView: View {
     }
 
     private func message(_ title: String, detail: String?, systemImage: String) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.sm) {
             Image(systemName: systemImage)
-                .font(.title3)
+                .textStyle(.heading)
                 .accessibilityHidden(true)
             Text(title)
-                .font(.subheadline)
+                .textStyle(.callout)
                 .fontWeight(.medium)
             if let detail {
                 Text(detail)
-                    .font(.caption)
+                    .textStyle(.caption)
             }
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Theme.Colors.textSecondary)
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
+        .padding(Theme.Spacing.lg)
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Colors.surfaceMuted))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Colors.separator, lineWidth: 1))
         .accessibilityElement(children: .combine)
     }
 }
@@ -280,18 +278,18 @@ private struct FriendPinnedNoteCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack(spacing: 6) {
                 Text(note.createdAt, format: .dateTime.day().month(.abbreviated).year())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 PinIndicator()
                 Spacer()
                 CommentBubbleButton(ownerUID: friendUID, noteID: note.id) { open(focusComments: true) }
             }
 
             Text(note.text)
-                .font(.subheadline)
+                .textStyle(.callout)
 
             if let friendUID {
                 FriendVoiceMemo(friendUID: friendUID, note: note)
@@ -301,11 +299,11 @@ private struct FriendPinnedNoteCard: View {
                 FriendNotePhoto(friendUID: friendUID, noteID: noteID)
             }
         }
-        .padding(16)
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1))
-        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .background(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).fill(Theme.Colors.surfaceMuted))
+        .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous).strokeBorder(Theme.Colors.separator, lineWidth: 1))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .onTapGesture { open(focusComments: false) }
         .sheet(item: $detail) { request in
             NoteDetailSheet(request: request)

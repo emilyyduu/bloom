@@ -20,7 +20,7 @@ struct FriendTodayView: View {
 
     var body: some View {
         content
-            .background(Color(.systemGroupedBackground))
+            .background(Theme.Colors.background)
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { startListening() }
@@ -86,7 +86,7 @@ struct FriendTodayView: View {
             }
         case .loaded:
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                     header
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(listener.notes.enumerated()), id: \.element.id) { position, note in
@@ -101,7 +101,7 @@ struct FriendTodayView: View {
                         }
                     }
                 }
-                .padding()
+                .padding(Theme.Spacing.lg)
                 .frame(maxWidth: 700, alignment: .leading)
                 .frame(maxWidth: .infinity)
             }
@@ -112,12 +112,12 @@ struct FriendTodayView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.title2)
+                .textStyle(.heading)
                 .fontWeight(.bold)
                 .accessibilityAddTraits(.isHeader)
             Text(Self.dayFormatter.string(from: listener.day.start))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding([.horizontal, .top])
@@ -162,8 +162,8 @@ struct FriendNotePhoto: View {
         Group {
             switch phase {
             case .loading:
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color(.secondarySystemBackground))
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .fill(Theme.Colors.surfaceMuted)
                     .frame(height: 180)
                     .overlay { ProgressView() }
                     .accessibilityLabel("Loading photo")
@@ -171,13 +171,13 @@ struct FriendNotePhoto: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                     .accessibilityLabel("Photo")
             case .failed:
                 Label("Photo unavailable", systemImage: "photo.badge.exclamationmark")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 8)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .padding(.vertical, Theme.Spacing.sm)
             }
         }
         .task(id: noteID) {

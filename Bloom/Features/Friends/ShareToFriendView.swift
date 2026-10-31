@@ -21,7 +21,7 @@ struct ShareToFriendView: View {
                             Spacer()
                             if sharedWith.contains(friend.id ?? "") {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(Theme.Colors.greenText)
                             }
                         }
                     }
@@ -37,8 +37,8 @@ struct ShareToFriendView: View {
                 }
 
                 FormErrorText(message: errorMessage)
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.sm)
             }
             .navigationTitle("Share Note")
             .toolbar {

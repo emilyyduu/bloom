@@ -17,7 +17,7 @@ struct RequestsView: View {
     var body: some View {
         VStack(spacing: 0) {
             segmentPicker
-                .padding()
+                .padding(Theme.Spacing.lg)
 
             Group {
                 switch segment {
@@ -29,8 +29,8 @@ struct RequestsView: View {
             }
 
             FormErrorText(message: errorMessage)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.bottom, Theme.Spacing.sm)
         }
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
@@ -146,7 +146,7 @@ private func relativeTime(since date: Date) -> String {
 // the bell's incoming-requests section.
 func rowLayout(_ dynamicTypeSize: DynamicTypeSize) -> AnyLayout {
     dynamicTypeSize.isAccessibilitySize
-        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+        ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
         : AnyLayout(HStackLayout())
 }
 
@@ -183,18 +183,18 @@ struct IncomingRequestRow: View {
     var body: some View {
         let layout = rowLayout(dynamicTypeSize)
         layout {
-            HStack(spacing: 12) {
+            HStack(spacing: Theme.Spacing.md) {
                 RequestAvatar(profile: profile, name: name)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                     if let username {
                         Text("@\(username)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.callout)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     Text(relativeTime(since: request.createdAt))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
 
@@ -224,18 +224,18 @@ private struct OutgoingRequestRow: View {
     var body: some View {
         let layout = rowLayout(dynamicTypeSize)
         layout {
-            HStack(spacing: 12) {
+            HStack(spacing: Theme.Spacing.md) {
                 RequestAvatar(profile: profile, name: name)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                     if let username {
                         Text("@\(username)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.callout)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     Text(relativeTime(since: request.createdAt))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
 
@@ -245,8 +245,8 @@ private struct OutgoingRequestRow: View {
 
             HStack {
                 Text("Pending")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                 Button("Cancel", role: .destructive) { onCancel() }
                     .buttonStyle(.bordered)
             }

@@ -28,7 +28,7 @@ struct AddByLinkSheet: View {
                 content
                     .frame(maxWidth: 500)
                     .frame(maxWidth: .infinity)
-                    .padding()
+                    .padding(Theme.Spacing.lg)
             }
             .navigationTitle("Add Friend")
             .navigationBarTitleDisplayMode(.inline)
@@ -75,12 +75,12 @@ struct AddByLinkSheet: View {
     }
 
     private func loadedContent(for user: FirestoreUser) -> some View {
-        VStack(spacing: 20) {
+        VStack(spacing: Theme.Spacing.xl) {
             AvatarView(user: user, size: 96)
-                .padding(.top, 8)
+                .padding(.top, Theme.Spacing.sm)
 
             Text("Add \(user.shownName) (@\(user.username))?")
-                .font(.title3)
+                .textStyle(.heading)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
 
@@ -99,23 +99,20 @@ struct AddByLinkSheet: View {
             } label: {
                 Text("Send friend request").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.bloomPrimary)
         case .outgoingPending:
             Button {
             } label: {
                 Text("Request sent").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
+            .buttonStyle(.bloomSecondary)
             .disabled(true)
         case .friends:
             Button {
             } label: {
                 Text("Already friends").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
+            .buttonStyle(.bloomSecondary)
             .disabled(true)
         case .incomingPending:
             Button {
@@ -123,8 +120,7 @@ struct AddByLinkSheet: View {
             } label: {
                 Text("Accept request").frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.bloomPrimary)
         }
     }
 
