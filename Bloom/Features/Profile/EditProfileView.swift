@@ -131,14 +131,28 @@ struct EditProfileView: View {
         errorMessage = nil
         Task {
             do {
-                try await Firestore.firestore().collection("users").document(uid).updateData([
+                // A changed name claims the new reservation and releases the
+                // old one in the same batch as the profile. A change of
+                // capital letters only keeps the reservation it has.
+                let db = Firestore.firestore()
+                let batch = db.batch()
+                let newLower = newUsername.lowercased()
+                let oldLower = originalUsername.lowercased()
+                if newLower != oldLower {
+                    try await UsernameService.claim(newLower, uid: uid, in: batch)
+                    try await UsernameService.release(oldLower, uid: uid, in: batch)
+                }
+                batch.updateData([
                     "displayName": newDisplayName,
                     "username": newUsername,
-                    "usernameLower": newUsername.lowercased(),
+                    "usernameLower": newLower,
                     "email": FieldValue.delete(),
-                ])
+                ], forDocument: db.collection("users").document(uid))
+                try await UsernameService.commit(batch, claiming: newLower, uid: uid)
                 onSave(newDisplayName, newUsername)
                 dismiss()
+            } catch UsernameError.taken {
+                errorMessage = UsernameError.taken.localizedDescription
             } catch {
                 errorMessage = "Couldn't save your changes. \(error.localizedDescription)"
             }

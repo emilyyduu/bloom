@@ -25,6 +25,10 @@ final class AuthService: ObservableObject {
     // root view uses this to hold back the main app until the check ends.
     @Published private(set) var isCheckingLogin = false
 
+    // Set at sign in when an older account's username is already reserved by
+    // someone else. ContentView shows a one time message, then clears it.
+    @Published var needsNewUsername = false
+
     private var handle: AuthStateDidChangeListenerHandle?
 
     private init() {
@@ -37,7 +41,10 @@ final class AuthService: ObservableObject {
             }
             self.uid = user?.uid
             self.isSignedIn = user != nil
-            if user != nil { Task { await self.removeLegacyPhoneNumber() } }
+            if user != nil {
+                Task { await self.removeLegacyPhoneNumber() }
+                Task { await self.reserveExistingUsername() }
+            }
         }
     }
 
@@ -55,6 +62,7 @@ final class AuthService: ObservableObject {
         NoteSyncService.shared.reset()
         LibrarySyncService.shared.reset()
         ProfileLinkCoordinator.shared.reset()
+        needsNewUsername = false
         ActivityStore.shared.stopListening()
         ActivityRouter.shared.reset()
         NotificationBadge.shared.clear()
@@ -211,30 +219,40 @@ final class AuthService: ObservableObject {
     // username, usernameLower and createdAt on this document (plus the
     // avatar flags). Email and phone number are never written here, they
     // stay in Firebase Authentication. displayName, username and
-    // usernameLower are always written together.
+    // usernameLower are always written together, in the same batch as the
+    // usernames/{usernameLower} reservation. Throws UsernameError.taken if
+    // someone else already has the name.
     func createUserProfile(displayName: String, username: String) async throws {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         let displayName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         let username = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = username.lowercased()
         let data: [String: Any] = [
             "displayName": displayName,
             "username": username,
-            "usernameLower": username.lowercased(),
+            "usernameLower": lower,
             "createdAt": Date(),
         ]
 
-        try await Firestore.firestore().collection("users").document(uid).setData(data, merge: true)
+        let db = Firestore.firestore()
+        let batch = db.batch()
+        try await UsernameService.claim(lower, uid: uid, in: batch)
+        batch.setData(data, forDocument: db.collection("users").document(uid), merge: true)
+        try await UsernameService.commit(batch, claiming: lower, uid: uid)
     }
 
     // Runs right after an account is created. Saves the profile, once more
     // if the first try fails. If it still can't be saved the new account is
     // deleted again, so nobody is left signed in without a profile that
-    // friends could never find, and the person can simply try again.
+    // friends could never find, and the person can simply try again. A taken
+    // username is not retried.
     func completeSignUp(displayName: String, username: String) async throws {
         do {
             do {
                 try await createUserProfile(displayName: displayName, username: username)
+            } catch UsernameError.taken {
+                throw UsernameError.taken
             } catch {
                 try await createUserProfile(displayName: displayName, username: username)
             }
@@ -243,6 +261,54 @@ final class AuthService: ObservableObject {
             try? Auth.auth().signOut()
             throw error
         }
+    }
+
+    // Accounts made before usernames were unique have no reservation. At
+    // sign in this claims the account's name if it is free. If someone else
+    // already holds it the account keeps working and needsNewUsername asks
+    // for a new one, once per account. Skips quietly when there is no profile
+    // yet (sign up is still creating it) or the server can't be reached, and
+    // tries again at the next sign in.
+    func reserveExistingUsername() async {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        let db = Firestore.firestore()
+        guard let profile = try? await db.collection("users").document(uid).getDocument(source: .server),
+              profile.exists,
+              let username = profile.get("username") as? String else { return }
+        let lower = username.lowercased()
+
+        do {
+            let holder = try await UsernameService.owner(of: lower)
+            if holder == uid { return }
+            if holder == nil {
+                let batch = db.batch()
+                batch.setData(["uid": uid, "createdAt": Date()], forDocument: UsernameService.reference(for: lower))
+                do {
+                    try await batch.commit()
+                    return
+                } catch {
+                    // Lost a race for the name, look again below.
+                    guard let holder = try await UsernameService.owner(of: lower) else { return }
+                    if holder == uid { return }
+                }
+            }
+        } catch {
+            return
+        }
+
+        // Someone else holds it. Only say so once, and only if the account
+        // is still the one that was checked.
+        guard Auth.auth().currentUser?.uid == uid,
+              !UserDefaults.standard.bool(forKey: AccountDefaults.key(AccountDefaults.usernameNoticeShownBase, uid: uid))
+        else { return }
+        needsNewUsername = true
+    }
+
+    // Called once the message has been shown, so it isn't shown again.
+    func markUsernameNoticeShown() {
+        needsNewUsername = false
+        guard let uid = uid else { return }
+        UserDefaults.standard.set(true, forKey: AccountDefaults.key(AccountDefaults.usernameNoticeShownBase, uid: uid))
     }
 
     // Earlier builds stored the verified phone number on the profile so

@@ -15,7 +15,7 @@ import FirebaseFirestore
 //   friendships              every request, accepted or not, involving me
 //   my notes                 each with its comments and reactions
 //   my other collections     photos, voice memos, avatar, circles, library, feed
-//   streaks/{uid} and users/{uid}
+//   streaks/{uid}, usernames/{my username} and users/{uid}
 // Then the Firebase user, the account's store file, voice memo and photo
 // files, covers, saved settings and cached pictures on this device.
 //
@@ -85,7 +85,14 @@ final class AccountDeletionService {
         }
         try await db.collection("streaks").document(uid).delete()
         // The profile goes last. While it exists, a retry still finds its way.
-        try await userReference.delete()
+        // Its username reservation goes in the same batch, so the name is
+        // free again exactly when the profile is gone.
+        let batch = db.batch()
+        batch.deleteDocument(userReference)
+        if let username = try await userReference.getDocument(source: .server).get("username") as? String {
+            try await UsernameService.release(username.lowercased(), uid: uid, in: batch)
+        }
+        try await batch.commit()
     }
 
     // Deletes every document a query or collection returns, a page at a time.

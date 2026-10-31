@@ -13,6 +13,8 @@ enum AccountDefaults {
     static let shareToCircleConfirmedBase = "hasConfirmedShareToCircle"
     static let pendingDeletionsBase = "pendingNoteDeletions"
     static let pendingLibraryDeletionsBase = "pendingLibraryDeletions"
+    // Set once the "pick a new username" message has been shown.
+    static let usernameNoticeShownBase = "usernameNoticeShown"
 
     // Whether this account has already seen the one time "All your
     // friends can read this note and comment on it" confirmation.

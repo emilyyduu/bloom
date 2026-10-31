@@ -60,6 +60,23 @@ service cloud.firestore {
             || (resource != null && resource.data.get('phoneNumber', null) == d.phoneNumber));
     }
 
+    // Usernames are unique through usernames/{usernameLower}, a document that
+    // holds only the owner's uid and when it was claimed. The id is the
+    // lowercase username, so "Alice" and "alice" collide.
+    function validUsernameId(name) {
+      return name.matches('^[a-z0-9_.]{3,30}$');
+    }
+
+    // True when the write being checked also leaves the reservation for the
+    // profile's username in place and owned by the signed in user. existsAfter
+    // and getAfter see the other writes of the same batch, so a profile and
+    // its reservation have to be committed together.
+    function claimsUsername(d) {
+      let reservation = /databases/$(database)/documents/usernames/$(d.username.lower());
+      return existsAfter(reservation)
+        && getAfter(reservation).data.uid == request.auth.uid;
+    }
+
     // A Library entry: required tmdbID, mediaType, title, rating and
     // loggedAt, optional year, posterPath, reviewText and noteID. A poster
     // path looks like "/abc123.jpg".
@@ -184,9 +201,18 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if signedIn();
-      allow create, update: if signedIn()
+      // A new profile has to claim its username in the same batch. An update
+      // only has to when the username (ignoring case) changes, so an older
+      // profile without a reservation can still edit its other fields.
+      allow create: if signedIn()
         && request.auth.uid == userId
-        && validProfile();
+        && validProfile()
+        && claimsUsername(request.resource.data);
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && validProfile()
+        && (resource.data.username.lower() == request.resource.data.username.lower()
+            || claimsUsername(request.resource.data));
       allow delete: if signedIn() && request.auth.uid == userId;
 
       // Notes: users/{userId}/notes/{noteId}
@@ -385,6 +411,24 @@ service cloud.firestore {
           && request.auth.uid == userId
           && validLibraryEntry();
       }
+    }
+
+    // Username reservations: usernames/{usernameLower}. Anyone signed in can
+    // look up one name (get, never list) to see whether it is free. A name can
+    // be claimed only while nobody holds it, as yourself, and is never
+    // updated. Only the holder can release it.
+    match /usernames/{name} {
+      allow get: if signedIn();
+
+      allow create: if signedIn()
+        && !exists(/databases/$(database)/documents/usernames/$(name))
+        && validUsernameId(name)
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.keys().hasAll(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
     match /friendships/{friendshipId} {

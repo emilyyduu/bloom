@@ -5,6 +5,7 @@ import { test, before, after, beforeEach, describe } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import assert from 'node:assert/strict';
 import {
   initializeTestEnvironment,
   assertFails,
@@ -25,6 +26,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -99,6 +101,24 @@ beforeEach(async () => {
 });
 
 const userDoc = (db, uid, ...rest) => doc(db, 'users', uid, ...rest);
+const reservationDoc = (db, name) => doc(db, 'usernames', name);
+const reservation = (uid, overrides = {}) => ({ uid, createdAt: ts(0), ...overrides });
+
+// Writes a profile and claims its username in one batch, like the app does.
+// The reservation is keyed by the lowercase username unless told otherwise.
+function saveProfile(db, uid, data, name = String(data.username).toLowerCase()) {
+  const batch = writeBatch(db);
+  batch.set(userDoc(db, uid), data);
+  batch.set(reservationDoc(db, name), reservation(uid));
+  return batch.commit();
+}
+
+// Puts a reservation in place without going through the rules.
+async function seedReservation(name, uid) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(reservationDoc(ctx.firestore(), name), reservation(uid));
+  });
+}
 
 function libraryEntry(overrides = {}) {
   return {
@@ -509,27 +529,27 @@ describe('profiles', () => {
   });
 
   test('owner writes their own valid profile only', async () => {
-    await assertSucceeds(setDoc(userDoc(as('erin'), 'erin'), profile()));
-    await assertFails(setDoc(userDoc(as('erin'), ALICE), profile()));
+    await assertSucceeds(saveProfile(as('erin'), 'erin', profile()));
+    await assertFails(saveProfile(as('erin'), ALICE, profile({ username: 'alice_2', usernameLower: 'alice_2' })));
   });
 
   test('username must be 3 to 30 letters, numbers, underscore or dot', async () => {
     const db = as('erin');
-    await assertFails(setDoc(userDoc(db, 'erin'), profile({ username: 'ab', usernameLower: 'ab' })));
-    await assertFails(setDoc(userDoc(db, 'erin'), profile({ username: 'bad name', usernameLower: 'bad name' })));
-    await assertFails(setDoc(userDoc(db, 'erin'), profile({ username: 'a'.repeat(31), usernameLower: 'a'.repeat(31) })));
-    await assertSucceeds(setDoc(userDoc(db, 'erin'), profile({ username: 'Er.in_9', usernameLower: 'er.in_9' })));
+    await assertFails(saveProfile(db, 'erin', profile({ username: 'ab', usernameLower: 'ab' })));
+    await assertFails(saveProfile(db, 'erin', profile({ username: 'bad name', usernameLower: 'bad name' })));
+    await assertFails(saveProfile(db, 'erin', profile({ username: 'a'.repeat(31), usernameLower: 'a'.repeat(31) })));
+    await assertSucceeds(saveProfile(db, 'erin', profile({ username: 'Er.in_9', usernameLower: 'er.in_9' })));
   });
 
   test('display name is 1 to 40 characters', async () => {
     const db = as('erin');
-    await assertFails(setDoc(userDoc(db, 'erin'), profile({ displayName: '' })));
-    await assertFails(setDoc(userDoc(db, 'erin'), profile({ displayName: 'x'.repeat(41) })));
+    await assertFails(saveProfile(db, 'erin', profile({ displayName: '' })));
+    await assertFails(saveProfile(db, 'erin', profile({ displayName: 'x'.repeat(41) })));
   });
 
   test('a new profile cannot carry a phone number', async () => {
     const token = { phone_number: '+61400000009' };
-    await assertFails(setDoc(userDoc(as('erin', token), 'erin'), profile({ phoneNumber: '61400000009' })));
+    await assertFails(saveProfile(as('erin', token), 'erin', profile({ phoneNumber: '61400000009' })));
   });
 
   test('a profile that still holds a legacy phone number can keep it unchanged or remove it, not change it', async () => {
@@ -546,6 +566,192 @@ describe('profiles', () => {
   test('a user can delete only their own profile', async () => {
     await assertFails(deleteDoc(userDoc(as(BOB), ALICE)));
     await assertSucceeds(deleteDoc(userDoc(as(ALICE), ALICE)));
+  });
+});
+
+describe('unique usernames', () => {
+  const profile = (overrides = {}) => ({
+    username: 'Erin_1', usernameLower: 'erin_1', displayName: 'Erin', createdAt: ts(0), ...overrides,
+  });
+
+  // An existing account whose username was never reserved (made before
+  // reservations existed), plus one that has its reservation.
+  async function seedLegacyAndReserved() {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(userDoc(ctx.firestore(), 'frank'), profile({ username: 'Frank_1', usernameLower: 'frank_1' }));
+      await setDoc(userDoc(ctx.firestore(), 'gina'), profile({ username: 'Gina_1', usernameLower: 'gina_1' }));
+    });
+    await seedReservation('gina_1', 'gina');
+  }
+
+  describe('reservations', () => {
+    test('a signed in user claims a free name as themselves', async () => {
+      await assertSucceeds(setDoc(reservationDoc(as('erin'), 'erin_1'), reservation('erin')));
+    });
+
+    test('a name that is taken cannot be claimed again, by anyone', async () => {
+      await seedReservation('erin_1', 'erin');
+      await assertFails(setDoc(reservationDoc(as(DAVE), 'erin_1'), reservation(DAVE)));
+      await assertFails(setDoc(reservationDoc(as('erin'), 'erin_1'), reservation('erin')));
+    });
+
+    test('a name cannot be claimed for someone else, or signed out', async () => {
+      await assertFails(setDoc(reservationDoc(as(DAVE), 'erin_1'), reservation('erin')));
+      await assertFails(setDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1'), reservation('erin')));
+    });
+
+    test('the id is 3 to 30 characters of a-z, 0-9, underscore or dot', async () => {
+      const db = as('erin');
+      for (const bad of ['ab', 'a'.repeat(31), 'Erin_1', 'er in', 'er-in', 'erin@1', 'é'.repeat(3)]) {
+        await assertFails(setDoc(reservationDoc(db, bad), reservation('erin')));
+      }
+      for (const good of ['abc', 'a'.repeat(30), 'e.r_i.n9', '000']) {
+        await assertSucceeds(setDoc(reservationDoc(db, good), reservation('erin')));
+      }
+    });
+
+    test('it holds exactly uid and createdAt', async () => {
+      const db = as('erin');
+      await assertFails(setDoc(reservationDoc(db, 'erin_1'), { uid: 'erin' }));
+      await assertFails(setDoc(reservationDoc(db, 'erin_1'), { createdAt: ts(0) }));
+      await assertFails(setDoc(reservationDoc(db, 'erin_1'), { ...reservation('erin'), extra: 1 }));
+      await assertFails(setDoc(reservationDoc(db, 'erin_1'), reservation('erin', { createdAt: 'now' })));
+      await assertFails(setDoc(reservationDoc(db, 'erin_1'), reservation(5)));
+    });
+
+    test('it can never be updated, not even by its owner', async () => {
+      await seedReservation('erin_1', 'erin');
+      const db = as('erin');
+      await assertFails(updateDoc(reservationDoc(db, 'erin_1'), { createdAt: ts(HOUR) }));
+      await assertFails(setDoc(reservationDoc(db, 'erin_1'), reservation('erin')));
+      await assertFails(updateDoc(reservationDoc(as(DAVE), 'erin_1'), { uid: DAVE }));
+    });
+
+    test('only the owner can delete it', async () => {
+      await seedReservation('erin_1', 'erin');
+      await assertFails(deleteDoc(reservationDoc(as(DAVE), 'erin_1')));
+      await assertFails(deleteDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1')));
+      await assertSucceeds(deleteDoc(reservationDoc(as('erin'), 'erin_1')));
+      await assertSucceeds(setDoc(reservationDoc(as(DAVE), 'erin_1'), reservation(DAVE)));
+    });
+
+    test('deleting a name nobody holds is refused', async () => {
+      await assertFails(deleteDoc(reservationDoc(as('erin'), 'nobody_here')));
+    });
+
+    test('a signed in user can look up one name but not list them', async () => {
+      await seedReservation('erin_1', 'erin');
+      await assertSucceeds(getDoc(reservationDoc(as(DAVE), 'erin_1')));
+      await assertSucceeds(getDoc(reservationDoc(as(DAVE), 'free_name')));
+      await assertFails(getDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1')));
+      await assertFails(getDocs(collection(as(DAVE), 'usernames')));
+    });
+  });
+
+  describe('a new profile', () => {
+    test('is created together with its reservation', async () => {
+      await assertSucceeds(saveProfile(as('erin'), 'erin', profile()));
+    });
+
+    test('cannot be created without a reservation', async () => {
+      await assertFails(setDoc(userDoc(as('erin'), 'erin'), profile()));
+    });
+
+    test('cannot claim a name someone else holds', async () => {
+      await seedReservation('erin_1', DAVE);
+      await assertFails(saveProfile(as('erin'), 'erin', profile()));
+      const db = as('erin');
+      await assertFails(setDoc(userDoc(db, 'erin'), profile()));
+    });
+
+    test('cannot hold a reservation for a different name than the profile has', async () => {
+      await assertFails(saveProfile(as('erin'), 'erin', profile(), 'other_name'));
+    });
+
+    test('is refused when the matching reservation belongs to someone else, even in the same batch', async () => {
+      const db = as('erin');
+      const batch = writeBatch(db);
+      batch.set(userDoc(db, 'erin'), profile());
+      batch.set(reservationDoc(db, 'erin_1'), reservation(DAVE));
+      await assertFails(batch.commit());
+    });
+
+    test('is matched ignoring case, so Alice and alice collide', async () => {
+      await seedReservation('erin_1', DAVE);
+      await assertFails(saveProfile(as('erin'), 'erin', profile({ username: 'ERIN_1', usernameLower: 'erin_1' })));
+    });
+
+    test('usernameLower must still be the lowercase username', async () => {
+      await assertFails(saveProfile(as('erin'), 'erin', profile({ usernameLower: 'something_else' })));
+    });
+  });
+
+  describe('changing a username', () => {
+    test('claims the new name and releases the old one in one batch', async () => {
+      await seedLegacyAndReserved();
+      const db = as('gina');
+      const batch = writeBatch(db);
+      batch.update(userDoc(db, 'gina'), { username: 'Gina_2', usernameLower: 'gina_2' });
+      batch.set(reservationDoc(db, 'gina_2'), reservation('gina'));
+      batch.delete(reservationDoc(db, 'gina_1'));
+      await assertSucceeds(batch.commit());
+      await assertSucceeds(getDoc(reservationDoc(db, 'gina_2')));
+      assert.equal((await getDoc(reservationDoc(db, 'gina_1'))).exists(), false);
+      await assertSucceeds(setDoc(reservationDoc(as(DAVE), 'gina_1'), reservation(DAVE)));
+    });
+
+    test('is refused without claiming the new name', async () => {
+      await seedLegacyAndReserved();
+      await assertFails(updateDoc(userDoc(as('gina'), 'gina'), { username: 'Gina_2', usernameLower: 'gina_2' }));
+    });
+
+    test('is refused when someone else holds the new name', async () => {
+      await seedLegacyAndReserved();
+      await seedReservation('gina_2', DAVE);
+      const db = as('gina');
+      const batch = writeBatch(db);
+      batch.update(userDoc(db, 'gina'), { username: 'Gina_2', usernameLower: 'gina_2' });
+      batch.set(reservationDoc(db, 'gina_2'), reservation('gina'));
+      await assertFails(batch.commit());
+      await assertFails(updateDoc(userDoc(db, 'gina'), { username: 'Gina_2', usernameLower: 'gina_2' }));
+    });
+
+    test('cannot slip a new username past the check by leaving usernameLower alone', async () => {
+      await seedLegacyAndReserved();
+      await assertFails(updateDoc(userDoc(as('gina'), 'gina'), { username: 'Gina_2' }));
+    });
+
+    test('changing only the capital letters needs no new reservation', async () => {
+      await seedLegacyAndReserved();
+      await assertSucceeds(updateDoc(userDoc(as('gina'), 'gina'), { username: 'GINA_1', usernameLower: 'gina_1' }));
+    });
+
+    test('an older profile with no reservation can still edit its other fields', async () => {
+      await seedLegacyAndReserved();
+      await assertSucceeds(updateDoc(userDoc(as('frank'), 'frank'), { displayName: 'Frank F' }));
+      await assertSucceeds(updateDoc(userDoc(as('frank'), 'frank'), { hasAvatar: true, avatarUpdatedAt: ts(0) }));
+    });
+
+    test('an older profile can claim its own name, but not one someone else holds', async () => {
+      await seedLegacyAndReserved();
+      await assertSucceeds(setDoc(reservationDoc(as('frank'), 'frank_1'), reservation('frank')));
+      await seedReservation('henry_1', 'henry');
+      await assertFails(setDoc(reservationDoc(as('frank'), 'henry_1'), reservation('frank')));
+    });
+
+    test('an older profile can move to a new name without releasing one it never held', async () => {
+      await seedLegacyAndReserved();
+      const db = as('frank');
+      const batch = writeBatch(db);
+      batch.update(userDoc(db, 'frank'), { username: 'Frank_2', usernameLower: 'frank_2' });
+      batch.set(reservationDoc(db, 'frank_2'), reservation('frank'));
+      await assertSucceeds(batch.commit());
+    });
+
+    test('nobody can release someone else\'s name', async () => {
+      await seedLegacyAndReserved();
+      await assertFails(deleteDoc(reservationDoc(as('frank'), 'gina_1')));
+    });
   });
 });
 

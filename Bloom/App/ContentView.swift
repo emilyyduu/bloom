@@ -18,6 +18,7 @@ struct ContentView: View {
     @StateObject private var linkCoordinator = ProfileLinkCoordinator.shared
     @StateObject private var router = ActivityRouter.shared
     @StateObject private var activity = ActivityStore.shared
+    @ObservedObject private var auth = AuthService.shared
     @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     // Per account, see AccountDefaults.
@@ -100,6 +101,13 @@ struct ContentView: View {
                         ActivityDestinationSheet(destination: destination)
                     }
                 }
+        }
+        // Older accounts whose username someone else already holds keep
+        // working, and are asked once to pick another.
+        .alert("Pick a new username", isPresented: $auth.needsNewUsername) {
+            Button("OK") { auth.markUsernameNoticeShown() }
+        } message: {
+            Text("Someone else already has your username. Open Profile, then Edit Profile, to choose a new one.")
         }
         // Reserves space above the tab bar for the "Saved to Drafts"
         // banner rather than overlaying it, so the tab bar is never
