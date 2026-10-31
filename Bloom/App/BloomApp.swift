@@ -16,7 +16,10 @@ struct BloomApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if let uid = authService.uid {
+                // While a phone log in is being checked the main app waits and
+                // WelcomeView stays mounted, so the verify screen keeps its
+                // state and can show an error if the check fails.
+                if let uid = authService.uid, !authService.isCheckingLogin {
                     // One store file per account. The id makes SwiftUI
                     // rebuild the whole signed-in UI when the account
                     // changes, so every @Query and the environment
@@ -24,6 +27,11 @@ struct BloomApp: App {
                     signedInContent(uid: uid)
                 } else {
                     WelcomeView()
+                }
+            }
+            .overlay {
+                if authService.isCheckingLogin {
+                    CheckingAccountView()
                 }
             }
             .preferredColorScheme((AppAppearance(rawValue: appearanceRawValue) ?? .system).colorScheme)
@@ -53,6 +61,19 @@ struct BloomApp: App {
         } catch {
             return nil
         }
+    }
+}
+
+private struct CheckingAccountView: View {
+    var body: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            ProgressView()
+            Text("Checking your account")
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.Colors.background)
     }
 }
 

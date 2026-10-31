@@ -80,9 +80,16 @@ struct PhoneVerificationView: View {
 
     private func verify() {
         performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
-            try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
             if isNewAccount {
+                try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
                 try await AuthService.shared.completeSignUp(displayName: displayName, username: username)
+            } else {
+                do {
+                    try await AuthService.shared.confirmPhoneLogin(verificationID: verificationID, code: code)
+                } catch AuthService.LoginCheckError.noAccount {
+                    code = ""
+                    throw AuthService.LoginCheckError.noAccount
+                }
             }
         }
     }

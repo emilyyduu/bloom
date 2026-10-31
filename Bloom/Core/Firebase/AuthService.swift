@@ -20,6 +20,11 @@ final class AuthService: ObservableObject {
     // signed-in UI and its per account SwiftData store on this.
     @Published private(set) var uid: String?
 
+    // True while a phone log in is checking that the account has a profile.
+    // Firebase signs the person in as soon as the code is accepted, so the
+    // root view uses this to hold back the main app until the check ends.
+    @Published private(set) var isCheckingLogin = false
+
     private var handle: AuthStateDidChangeListenerHandle?
 
     private init() {
@@ -90,6 +95,47 @@ final class AuthService: ObservableObject {
             verificationCode: code
         )
         try await Auth.auth().signIn(with: credential)
+    }
+
+    enum LoginCheckError: LocalizedError {
+        case noAccount
+        case couldNotCheck
+
+        var errorDescription: String? {
+            switch self {
+            case .noAccount:
+                return "There's no Bloom account for this number. Go back and sign up."
+            case .couldNotCheck:
+                return "Couldn't check your account. Check your connection and try again."
+            }
+        }
+    }
+
+    // Confirms a code for a log in (not a sign up). Firebase creates a user
+    // for any verified number, so this then checks that users/{uid} exists.
+    // A number that never signed up has its new Auth user deleted again, and
+    // if the check can't be made the person is just signed out.
+    func confirmPhoneLogin(verificationID: String, code: String) async throws {
+        isCheckingLogin = true
+        defer { isCheckingLogin = false }
+
+        try await confirmPhoneCode(verificationID: verificationID, code: code)
+        guard let user = Auth.auth().currentUser else { throw LoginCheckError.couldNotCheck }
+
+        let snapshot: DocumentSnapshot
+        do {
+            snapshot = try await Firestore.firestore().collection("users").document(user.uid)
+                .getDocument(source: .server)
+        } catch {
+            try? Auth.auth().signOut()
+            throw LoginCheckError.couldNotCheck
+        }
+
+        if !snapshot.exists {
+            try? await user.delete()
+            try? Auth.auth().signOut()
+            throw LoginCheckError.noAccount
+        }
     }
 
     // Email
