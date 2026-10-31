@@ -27,10 +27,7 @@ struct AboutView: View {
     private var headerSection: some View {
         Section {
             VStack(spacing: Theme.Spacing.sm) {
-                Image(systemName: "leaf.fill")
-                    .textStyle(.display)
-                    .foregroundStyle(Theme.Colors.blooming)
-                    .accessibilityHidden(true)
+                BrandMark()
                 Text(AppInfo.appName)
                     .textStyle(.display)
                     .accessibilityAddTraits(.isHeader)

@@ -10,9 +10,6 @@ struct WelcomeView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var plantsVisible = false
 
-    @ScaledMetric(relativeTo: .largeTitle) private var badgeSize: CGFloat = 96
-    @ScaledMetric(relativeTo: .largeTitle) private var badgeIconSize: CGFloat = 44
-
     var body: some View {
         GeometryReader { proxy in
             ScrollView {
@@ -20,8 +17,6 @@ struct WelcomeView: View {
                     Spacer(minLength: Theme.Spacing.xl)
                     brand
                     Spacer(minLength: Theme.Spacing.xl)
-                    plantRow
-                    Spacer(minLength: Theme.Spacing.xxl)
                     actions
                 }
                 .padding(.horizontal, Theme.Spacing.xxl)
@@ -61,14 +56,7 @@ struct WelcomeView: View {
 
     private var brand: some View {
         VStack(spacing: Theme.Spacing.md) {
-            ZStack {
-                Circle().fill(Theme.Colors.actionFill)
-                Image(systemName: "leaf.fill")
-                    .font(.system(size: badgeIconSize))
-                    .foregroundStyle(Theme.Colors.onActionFill)
-            }
-            .frame(width: badgeSize, height: badgeSize)
-            .accessibilityHidden(true)
+            BrandMark(onFill: true)
 
             Text("Bloom")
                 .textStyle(.display)
@@ -82,18 +70,6 @@ struct WelcomeView: View {
                 .padding(.top, Theme.Spacing.xs)
         }
         .multilineTextAlignment(.center)
-    }
-
-    // Seedling, leaf, flower. Purely decorative, so VoiceOver skips it,
-    // and with Reduce Motion on it is simply shown without fading in.
-    private var plantRow: some View {
-        HStack(alignment: .bottom, spacing: Theme.Spacing.xxl) {
-            plant("sprout.fill", size: .heading)
-            plant("leaf.fill", size: .title)
-            plant("camera.macro", size: .display)
-        }
-        .opacity(plantsVisible ? 1 : 0)
-        .accessibilityHidden(true)
     }
 
     private func plant(_ name: String, size: Theme.TextStyle) -> some View {
