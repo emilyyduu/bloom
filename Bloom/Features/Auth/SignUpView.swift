@@ -14,6 +14,7 @@ struct SignUpView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var verificationID: String?
+    @State private var hasAgreed = false
 
     // Only shown once something is typed, like the username error, so
     // an untouched form isn't covered in red.
@@ -98,6 +99,14 @@ struct SignUpView: View {
                     }
                 }
 
+                Section {
+                    Toggle(isOn: $hasAgreed) {
+                        Text(LegalLinks.agreementText)
+                            .textStyle(.callout)
+                    }
+                    .accessibilityIdentifier("signUp.agree")
+                }
+
                 AuthErrorText(message: errorMessage)
                     .accessibilityIdentifier("signUp.error")
             }
@@ -130,6 +139,10 @@ struct SignUpView: View {
     }
 
     private func submit() {
+        guard hasAgreed else {
+            errorMessage = LegalLinks.agreementRequiredMessage
+            return
+        }
         performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
             switch method {
             case .phone:
