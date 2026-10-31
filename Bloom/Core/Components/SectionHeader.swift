@@ -5,8 +5,8 @@ import SwiftUI
 // reads at nearly the same size and weight as the row text beneath it
 // once Dynamic Type grows, which breaks the hierarchy between screen
 // title, row text and section header. This keeps the header clearly
-// secondary at every size, since it's still a real text style
-// (.subheadline) rather than a fixed point size.
+// secondary at every size, since it's still a scaling text style
+// (.callout) rather than a fixed point size.
 struct SectionHeader: View {
     let title: String
 
@@ -16,9 +16,9 @@ struct SectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.subheadline)
+            .textStyle(.callout)
             .fontWeight(.semibold)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.Colors.textSecondary)
     }
 }
 

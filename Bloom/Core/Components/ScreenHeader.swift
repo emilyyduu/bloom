@@ -31,27 +31,27 @@ struct ScreenHeader<Trailing: View>: View {
     // squeezed into a shrinking sliver beside it.
     private var layout: AnyLayout {
         dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Spacing.sm))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.sm))
     }
 
     var body: some View {
         layout {
             Text(title)
-                .font(isCompactHeight ? Theme.Fonts.screenTitleCompact : Theme.Fonts.screenTitle)
+                .textStyle(isCompactHeight ? .heading : .title)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
 
             if dynamicTypeSize.isAccessibilitySize {
                 trailing()
             } else {
-                Spacer(minLength: 8)
+                Spacer(minLength: Theme.Spacing.sm)
                 trailing()
             }
         }
-        .padding(.horizontal)
-        .padding(.top, isCompactHeight ? 8 : 10)
-        .padding(.bottom, isCompactHeight ? 8 : 0)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.top, isCompactHeight ? Theme.Spacing.sm : 10)
+        .padding(.bottom, isCompactHeight ? Theme.Spacing.sm : 0)
         // Intentionally transparent: this component doesn't know what
         // kind of content sits below it (a List's grouped grey, a plain
         // ScrollView's system background, and so on), so it never paints
