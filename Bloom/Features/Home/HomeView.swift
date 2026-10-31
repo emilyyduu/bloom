@@ -35,8 +35,8 @@ struct HomeView: View {
     // inside the one ScrollView so scroll position survives rotation.
     private var columnsLayout: AnyLayout {
         isCompactHeight
-            ? AnyLayout(HStackLayout(alignment: .top, spacing: 20))
-            : AnyLayout(VStackLayout(spacing: 28))
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: Theme.Spacing.xl))
+            : AnyLayout(VStackLayout(spacing: Theme.Spacing.xxl))
     }
 
     private var dateTitle: String {
@@ -110,8 +110,8 @@ struct HomeView: View {
                 }
 
                 streakLine
-                    .padding(.horizontal)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.md)
 
                 ScrollView {
                     columnsLayout {
@@ -120,15 +120,16 @@ struct HomeView: View {
                         friendsSection
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 24)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.xl)
                 }
                 .refreshable {
                     friendJournalService.syncListeners(for: friendUIDsForTileRefresh)
                     await friendJournalService.refreshLatestNotes(for: friendUIDsForTileRefresh)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .foregroundStyle(Theme.Colors.textPrimary)
+            .background(Theme.Colors.background)
             .navigationTitle(dateTitle)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $isShowingComposer) {
@@ -196,20 +197,17 @@ struct HomeView: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "bell")
-                    .font(.title3)
                 if unseenCount > 0 {
                     Text(unseenCount > 9 ? "9+" : "\(unseenCount)")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(Color.red))
-                        .offset(x: 8, y: -6)
+                        .textStyle(.label)
+                        .foregroundStyle(Theme.Colors.textOnColor)
+                        .padding(.horizontal, Theme.Spacing.xs)
+                        .background(Theme.Palette.red, in: Capsule())
+                        .offset(x: Theme.Spacing.sm, y: -Theme.Spacing.xs)
                 }
             }
-            .frame(minWidth: 44, minHeight: 44)
         }
+        .buttonStyle(.bloomCircle)
         .accessibilityLabel("Notifications")
         .accessibilityValue(unseenCount > 0 ? "\(unseenCount) new" : "")
     }
@@ -219,8 +217,8 @@ struct HomeView: View {
             selectedTab = .greenhouse
         } label: {
             Text("Streaks: \(currentStreak) day\(currentStreak == 1 ? "" : "s")")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .buttonStyle(.plain)
     }
@@ -246,23 +244,23 @@ struct HomeView: View {
     }
 
     private var emptyTimelineState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             Text("No notes yet today")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+                .textStyle(.subheading)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Button("Add Note") {
                 isShowingComposer = true
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bloomPrimary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
+        .padding(.vertical, Theme.Spacing.xxl)
     }
 
     // MARK: - Friends
 
     private var friendsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             SectionHeader("Friends’ notes today")
                 .accessibilityAddTraits(.isHeader)
 
@@ -274,10 +272,10 @@ struct HomeView: View {
                 }
                 if displayedFriends.isEmpty {
                     Text("No friends in \(circleStore.homeFilterCircle?.name ?? "this circle") yet")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.callout)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, Theme.Spacing.lg)
                 } else {
                     friendsGrid
                 }
@@ -289,7 +287,7 @@ struct HomeView: View {
     // heavier weight as well as a tint. Saved per account.
     private var circleChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: Theme.Spacing.sm) {
                 FilterChip(title: "All", isSelected: circleStore.homeFilterCircle == nil) {
                     circleStore.selectHomeFilter(nil)
                 }
@@ -305,7 +303,7 @@ struct HomeView: View {
     }
 
     private var friendsGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: minFriendTileWidth), spacing: 12)], spacing: 12) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: minFriendTileWidth), spacing: Theme.Spacing.md)], spacing: Theme.Spacing.md) {
             ForEach(sortedFriendTiles) { tile in
                 FriendTile(
                     friend: tile.friend,
@@ -327,18 +325,18 @@ struct HomeView: View {
     }
 
     private var emptyFriendsState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Theme.Spacing.md) {
             Text("Add friends to see what they share")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Add Friend") {
                 isShowingAddFriend = true
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bloomPrimary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
+        .padding(.vertical, Theme.Spacing.lg)
     }
 }
 
@@ -356,26 +354,25 @@ private struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
+            HStack(spacing: Theme.Spacing.xs) {
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.caption)
-                        .fontWeight(.bold)
+                        .textStyle(.label)
                         .accessibilityHidden(true)
                 }
                 Text(title)
-                    .font(.subheadline)
+                    .textStyle(.callout)
                     .fontWeight(isSelected ? .bold : .regular)
                     .lineLimit(1)
             }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 14)
+            .foregroundStyle(Theme.Colors.textPrimary)
+            .padding(.horizontal, Theme.Spacing.md)
             .frame(minHeight: 44)
             .background(
-                Capsule().fill(isSelected ? Color.accentColor.opacity(0.18) : Color(.secondarySystemBackground))
+                Capsule().fill(isSelected ? Theme.Palette.greenTint : Theme.Colors.surfaceMuted)
             )
             .overlay(
-                Capsule().strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1.5)
+                Capsule().strokeBorder(isSelected ? Theme.Colors.actionFill : Color.clear, lineWidth: 1.5)
             )
             .contentShape(Capsule())
         }
@@ -431,7 +428,7 @@ private struct FriendTile: View {
     let onOpenNote: () -> Void
     let onOpenProfile: () -> Void
 
-    private static let tilePadding: CGFloat = 12
+    private static let tilePadding: CGFloat = Theme.Spacing.md
     private static let minHitSize: CGFloat = 44
 
     @ScaledMetric(relativeTo: .caption) private var avatarSize: CGFloat = 24
@@ -454,25 +451,22 @@ private struct FriendTile: View {
     // A load that failed says so and offers Retry. It never reads as
     // "Nothing shared today", since that would be a guess.
     private var failedTile: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.sm) {
             AvatarView(user: friend, size: 40)
             Text(friend.shownName)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .textStyle(.callout)
                 .multilineTextAlignment(.center)
             Text(loadState.message ?? "Couldn\u{2019}t load")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
             Button("Retry", action: onRetry)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .frame(minHeight: 44)
+                .buttonStyle(.bloomSecondary)
         }
         .padding(Self.tilePadding)
         .frame(maxWidth: .infinity, minHeight: 140)
         .background(background)
         .overlay(border)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Open profile", onOpenProfile)
     }
@@ -511,7 +505,7 @@ private struct FriendTile: View {
             .frame(maxWidth: .infinity, minHeight: 140, alignment: sharedNote != nil ? .topLeading : .center)
             .background(background)
             .overlay(border)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -521,25 +515,24 @@ private struct FriendTile: View {
 
     @ViewBuilder
     private func sharedContent(_ note: FriendNote) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             // Always from today, so the time is enough.
             Text(timeString(note.createdAt))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
             Text(note.text)
-                .font(.subheadline)
+                .textStyle(.callout)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 6) {
+            HStack(spacing: Theme.Spacing.xs) {
                 Spacer()
                 Text(friend.shownName)
-                    .font(.caption)
-                    .fontWeight(.medium)
+                    .textStyle(.caption)
                     .lineLimit(1)
                 // The real avatar is the button layered above the tile.
                 Color.clear
@@ -549,33 +542,33 @@ private struct FriendTile: View {
     }
 
     private var emptyContent: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Spacing.sm) {
             AvatarView(user: friend, size: 40)
             VStack(spacing: 0) {
                 Text(friend.shownName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .textStyle(.callout)
                 Text("@\(friend.username)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             .multilineTextAlignment(.center)
             Text(loadState == .loading ? "Loading" : "Nothing shared today")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity)
     }
 
     private var background: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(sharedNote != nil ? Color.accentColor.opacity(0.14) : Color(.systemBackground))
+        RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+            .fill(sharedNote != nil ? Theme.Palette.greenTint : Theme.Colors.surface)
     }
 
     @ViewBuilder
     private var border: some View {
         if sharedNote == nil {
-            RoundedRectangle(cornerRadius: 16).strokeBorder(Color(.separator), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous)
+                .strokeBorder(Theme.Colors.separator, lineWidth: 1)
         }
     }
 
