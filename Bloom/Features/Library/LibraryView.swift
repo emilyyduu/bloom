@@ -214,6 +214,8 @@ struct LibraryOptionsMenus: View {
 // movie and show the user has logged.
 struct LibraryView: View {
     @Binding var options: LibraryOptions
+    // Opens the same search as the magnifying glass in the header.
+    var onAddMedia: () -> Void = {}
 
     @Query(sort: \MediaLogEntry.loggedAt, order: .reverse) private var entries: [MediaLogEntry]
     @State private var selectedEntry: MediaLogEntry?
@@ -226,7 +228,7 @@ struct LibraryView: View {
     }
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: minimumColumnWidth), spacing: Theme.Spacing.lg)]
+        [GridItem(.adaptive(minimum: minimumColumnWidth), spacing: Theme.Spacing.lg, alignment: .top)]
     }
 
     var body: some View {
@@ -235,11 +237,17 @@ struct LibraryView: View {
 
         Group {
             if visible.isEmpty {
-                ContentUnavailableView(
-                    "Nothing logged yet",
-                    systemImage: "film",
-                    description: Text("Movies and shows you log will show up here.")
-                )
+                VStack(spacing: 0) {
+                    LazyVGrid(columns: columns, spacing: Theme.Spacing.xl) {
+                        AddMediaTile(action: onAddMedia)
+                    }
+                    .padding(Theme.Spacing.lg)
+                    ContentUnavailableView(
+                        "Nothing logged yet",
+                        systemImage: "film",
+                        description: Text("Movies and shows you log will show up here.")
+                    )
+                }
             } else {
                 VStack(spacing: 0) {
                     if options.hasActiveFilters {
@@ -267,6 +275,8 @@ struct LibraryView: View {
     private func grid(of shown: [MediaLogEntry]) -> some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: Theme.Spacing.xl) {
+                AddMediaTile(action: onAddMedia)
+
                 ForEach(shown) { entry in
                     Button {
                         selectedEntry = entry
@@ -357,6 +367,34 @@ struct LibraryView: View {
         Button("Clear all") { options.clearFilters() }
             .textStyle(.callout)
             .frame(minHeight: 44)
+    }
+}
+
+// A blank poster sized slot with a plus, always first in the grid, so
+// adding a movie or show is one tap away.
+private struct AddMediaTile: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .textStyle(.heading)
+                .foregroundStyle(Theme.Colors.greenText)
+                .frame(height: 150)
+                .frame(maxWidth: .infinity)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                        .fill(Theme.Colors.surfaceMuted)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                        .strokeBorder(Theme.Colors.separator, lineWidth: 1)
+                )
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Log a movie or show")
+        .accessibilityHint("Searches for a movie or show to add")
     }
 }
 

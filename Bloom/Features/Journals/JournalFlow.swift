@@ -69,6 +69,7 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+        .background(Theme.Colors.background)
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
@@ -137,6 +138,7 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+        .background(Theme.Colors.background)
         .navigationTitle(JournalFormat.year(year))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -218,6 +220,7 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
             .frame(maxWidth: 600)
             .frame(maxWidth: .infinity)
         }
+        .background(Theme.Colors.background)
         // The month and year are already the header between the arrows, so
         // the bar only carries the back button.
         .navigationTitle("")
@@ -504,6 +507,7 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
             .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+        .background(Theme.Colors.background)
         .navigationTitle(JournalFormat.dayHeader(day.date(calendar: model.index.calendar)))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $detail) { request in

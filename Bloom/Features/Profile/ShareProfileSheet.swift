@@ -56,6 +56,7 @@ struct ShareProfileSheet: View {
                 .frame(maxWidth: 700)
                 .frame(maxWidth: .infinity)
             }
+            .background(Theme.Colors.background)
             .navigationTitle("Share Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

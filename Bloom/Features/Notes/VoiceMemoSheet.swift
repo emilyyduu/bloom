@@ -33,6 +33,7 @@ struct VoiceMemoSheet: View {
                 .frame(maxWidth: .infinity)
                 .padding(Theme.Spacing.lg)
             }
+            .background(Theme.Colors.background)
             .navigationTitle("Voice Memo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

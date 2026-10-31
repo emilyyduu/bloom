@@ -30,6 +30,7 @@ struct AddByLinkSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(Theme.Spacing.lg)
             }
+            .background(Theme.Colors.background)
             .navigationTitle("Add Friend")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

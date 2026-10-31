@@ -179,6 +179,7 @@ struct JournalCoverSheet: View {
                 .frame(maxWidth: 500)
                 .frame(maxWidth: .infinity)
             }
+            .background(Theme.Colors.background)
             .navigationTitle("Edit cover")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -62,14 +62,29 @@ struct TodaysNotesView: View {
     }
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No notes today", systemImage: "note.text")
-        } description: {
-            Text("Notes you add today will appear here.")
-        } actions: {
+        // Built by hand rather than ContentUnavailableView, which shrinks
+        // its button to the label. The button fills the width instead.
+        VStack(spacing: Theme.Spacing.lg) {
+            VStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "note.text")
+                    .textStyle(.display)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .accessibilityHidden(true)
+                Text("No notes today")
+                    .textStyle(.heading)
+                Text("Notes you add today will appear here.")
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            .multilineTextAlignment(.center)
+            .accessibilityElement(children: .combine)
+
             Button("Add note") { isShowingComposer = true }
                 .buttonStyle(.bloomPrimary)
         }
+        .padding(.horizontal, Theme.Spacing.screenEdge)
+        .frame(maxWidth: 400)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: Carousel

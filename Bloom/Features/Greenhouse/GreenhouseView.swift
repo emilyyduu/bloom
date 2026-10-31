@@ -101,6 +101,7 @@ struct GreenhouseView: View {
                     }
                 }
             }
+            .background(Theme.Colors.background)
             .navigationTitle("Greenhouse")
             .toolbar(.hidden, for: .navigationBar)
             .task {

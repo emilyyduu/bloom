@@ -77,12 +77,13 @@ struct JournalView: View {
                     case .todaysNotes:
                         TodaysNotesView()
                     case .library:
-                        LibraryView(options: $libraryOptions)
+                        LibraryView(options: $libraryOptions, onAddMedia: { isShowingMediaSearch = true })
                     }
                 }
                 .frame(maxWidth: isCompactHeight ? 700 : .infinity)
                 .frame(maxWidth: .infinity)
             }
+            .background(Theme.Colors.background)
             .navigationTitle(segment.rawValue)
             .toolbar(.hidden, for: .navigationBar)
             .onChange(of: libraryOptions) { _, newValue in
