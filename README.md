@@ -117,6 +117,27 @@ Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentic
 | `streaks/{uid}` | A person's current streak and last post date, read by friends for the garden |
 | `sharedNotes/{id}` | Retired. The app no longer reads or writes it. Delete the collection in the Firebase console |
 
+## Firestore rules
+
+The rules are in `firestore.rules`, with `firebase.json` and `firestore.indexes.json` beside it. The emulator tests are in `rules-tests/`.
+
+Run the rule tests (needs Node and Java; the first run downloads the Firestore emulator):
+
+```
+cd rules-tests
+npm install
+npm test
+```
+
+Deploy the rules and the index after the tests pass (log in once with `npx firebase login`, run from the repo root):
+
+```
+cd rules-tests
+npx firebase deploy --only firestore:rules,firestore:indexes --config ../firebase.json --project bloom-726b7
+```
+
+What the rules enforce for friends: an accepted friend can read a shared note only if it is pinned or was created in the last 30 hours, and the same goes for its photo, voice memo, comments and reactions. The app narrows this to the viewer's calendar day, which a rule cannot know. Three tests are marked todo: any signed in user can still list `users` and read `phoneNumber`. Those need an app change.
+
 ## Running the tests
 
 - Press **Cmd+U** to run everything

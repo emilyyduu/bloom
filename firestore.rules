@@ -1,0 +1,332 @@
+rules_version = '2';
+
+// Bloom Firestore rules. Edit here, run the emulator tests in rules-tests/,
+// then deploy with `firebase deploy --only firestore:rules`.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // True if a friendship from -> to exists and has been accepted.
+    function isAccepted(from, to) {
+      return exists(/databases/$(database)/documents/friendships/$(from + '_' + to))
+        && get(/databases/$(database)/documents/friendships/$(from + '_' + to)).data.status == 'accepted';
+    }
+
+    function areFriends(a, b) {
+      return isAccepted(a, b) || isAccepted(b, a);
+    }
+
+    // What an accepted friend may see of a note: it must be shared with
+    // friends, and either pinned or created recently. The app shows friends
+    // only the viewer's current calendar day, which a rule cannot know, so the
+    // window is 30 hours: enough for the longest local day plus clock drift,
+    // and far short of "every shared note ever".
+    function friendVisible(note) {
+      return note.sharedWithFriends == true
+        && (('isPinned' in note && note.isPinned == true)
+            || note.createdAt > request.time - duration.value(30, 'h'));
+    }
+
+    // True if the owner's note exists and a friend may see it.
+    function noteIsShared(ownerId, noteId) {
+      return exists(/databases/$(database)/documents/users/$(ownerId)/notes/$(noteId))
+        && friendVisible(get(/databases/$(database)/documents/users/$(ownerId)/notes/$(noteId)).data);
+    }
+
+    // A profile: username, display name, avatar flags, creation time, and
+    // optionally the phone number this user verified by SMS.
+    function validProfile() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['username', 'usernameLower', 'displayName', 'phoneNumber', 'createdAt', 'hasAvatar', 'avatarUpdatedAt'])
+        && d.keys().hasAll(['username', 'createdAt'])
+        && d.username is string
+        && d.username.size() >= 3
+        && d.username.size() <= 30
+        && d.username.matches('^[A-Za-z0-9_.]+$')
+        && (!('usernameLower' in d) || d.usernameLower == d.username.lower())
+        && (!('displayName' in d)
+            || (d.displayName is string
+                && d.displayName.size() >= 1
+                && d.displayName.size() <= 40))
+        && (!('hasAvatar' in d) || d.hasAvatar is bool)
+        && (!('avatarUpdatedAt' in d) || d.avatarUpdatedAt is timestamp)
+        && d.createdAt is timestamp
+        && (!('phoneNumber' in d)
+            || ('phone_number' in request.auth.token
+                && d.phoneNumber == request.auth.token.phone_number.replace('[+]', '')));
+    }
+
+    function validNote() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['text', 'createdAt', 'isDraft', 'updatedAt', 'sharedWithFriends', 'hasPhoto', 'hasAudio', 'audioSeconds', 'isPinned', 'pinnedAt'])
+        && d.keys().hasAll(['text', 'createdAt', 'isDraft', 'updatedAt', 'sharedWithFriends'])
+        && d.text is string
+        && d.text.size() <= 20000
+        && d.createdAt is timestamp
+        && d.updatedAt is timestamp
+        && d.isDraft is bool
+        && d.sharedWithFriends is bool
+        && (!('hasPhoto' in d) || d.hasPhoto is bool)
+        && (!('hasAudio' in d) || d.hasAudio is bool)
+        && (!('audioSeconds' in d)
+            || (d.audioSeconds is int && d.audioSeconds >= 0 && d.audioSeconds <= 120))
+        && (!('isPinned' in d) || d.isPinned is bool)
+        && (!('pinnedAt' in d) || d.pinnedAt is timestamp)
+        && (d.get('isPinned', false) == false || d.isDraft == false)
+        && (d.isDraft == false || d.sharedWithFriends == false);
+    }
+
+    // The ids ActivityWriter uses, so a friend cannot write arbitrary
+    // documents into someone's feed. Each type also has to say who it is
+    // about, and a note or reaction has to come from the right person.
+    function validActivity(activityId, userId) {
+      let d = request.resource.data;
+      return (d.type == 'note'
+              && d.get('noteOwnerUID', '') == request.auth.uid
+              && d.get('noteId', null) is string
+              && activityId == 'note_' + d.noteId)
+        || (d.type == 'comment'
+              && d.get('noteOwnerUID', null) is string
+              && d.get('noteId', null) is string
+              && (activityId.matches('comment_.+') || activityId.matches('reply_.+')))
+        || (d.type == 'reaction'
+              && d.get('noteOwnerUID', null) == userId
+              && d.get('noteId', null) is string
+              && activityId == 'reaction_' + d.noteId + '_' + request.auth.uid)
+        || (d.type == 'accepted'
+              && activityId == 'accepted_' + request.auth.uid);
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && validProfile();
+      allow delete: if signedIn() && request.auth.uid == userId;
+
+      // Notes: users/{userId}/notes/{noteId}
+      match /notes/{noteId} {
+        // The owner can always read. Accepted friends can read only
+        // notes the owner has shared that are recent or pinned.
+        allow read: if signedIn()
+          && (request.auth.uid == userId
+              || (friendVisible(resource.data)
+                  && areFriends(request.auth.uid, userId)));
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && validNote();
+
+        allow delete: if signedIn() && request.auth.uid == userId;
+
+        // Comments: users/{userId}/notes/{noteId}/comments/{commentId}
+        match /comments/{commentId} {
+          allow read: if signedIn()
+            && (request.auth.uid == userId
+                || (areFriends(request.auth.uid, userId)
+                    && noteIsShared(userId, noteId)));
+
+          allow create: if signedIn()
+            && request.resource.data.keys().hasOnly(['authorUID', 'text', 'createdAt', 'replyToUID', 'replyToCommentId'])
+            && request.resource.data.keys().hasAll(['authorUID', 'text', 'createdAt'])
+            && request.resource.data.authorUID == request.auth.uid
+            && request.resource.data.text is string
+            && request.resource.data.text.size() >= 1
+            && request.resource.data.text.size() <= 500
+            && request.resource.data.createdAt is timestamp
+            && (!('replyToUID' in request.resource.data)
+                || (request.resource.data.replyToUID is string
+                    && request.resource.data.replyToUID.size() <= 128))
+            && (!('replyToCommentId' in request.resource.data)
+                || (request.resource.data.replyToCommentId is string
+                    && request.resource.data.replyToCommentId.size() <= 128))
+            && (request.auth.uid == userId
+                || (areFriends(request.auth.uid, userId)
+                    && noteIsShared(userId, noteId)));
+
+          // The author can delete their comment, and the note's owner
+          // can delete any comment on their note.
+          allow delete: if signedIn()
+            && (resource.data.authorUID == request.auth.uid
+                || request.auth.uid == userId);
+        }
+
+        // Reactions: users/{userId}/notes/{noteId}/reactions/{reactorId}
+        // One reaction per person: the document id is the reactor's uid.
+        match /reactions/{reactorId} {
+          allow read: if signedIn()
+            && (request.auth.uid == userId
+                || (areFriends(request.auth.uid, userId)
+                    && noteIsShared(userId, noteId)));
+
+          allow create, update: if signedIn()
+            && request.auth.uid == reactorId
+            && request.resource.data.keys().hasOnly(['kind', 'createdAt'])
+            && request.resource.data.keys().hasAll(['kind', 'createdAt'])
+            && request.resource.data.kind in ['love', 'laugh', 'wow', 'sad', 'clap', 'sprout']
+            && request.resource.data.createdAt is timestamp
+            && (request.auth.uid == userId
+                || (areFriends(request.auth.uid, userId)
+                    && noteIsShared(userId, noteId)));
+
+          // The reactor can remove their reaction, and the note's owner
+          // can remove any reaction on their note.
+          allow delete: if signedIn()
+            && (request.auth.uid == reactorId || request.auth.uid == userId);
+        }
+      }
+
+      // Small compressed photo for a note: users/{userId}/photos/{noteId}
+      match /photos/{noteId} {
+        allow read: if signedIn()
+          && (request.auth.uid == userId
+              || (areFriends(request.auth.uid, userId)
+                  && noteIsShared(userId, noteId)));
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['data', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['data', 'updatedAt'])
+          && request.resource.data.data is bytes
+          && request.resource.data.data.size() <= 800000
+          && request.resource.data.updatedAt is timestamp;
+
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Small voice memo for a note: users/{userId}/audio/{noteId}
+      match /audio/{noteId} {
+        allow read: if signedIn()
+          && (request.auth.uid == userId
+              || (areFriends(request.auth.uid, userId)
+                  && noteIsShared(userId, noteId)));
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['data', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['data', 'updatedAt'])
+          && request.resource.data.data is bytes
+          && request.resource.data.data.size() <= 800000
+          && request.resource.data.updatedAt is timestamp;
+
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Small profile picture: users/{userId}/avatar/current
+      match /avatar/{docId} {
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && docId == 'current'
+          && request.resource.data.keys().hasOnly(['data', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['data', 'updatedAt'])
+          && request.resource.data.data is bytes
+          && request.resource.data.data.size() <= 100000
+          && request.resource.data.updatedAt is timestamp;
+
+        allow delete: if signedIn() && request.auth.uid == userId && docId == 'current';
+      }
+
+      // Notifications for this user: users/{userId}/activity/{activityId}.
+      // Only the owner reads them. An accepted friend can add one, with the
+      // id and fields the app uses. They cannot be edited after creation.
+      match /activity/{activityId} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+
+        allow create: if signedIn()
+          && request.auth.uid != userId
+          && request.resource.data.keys().hasOnly(['type', 'fromUID', 'noteOwnerUID', 'noteId', 'preview', 'createdAt'])
+          && request.resource.data.keys().hasAll(['type', 'fromUID', 'createdAt'])
+          && request.resource.data.type in ['note', 'comment', 'accepted', 'reaction']
+          && request.resource.data.fromUID == request.auth.uid
+          && (!('noteOwnerUID' in request.resource.data) || request.resource.data.noteOwnerUID is string)
+          && (!('noteId' in request.resource.data) || request.resource.data.noteId is string)
+          && (!('preview' in request.resource.data)
+              || (request.resource.data.preview is string
+                  && request.resource.data.preview.size() <= 120))
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.createdAt <= request.time + duration.value(5, 'm')
+          && validActivity(activityId, userId)
+          && areFriends(request.auth.uid, userId);
+      }
+
+      // Circles: named groups of friends, private to their owner.
+      // users/{userId}/circles/{circleId}. Membership is checked in the app.
+      match /circles/{circleId} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['name', 'memberUIDs', 'createdAt', 'updatedAt'])
+          && request.resource.data.keys().hasAll(['name', 'memberUIDs', 'createdAt', 'updatedAt'])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 1
+          && request.resource.data.name.size() <= 30
+          && request.resource.data.memberUIDs is list
+          && request.resource.data.memberUIDs.size() <= 10
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+      }
+    }
+
+    match /friendships/{friendshipId} {
+      // Only the two people involved can see a friendship.
+      allow read: if signedIn()
+        && (resource.data.fromUID == request.auth.uid
+            || resource.data.toUID == request.auth.uid);
+
+      // You can only send a pending request as yourself, to a real user,
+      // using the fixed ID "fromUID_toUID".
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['fromUID', 'toUID', 'status', 'createdAt'])
+        && request.resource.data.keys().hasAll(['fromUID', 'toUID', 'status', 'createdAt'])
+        && request.resource.data.fromUID == request.auth.uid
+        && request.resource.data.toUID is string
+        && request.resource.data.toUID != request.auth.uid
+        && friendshipId == request.resource.data.fromUID + '_' + request.resource.data.toUID
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.toUID));
+
+      // Only the person who received the request can accept it, and
+      // nothing except the status can change.
+      allow update: if signedIn()
+        && resource.data.toUID == request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      // Either person can remove it (decline, cancel, or unfriend later).
+      allow delete: if signedIn()
+        && (resource.data.fromUID == request.auth.uid
+            || resource.data.toUID == request.auth.uid);
+    }
+
+    // Streaks: the owner and accepted friends can read. Only the owner
+    // writes, and can delete it.
+    match /streaks/{userId} {
+      allow read: if signedIn()
+        && (request.auth.uid == userId || areFriends(request.auth.uid, userId));
+
+      allow create, update: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['currentStreak', 'lastPostDate', 'updatedAt'])
+        && request.resource.data.currentStreak is int
+        && request.resource.data.currentStreak >= 0
+        && request.resource.data.currentStreak <= 100000
+        && request.resource.data.lastPostDate is timestamp
+        && request.resource.data.updatedAt is timestamp;
+
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Everything else is closed, including the retired sharedNotes collection.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
