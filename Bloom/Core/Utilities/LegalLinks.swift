@@ -7,6 +7,11 @@ enum LegalLinks {
     static let terms = "https://example.com/bloom/terms"
     static let privacyPolicy = "https://example.com/bloom/privacy"
 
+    // Where people can reach the developer. Shown in About, and it is the
+    // contact App Store Connect asks for.
+    static let supportEmail = "eduu0005@student.monash.edu"
+    static let supportURL = URL(string: "mailto:\(supportEmail)")
+
     static let termsURL = URL(string: terms)
     static let privacyPolicyURL = URL(string: privacyPolicy)
 

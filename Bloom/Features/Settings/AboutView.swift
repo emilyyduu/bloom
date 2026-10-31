@@ -10,6 +10,7 @@ struct AboutView: View {
             headerSection
             aboutSection
             developerSection
+            legalSection
             acknowledgementsSection
             footerSection
         }
@@ -72,6 +73,41 @@ struct AboutView: View {
         } header: {
             AboutSectionHeader("Developer", systemImage: "person.crop.square")
         }
+    }
+
+    // Terms, privacy policy and a way to reach the developer, for anyone who
+    // wants to report a problem or ask about their data.
+    private var legalSection: some View {
+        Section {
+            if let url = LegalLinks.termsURL {
+                legalLink("Terms of Use", systemImage: "doc.text", destination: url)
+            }
+            if let url = LegalLinks.privacyPolicyURL {
+                legalLink("Privacy Policy", systemImage: "hand.raised", destination: url)
+            }
+            if let url = LegalLinks.supportURL {
+                legalLink("Contact the developer", systemImage: "envelope", destination: url)
+            }
+        } header: {
+            AboutSectionHeader("Legal and support", systemImage: "checkmark.shield")
+        } footer: {
+            Text("To report a note, a comment or a person, use the menu on it in the app.")
+        }
+    }
+
+    private func legalLink(_ title: String, systemImage: String, destination: URL) -> some View {
+        Link(destination: destination) {
+            HStack {
+                Label(title, systemImage: systemImage)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Spacer()
+                Image(systemName: "arrow.up.right.square")
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+        }
+        .accessibilityHint("Opens outside Bloom")
     }
 
     private var acknowledgementsSection: some View {
