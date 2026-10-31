@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import FirebaseCore
+import FirebaseAuth
 
 @main
 struct BloomApp: App {
@@ -9,9 +9,9 @@ struct BloomApp: App {
     @StateObject private var authService = AuthService.shared
     @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
 
-    init() {
-        FirebaseApp.configure()
-    }
+//    init() {
+//        FirebaseApp.configure()
+//    }
 
     var body: some Scene {
         WindowGroup {
@@ -39,6 +39,9 @@ struct BloomApp: App {
             // link waits in the coordinator until the signed-in app can
             // show it, so signing in first doesn't lose it.
             .onOpenURL { url in
+                // Firebase's phone sign in browser check comes back to the app through a
+                // URL. If it's one of Firebase's, it handles it and we stop here.
+                if Auth.auth().canHandle(url) { return }
                 ProfileLinkCoordinator.shared.handle(url)
             }
         }

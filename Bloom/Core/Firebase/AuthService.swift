@@ -87,7 +87,7 @@ final class AuthService: ObservableObject {
         try await withCheckedThrowingContinuation { continuation in
             PhoneAuthProvider.provider().verifyPhoneNumber(phoneNumber, uiDelegate: nil) { verificationID, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    continuation.resume(throwing: Self.friendlyPhoneError(error))
                 } else if let verificationID {
                     continuation.resume(returning: verificationID)
                 } else {
@@ -102,7 +102,48 @@ final class AuthService: ObservableObject {
             withVerificationID: verificationID,
             verificationCode: code
         )
-        try await Auth.auth().signIn(with: credential)
+        do {
+            try await Auth.auth().signIn(with: credential)
+        } catch {
+            throw Self.friendlyPhoneError(error)
+        }
+    }
+
+    // An error carrying a message that is already fit to show.
+    struct PhoneAuthError: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    // Turns a Firebase Auth phone error into a friendly message, or nil
+    // for any error that should keep its existing text.
+    nonisolated static func phoneErrorMessage(for error: Error) -> String? {
+        let nsError = error as NSError
+        guard nsError.domain == AuthErrorDomain,
+              let code = AuthErrorCode(rawValue: nsError.code) else { return nil }
+        switch code {
+        case .notificationNotForwarded, .missingAppToken, .appNotVerified,
+             .captchaCheckFailed, .webContextCancelled:
+            return "Phone sign in isn't available on this device. Use email instead."
+        case .invalidPhoneNumber, .missingPhoneNumber:
+            return "Check the phone number and include the country code, for example +61 400 000 001."
+        case .invalidVerificationCode, .missingVerificationCode:
+            return "That code isn't right. Check it and try again."
+        case .sessionExpired:
+            return "That code has expired. Send a new one."
+        case .tooManyRequests, .quotaExceeded:
+            return "Too many attempts. Try again later, or use email."
+        case .networkError:
+            return "Check your internet connection and try again."
+        default:
+            return nil
+        }
+    }
+
+    // The error to throw from a phone call: friendly if known, else unchanged.
+    nonisolated static func friendlyPhoneError(_ error: Error) -> Error {
+        guard let message = phoneErrorMessage(for: error) else { return error }
+        return PhoneAuthError(message: message)
     }
 
     enum LoginCheckError: LocalizedError {
@@ -204,7 +245,11 @@ final class AuthService: ObservableObject {
             withVerificationID: verificationID,
             verificationCode: code
         )
-        try await user.reauthenticate(with: credential)
+        do {
+            try await user.reauthenticate(with: credential)
+        } catch {
+            throw Self.friendlyPhoneError(error)
+        }
     }
 
     func signOut() throws {

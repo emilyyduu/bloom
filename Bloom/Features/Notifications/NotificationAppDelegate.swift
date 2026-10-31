@@ -1,18 +1,40 @@
 import UIKit
 import UserNotifications
+import FirebaseAuth
+import FirebaseCore
 
 // Attached in BloomApp with @UIApplicationDelegateAdaptor. It is created
 // once, before any view, and the adaptor keeps it alive. Not per account.
-// Launch work is only the delegate. Firebase is
-// configured in BloomApp.init, which runs before this does.
+// Firebase is configured here, in didFinishLaunching, and not in
+// BloomApp.init: Firebase attaches itself to the app delegate, which does
+// not exist yet while BloomApp.init runs.
 @MainActor
 final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        FirebaseApp.configure()
+        #if targetEnvironment(simulator)
+        // Lets Firebase's fictional test phone numbers work on the Simulator.
+        Auth.auth().settings?.isAppVerificationDisabledForTesting = true
+        #endif
         UNUserNotificationCenter.current().delegate = self
         return true
+    }
+
+    // Firebase phone sign in checks that notifications reach it by sending
+    // itself a fake one through here. Without this forwarding the check fails
+    // and sign in reports "notification not forwarded". Bloom doesn't use
+    // remote notifications for anything else.
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification notification: [AnyHashable: Any],
+        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        // The result doesn't matter here. Asking Firebase is what answers its check.
+        _ = Auth.auth().canHandleNotification(notification)
+        completionHandler(.noData)
     }
 
     // A local notification shows as a banner and plays its sound even
