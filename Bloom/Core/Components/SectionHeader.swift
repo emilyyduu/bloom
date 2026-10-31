@@ -30,4 +30,6 @@ struct SectionHeader: View {
             SectionHeader("Appearance")
         }
     }
+    .scrollContentBackground(.hidden)
+    .background(Theme.Colors.background)
 }

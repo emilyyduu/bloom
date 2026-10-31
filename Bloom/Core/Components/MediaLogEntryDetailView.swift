@@ -83,6 +83,8 @@ struct MediaLogEntryDetailView: View {
                     .frame(minHeight: 44)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle(entry.mediaType == "movie" ? "Movie" : "TV Show")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

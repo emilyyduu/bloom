@@ -26,6 +26,8 @@ struct MediaSearchView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .scrollContentBackground(.hidden)
+                .background(Theme.Colors.background)
                 .listStyle(.plain)
                 .overlay {
                     if isSearching {

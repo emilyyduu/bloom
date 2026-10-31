@@ -140,6 +140,8 @@ private struct ReactorsSheet: View {
                     List(sorted) { reaction in
                         ReactorRow(reaction: reaction)
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.Colors.background)
                 }
             }
             .navigationTitle("Reactions")

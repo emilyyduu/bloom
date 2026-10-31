@@ -135,6 +135,8 @@ struct SettingsPrivacyView: View {
             permissionsSection
             dataSection
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Privacy")
         .navigationBarTitleDisplayMode(.inline)
         .refreshesNotificationPermission()

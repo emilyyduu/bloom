@@ -76,6 +76,8 @@ struct SettingsNotificationsView: View {
             reminderSection
             friendActivitySection
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Notifications")
         .navigationBarTitleDisplayMode(.inline)
         .refreshesNotificationPermission()

@@ -73,6 +73,8 @@ struct RequestsView: View {
                         onDecline: { decline(request) }
                     )
                 }
+                .scrollContentBackground(.hidden)
+                .background(Theme.Colors.background)
             }
         }
     }
@@ -95,6 +97,8 @@ struct RequestsView: View {
                         onCancel: { cancel(request) }
                     )
                 }
+                .scrollContentBackground(.hidden)
+                .background(Theme.Colors.background)
             }
         }
     }

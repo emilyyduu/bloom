@@ -67,6 +67,8 @@ struct NotificationsView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .overlay {
                 if activity.isLoading && isEmpty && activity.errorMessage == nil {
                     ProgressView("Loading")

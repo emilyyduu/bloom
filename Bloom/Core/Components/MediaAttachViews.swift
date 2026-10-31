@@ -33,6 +33,8 @@ struct MediaNotePickerList: View {
                     }
                     .accessibilityHint("Attaches the movie or show to this note")
                 }
+                .scrollContentBackground(.hidden)
+                .background(Theme.Colors.background)
             }
         }
         .navigationTitle("Today's Notes")
@@ -85,6 +87,8 @@ struct MediaAttachChoiceSheet: View {
                     SectionHeader("What next?")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle("Save to Library")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

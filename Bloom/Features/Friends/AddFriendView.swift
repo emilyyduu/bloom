@@ -45,6 +45,8 @@ struct AddFriendView: View {
                         actionView(for: user)
                     }
                 }
+                .scrollContentBackground(.hidden)
+                .background(Theme.Colors.background)
                 .overlay {
                     if isSearching {
                         ProgressView()

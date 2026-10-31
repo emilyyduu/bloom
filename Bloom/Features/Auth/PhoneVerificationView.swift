@@ -56,6 +56,8 @@ struct PhoneVerificationView: View {
 
             AuthErrorText(message: errorMessage)
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Verify")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

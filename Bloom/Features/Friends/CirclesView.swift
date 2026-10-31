@@ -61,6 +61,8 @@ struct CirclesView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Circles")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -188,6 +190,8 @@ struct RenameCircleSheet: View {
                     FormErrorText(message: errorMessage)
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle("Rename circle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

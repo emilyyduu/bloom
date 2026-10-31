@@ -145,6 +145,8 @@ struct MediaReviewSheet: View {
                         .accessibilityLabel("\(draft.reviewText.count) of \(MediaLogEntry.reviewLimit) characters used")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle("Your Review")
             .navigationBarTitleDisplayMode(.inline)
             // Cut by whole characters, so a pasted emoji is never split.

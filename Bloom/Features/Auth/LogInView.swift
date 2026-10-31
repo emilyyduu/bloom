@@ -52,6 +52,8 @@ struct LogInView: View {
                 AuthErrorText(message: errorMessage)
                     .accessibilityIdentifier("logIn.error")
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .frame(maxWidth: 500)
             .frame(maxWidth: .infinity)
             .navigationTitle("Log In")

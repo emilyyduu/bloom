@@ -26,6 +26,8 @@ struct ShareToFriendView: View {
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
+                .background(Theme.Colors.background)
                 .overlay {
                     if friendService.friends.isEmpty {
                         ContentUnavailableView(

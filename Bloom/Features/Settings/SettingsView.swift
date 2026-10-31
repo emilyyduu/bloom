@@ -75,6 +75,8 @@ struct SettingsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Settings")
         .confirmationDialog(
             "Sign out of Bloom?",

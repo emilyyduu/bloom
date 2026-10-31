@@ -107,6 +107,8 @@ struct EditProfileView: View {
 
             FormErrorText(message: errorMessage)
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Edit Profile")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

@@ -101,6 +101,8 @@ struct SignUpView: View {
                 AuthErrorText(message: errorMessage)
                     .accessibilityIdentifier("signUp.error")
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .frame(maxWidth: 500)
             .frame(maxWidth: .infinity)
             .navigationTitle("Sign Up")

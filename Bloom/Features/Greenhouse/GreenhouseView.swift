@@ -206,7 +206,7 @@ struct GreenhouseView: View {
     // card. Tapping it opens the full screen interactive version.
     private var gardenCard: some View {
         RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
-            .fill(Theme.Colors.gardenCardBackground)
+            .fill(Theme.Palette.greenTint)
             .aspectRatio(1, contentMode: .fit)
             .frame(maxWidth: isCompactHeight ? 260 : .infinity)
             .overlay {

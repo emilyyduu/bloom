@@ -93,12 +93,6 @@ enum Theme {
         static let blooming = greenText
         static let wilting  = dynamic(light: 0x8A5F0C, dark: 0xEEA316)
         static let dead     = dynamic(light: 0x6E5644, dark: 0xB3A99F)
-
-        // Kept so existing views still compile. Migrate these to the
-        // role colours above, then delete.
-        static let gardenCardBackground = Palette.greenTint
-        static let welcomeGradientBottom = Palette.greenTint
-        static let welcomeSecondaryText = textSecondary
     }
 
     // MARK: - Journal covers
@@ -150,9 +144,6 @@ enum Theme {
             default: regular
             }
         }
-
-        // Kept for the legacy Fonts enum below.
-        static let headingBold = bold
     }
 
     enum TextStyle {
@@ -244,21 +235,6 @@ enum Theme {
         static let small: CGFloat = 12  // inputs, chips, thumbnails
         static let card: CGFloat = 20   // cards
         static let large: CGFloat = 28  // hero cards, sheets
-    }
-
-    // MARK: - Legacy font tokens
-    // ScreenHeader still reads these.
-
-    enum Fonts {
-        static var screenTitle: Font { headingFont(size: 34, relativeTo: .largeTitle) }
-        static var screenTitleCompact: Font { headingFont(size: 22, relativeTo: .title2) }
-
-        private static func headingFont(size: CGFloat, relativeTo style: Font.TextStyle) -> Font {
-            if UIFont(name: Typeface.headingBold, size: size) != nil {
-                return .custom(Typeface.headingBold, size: size, relativeTo: style)
-            }
-            return .system(style, weight: .bold)
-        }
     }
 }
 

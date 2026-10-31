@@ -198,6 +198,8 @@ struct NoteComposerView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle(isEditingPosted ? "Edit Note" : (isEditingDraft ? "Edit Draft" : "New Note"))
             // Pinned above the keyboard, and above the home indicator
             // when the keyboard is down.

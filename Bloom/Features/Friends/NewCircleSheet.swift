@@ -113,6 +113,8 @@ struct NewCircleSheet: View {
                     Section { FormErrorText(message: errorMessage) }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle("New circle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -189,6 +191,8 @@ struct AddPeopleSheet: View {
                     Section { FormErrorText(message: errorMessage) }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.Colors.background)
             .navigationTitle("Add people")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

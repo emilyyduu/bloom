@@ -42,6 +42,8 @@ struct SettingsDisplayView: View {
                 SectionHeader("Text size")
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .navigationTitle("Display")
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -13,6 +13,8 @@ struct AboutView: View {
             acknowledgementsSection
             footerSection
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .listStyle(.insetGrouped)
         .accessibilityIdentifier("about.list")
         .navigationTitle("About")

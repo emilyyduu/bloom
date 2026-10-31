@@ -34,6 +34,8 @@ struct AcknowledgementsView: View {
                     .padding(.top, Theme.Spacing.md)
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .listStyle(.insetGrouped)
         .navigationTitle("Acknowledgements")
         .navigationBarTitleDisplayMode(.inline)

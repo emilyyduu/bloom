@@ -78,6 +78,8 @@ struct DraftsView: View {
                                 }
                         }
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Theme.Colors.background)
                     .listStyle(.plain)
                 }
             }

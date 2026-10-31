@@ -103,6 +103,8 @@ struct CircleDetailView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
         .overlay {
             if members.isEmpty {
                 ContentUnavailableView {
