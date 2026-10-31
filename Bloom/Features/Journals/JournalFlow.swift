@@ -39,7 +39,7 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 JournalShelf(header: "Years", minimumBookWidth: 150) {
                     ForEach(model.index.years, id: \.self) { year in
                         let key = JournalCoverStore.yearKey(year)
@@ -61,11 +61,11 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
 
                 if let footnote {
                     Text(footnote)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -112,7 +112,7 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
     var body: some View {
         let months = model.index.months(in: year)
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 JournalShelf(header: "Months", minimumBookWidth: 100) {
                     ForEach(months) { month in
                         let key = JournalCoverStore.monthKey(month)
@@ -133,7 +133,7 @@ struct JournalYearScreen<Item: JournalItem, Card: View>: View {
                     }
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
             .frame(maxWidth: 900, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -195,14 +195,14 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
     var body: some View {
         let noteCount = model.index.count(in: month)
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 monthControls
 
                 Text(noteCount == 0
                      ? "No notes this month"
                      : JournalFormat.summary(notes: noteCount, days: model.index.dayCount(in: month)))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .frame(maxWidth: .infinity)
 
                 if dynamicTypeSize.isAccessibilitySize {
@@ -214,7 +214,7 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
                     JournalCalendarLegend()
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
             .frame(maxWidth: 600)
             .frame(maxWidth: .infinity)
         }
@@ -251,7 +251,7 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
             Spacer()
 
             Text(JournalFormat.monthYear(month.date()))
-                .font(.title3)
+                .textStyle(.heading)
                 .fontWeight(.bold)
                 .multilineTextAlignment(.center)
                 .accessibilityAddTraits(.isHeader)
@@ -274,21 +274,21 @@ struct JournalMonthScreen<Item: JournalItem, Card: View>: View {
     }
 
     private var dayList: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             ForEach(model.index.days(in: month)) { day in
                 NavigationLink {
                     JournalDayScreen(day: day, model: model, source: source)
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text(JournalFormat.dayHeader(day.date(calendar: calendar)))
-                            .font(.headline)
+                            .textStyle(.subheading)
                         Text(JournalFormat.noteCount(model.index.count(on: day)))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .textStyle(.callout)
+                            .foregroundStyle(Theme.Colors.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(Theme.Spacing.lg)
+                    .background(Theme.Colors.surfaceMuted, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement(children: .combine)
@@ -320,7 +320,7 @@ private struct JournalCalendarGrid<Item: JournalItem, Destination: View>: View {
     @ViewBuilder let destination: (JournalDayKey) -> Destination
 
     private var calendar: Calendar { index.calendar }
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: Theme.Spacing.xs), count: 7)
 
     // Weekday initials starting at the locale's first weekday.
     private var weekdayHeaders: [String] {
@@ -340,12 +340,12 @@ private struct JournalCalendarGrid<Item: JournalItem, Destination: View>: View {
 
     var body: some View {
         let today = JournalDayKey(Date(), calendar: calendar)
-        LazyVGrid(columns: columns, spacing: 4) {
+        LazyVGrid(columns: columns, spacing: Theme.Spacing.xs) {
             ForEach(Array(weekdayHeaders.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(.caption)
+                    .textStyle(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .accessibilityHidden(true)
             }
 
@@ -385,23 +385,23 @@ private struct JournalDayCell<Destination: View>: View {
     private var content: some View {
         VStack(spacing: 2) {
             Text("\(day.day)")
-                .font(.body)
+                .textStyle(.body)
                 .fontWeight(isToday ? .bold : .regular)
-                .foregroundStyle(count > 0 ? Color.primary : Color.secondary)
+                .foregroundStyle(count > 0 ? Theme.Colors.textPrimary : Theme.Colors.textSecondary)
             // Keeps every cell the same height whether or not it has a count.
             Text(count > 0 ? "\(count)" : " ")
-                .font(.caption2)
+                .textStyle(.caption)
                 .fontWeight(.semibold)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.Colors.textPrimary)
         }
         .frame(maxWidth: .infinity, minHeight: minHeight)
-        .background(JournalShade.color(for: count), in: RoundedRectangle(cornerRadius: 10))
+        .background(JournalShade.color(for: count), in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
         .overlay {
             if isToday {
-                RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor, lineWidth: 2)
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).strokeBorder(Theme.Colors.actionFill, lineWidth: 2)
             }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 10))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
     }
 
     var body: some View {
@@ -428,11 +428,11 @@ private struct JournalDayCell<Destination: View>: View {
 private struct JournalCalendarLegend: View {
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: 16) { items }
-            VStack(alignment: .leading, spacing: 8) { items }
+            HStack(spacing: Theme.Spacing.lg) { items }
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) { items }
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
+        .textStyle(.caption)
+        .foregroundStyle(Theme.Colors.textSecondary)
         .frame(maxWidth: .infinity)
         // The shade and count already say this on each day.
         .accessibilityHidden(true)
@@ -443,8 +443,8 @@ private struct JournalCalendarLegend: View {
         swatch(count: 2, text: "2 to 3")
         swatch(count: 4, text: "4 or more")
         HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(Color.accentColor, lineWidth: 2)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Theme.Colors.actionFill, lineWidth: 2)
                 .frame(width: 16, height: 16)
             Text("Today")
         }
@@ -452,7 +452,7 @@ private struct JournalCalendarLegend: View {
 
     private func swatch(count: Int, text: String) -> some View {
         HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .fill(JournalShade.color(for: count))
                 .frame(width: 16, height: 16)
             Text(text)
@@ -481,7 +481,7 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
     var body: some View {
         let items = model.index.items(on: day)
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 header(count: items.count)
 
                 if items.isEmpty {
@@ -500,7 +500,7 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
                     }
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
             .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -528,12 +528,12 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
 
             VStack(spacing: 2) {
                 Text(JournalFormat.dayHeader(day.date(calendar: model.index.calendar)))
-                    .font(.headline)
+                    .textStyle(.subheading)
                     .multilineTextAlignment(.center)
                     .accessibilityAddTraits(.isHeader)
                 Text(JournalFormat.noteCount(count))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
 
             Spacer()

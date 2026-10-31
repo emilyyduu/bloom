@@ -63,8 +63,8 @@ private struct JournalCoverEditing: ViewModifier {
             .overlay {
                 if editor.isSaving {
                     ProgressView("Saving cover")
-                        .padding(24)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                        .padding(Theme.Spacing.xl)
+                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.card, style: .continuous))
                 }
             }
             .alert(
@@ -137,7 +137,7 @@ struct JournalCoverSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: Theme.Spacing.xl) {
                     BookCoverView(
                         title: title,
                         subtitle: subtitle,
@@ -146,17 +146,16 @@ struct JournalCoverSheet: View {
                         isCompact: isCompact
                     )
                     .frame(width: 180)
-                    .padding(.top, 8)
+                    .padding(.top, Theme.Spacing.sm)
 
-                    VStack(spacing: 12) {
+                    VStack(spacing: Theme.Spacing.md) {
                         Button {
                             editor.choose(key: key)
                         } label: {
                             Label("Choose photo", systemImage: "photo")
                                 .frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                        .buttonStyle(.bloomPrimary)
 
                         if covers.image(for: key) != nil {
                             Button(role: .destructive) {
@@ -165,19 +164,18 @@ struct JournalCoverSheet: View {
                                 Label("Remove photo", systemImage: "trash")
                                     .frame(maxWidth: .infinity)
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.large)
+                            .buttonStyle(.bloomSecondary)
                         }
                     }
 
                     colourPicker
 
                     Text("Covers are saved on this device only. They aren\u{2019}t backed up, and your friends never see them.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                         .multilineTextAlignment(.center)
                 }
-                .padding()
+                .padding(Theme.Spacing.lg)
                 .frame(maxWidth: 500)
                 .frame(maxWidth: .infinity)
             }
@@ -199,12 +197,12 @@ struct JournalCoverSheet: View {
 extension JournalCoverSheet {
     // The six theme colours, plus a way back to the book's own colour.
     fileprivate var colourPicker: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             Text("Colour")
-                .font(.headline)
+                .textStyle(.subheading)
                 .accessibilityAddTraits(.isHeader)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: Theme.Spacing.md)], spacing: Theme.Spacing.md) {
                 ForEach(Theme.Covers.palette.indices, id: \.self) { index in
                     let isSelected = covers.pickedColorIndex(for: key) == index
                     Button {
@@ -216,11 +214,11 @@ extension JournalCoverSheet {
                             .overlay {
                                 if isSelected {
                                     Image(systemName: "checkmark")
-                                        .font(.body.bold())
+                                        .textStyle(.body).fontWeight(.bold)
                                         .foregroundStyle(Theme.Covers.text)
                                 }
                             }
-                            .overlay(Circle().strokeBorder(Color(.separator), lineWidth: 0.5))
+                            .overlay(Circle().strokeBorder(Theme.Colors.separator, lineWidth: 0.5))
                             .frame(minWidth: 52, minHeight: 52)
                     }
                     .buttonStyle(.plain)
@@ -236,8 +234,8 @@ extension JournalCoverSheet {
             }
 
             Text("The colour shows when the book has no photo.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

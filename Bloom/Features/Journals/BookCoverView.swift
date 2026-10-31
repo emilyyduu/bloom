@@ -39,7 +39,7 @@ struct BookCoverView: View {
                 }
             }
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Color(.separator), lineWidth: 0.5))
+            .overlay(shape.strokeBorder(Theme.Colors.separator, lineWidth: 0.5))
             .shadow(color: Theme.Covers.shadow, radius: 6, x: 2, y: 4)
             .accessibilityHidden(true)
     }
@@ -65,20 +65,20 @@ struct BookCoverView: View {
             } else {
                 accent
                 Image(systemName: "leaf.fill")
-                    .font(isCompact ? .caption : .body)
+                    .textStyle(isCompact ? .caption : .body)
                     .foregroundStyle(Theme.Covers.text.opacity(0.85))
-                    .padding(isCompact ? 8 : 12)
+                    .padding(isCompact ? Theme.Spacing.sm : Theme.Spacing.md)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
 
             if showsText {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(isCompact ? .subheadline.bold() : .title2.bold())
+                        .textStyle(isCompact ? .subheading : .heading)
                         .lineLimit(2)
                         .minimumScaleFactor(0.6)
                     Text(subtitle)
-                        .font(isCompact ? .caption2 : .caption)
+                        .textStyle(isCompact ? .label : .caption)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                 }
@@ -86,7 +86,7 @@ struct BookCoverView: View {
                 .shadow(color: Theme.Covers.shadow, radius: 2)
                 .padding(.leading, spine + (isCompact ? 6 : 10))
                 .padding(.trailing, isCompact ? 6 : 10)
-                .padding(.bottom, isCompact ? 8 : 12)
+                .padding(.bottom, isCompact ? Theme.Spacing.sm : Theme.Spacing.md)
             }
 
             Rectangle()
@@ -139,24 +139,24 @@ struct JournalBook<Destination: View>: View {
     }
 
     private var row: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Theme.Spacing.lg) {
             BookCoverView(title: title, subtitle: "", coverImage: coverImage, accent: accent, isCompact: true, showsText: false)
                 .frame(width: 64)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                 Text(title)
-                    .font(.headline)
+                    .textStyle(.subheading)
                 Text(JournalFormat.noteCount(count))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
+                .textStyle(.caption).fontWeight(.semibold)
+                .foregroundStyle(Theme.Colors.textSecondary)
         }
-        .padding()
+        .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.Colors.surfaceMuted, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
     }
 }
 
@@ -173,12 +173,12 @@ struct JournalShelf<Content: View>: View {
     @ViewBuilder let books: () -> Content
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ScaledMetric(relativeTo: .body) private var spacing: CGFloat = 16
+    @ScaledMetric(relativeTo: .body) private var spacing: CGFloat = Theme.Spacing.lg
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing) {
             Text(header)
-                .font(.title3.bold())
+                .textStyle(.heading).fontWeight(.bold)
                 .accessibilityAddTraits(.isHeader)
 
             if dynamicTypeSize.isAccessibilitySize {
@@ -205,7 +205,7 @@ struct JournalShelf<Content: View>: View {
                 )
             }
         }
-        .padding()
+        .padding(Theme.Spacing.lg)
     }
 }
 
@@ -221,7 +221,7 @@ struct JournalShelf<Content: View>: View {
                 )
             }
         }
-        .padding()
+        .padding(Theme.Spacing.lg)
     }
     .preferredColorScheme(.dark)
 }

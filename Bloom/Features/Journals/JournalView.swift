@@ -37,7 +37,7 @@ struct JournalView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 ScreenHeader(segment.rawValue) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Theme.Spacing.md) {
                         if segment == .library {
                             LibraryOptionsMenus(options: $libraryOptions)
 
@@ -61,15 +61,15 @@ struct JournalView: View {
                         ForEach(Segment.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.menu)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.top, Theme.Spacing.sm)
                 } else {
                     Picker("Journal View", selection: $segment) {
                         ForEach(Segment.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                    .padding(.top, 8)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.top, Theme.Spacing.sm)
                 }
 
                 Group {
@@ -135,11 +135,11 @@ struct JournalView: View {
                 Image(systemName: "doc.text")
                 if !drafts.isEmpty {
                     Text("\(drafts.count)")
-                        .font(.caption2)
+                        .textStyle(.caption)
                         .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(4)
-                        .background(Circle().fill(Color.red))
+                        .foregroundStyle(Theme.Colors.textOnColor)
+                        .padding(Theme.Spacing.xs)
+                        .background(Circle().fill(Theme.Palette.red))
                         .offset(x: 10, y: -10)
                 }
             }
