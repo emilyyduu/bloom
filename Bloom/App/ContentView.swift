@@ -110,8 +110,8 @@ struct ContentView: View {
                     draftSaveBanner.dismiss()
                     isShowingDrafts = true
                 }
-                .padding(.horizontal)
-                .padding(.bottom, 4)
+                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.bottom, Theme.Spacing.xs)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -163,16 +163,15 @@ private struct DraftSavedBanner: View {
     var body: some View {
         HStack {
             Text("Saved to Drafts")
-                .font(.subheadline)
+                .textStyle(.callout)
             Spacer()
             Button("View", action: onView)
-                .font(.subheadline)
+                .textStyle(.callout)
                 .fontWeight(.semibold)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.md)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
     }
 }
 
