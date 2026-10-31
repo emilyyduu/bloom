@@ -160,7 +160,7 @@ struct LibraryOptionsMenus: View {
     @Binding var options: LibraryOptions
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: Theme.Spacing.md) {
             Menu {
                 Picker("Sort", selection: $options.sort) {
                     ForEach(LibrarySort.allCases) { Text($0.title).tag($0) }
@@ -226,7 +226,7 @@ struct LibraryView: View {
     }
 
     private var columns: [GridItem] {
-        [GridItem(.adaptive(minimum: minimumColumnWidth), spacing: 16)]
+        [GridItem(.adaptive(minimum: minimumColumnWidth), spacing: Theme.Spacing.lg)]
     }
 
     var body: some View {
@@ -251,7 +251,7 @@ struct LibraryView: View {
                             Label("Nothing matches these filters", systemImage: "line.3.horizontal.decrease.circle")
                         } actions: {
                             Button("Clear filters") { options.clearFilters() }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.bloomSecondary)
                         }
                     } else {
                         grid(of: shown)
@@ -266,7 +266,7 @@ struct LibraryView: View {
 
     private func grid(of shown: [MediaLogEntry]) -> some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 20) {
+            LazyVGrid(columns: columns, spacing: Theme.Spacing.xl) {
                 ForEach(shown) { entry in
                     Button {
                         selectedEntry = entry
@@ -279,7 +279,7 @@ struct LibraryView: View {
                     .accessibilityHint("Opens details")
                 }
             }
-            .padding()
+            .padding(Theme.Spacing.lg)
         }
     }
 
@@ -289,14 +289,14 @@ struct LibraryView: View {
     // Clear all. At accessibility sizes the chips stack so none is cut
     // off, otherwise they scroll sideways, which also suits landscape.
     private func filterSummary(shownCount: Int, totalCount: Int) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 0) {
                     chipButtons
                 }
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: Theme.Spacing.sm) {
                         chipButtons
                     }
                 }
@@ -305,7 +305,7 @@ struct LibraryView: View {
             ViewThatFits(in: .horizontal) {
                 HStack {
                     countText(shownCount: shownCount, totalCount: totalCount)
-                    Spacer(minLength: 8)
+                    Spacer(minLength: Theme.Spacing.sm)
                     clearAllButton
                 }
                 VStack(alignment: .leading, spacing: 0) {
@@ -314,8 +314,8 @@ struct LibraryView: View {
                 }
             }
         }
-        .padding(.horizontal)
-        .padding(.top, 8)
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.top, Theme.Spacing.sm)
     }
 
     private var chipButtons: some View {
@@ -326,15 +326,15 @@ struct LibraryView: View {
                 HStack(spacing: 6) {
                     Text(chip.title)
                     Image(systemName: "xmark")
-                        .font(.caption.weight(.bold))
+                        .textStyle(.caption).fontWeight(.bold)
                         .accessibilityHidden(true)
                 }
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 12)
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(Color(.secondarySystemBackground)))
-                .overlay(Capsule().strokeBorder(Color(.separator), lineWidth: 1))
+                .background(Capsule().fill(Theme.Colors.surfaceMuted))
+                .overlay(Capsule().strokeBorder(Theme.Colors.separator, lineWidth: 1))
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
@@ -346,8 +346,8 @@ struct LibraryView: View {
 
     private func countText(shownCount: Int, totalCount: Int) -> some View {
         Text("\(shownCount) of \(totalCount)")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .textStyle(.callout)
+            .foregroundStyle(Theme.Colors.textSecondary)
             .accessibilityLabel(
                 "Showing \(shownCount) of \(totalCount). Sorted by \(options.sort.title). Filters: \(options.filterDescription)"
             )
@@ -355,7 +355,7 @@ struct LibraryView: View {
 
     private var clearAllButton: some View {
         Button("Clear all") { options.clearFilters() }
-            .font(.subheadline)
+            .textStyle(.callout)
             .frame(minHeight: 44)
     }
 }
@@ -374,20 +374,20 @@ private struct MediaLogEntryCell: View {
             posterImage
                 .frame(height: 150)
                 .frame(maxWidth: .infinity)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
 
             Text(entry.title)
-                .font(.subheadline)
+                .textStyle(.callout)
                 .fontWeight(.medium)
                 .lineLimit(2)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.Colors.textPrimary)
 
             StarRatingView(rating: entry.rating)
 
             if let line = entry.reviewFirstLine {
                 Text(line)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
                     .lineLimit(2)
             }
         }
@@ -401,10 +401,10 @@ private struct MediaLogEntryCell: View {
                 .scaledToFill()
         } else {
             Rectangle()
-                .fill(Color(.secondarySystemBackground))
+                .fill(Theme.Colors.surfaceMuted)
                 .overlay {
                     Image(systemName: "film")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Theme.Colors.textSecondary)
                 }
         }
     }
