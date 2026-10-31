@@ -42,6 +42,7 @@ final class AuthService: ObservableObject {
     func resetInMemoryAccountState() {
         FriendService.shared.stopListening()
         CircleStore.shared.stopListening()
+        BlockService.shared.stopListening()
         GardenService.shared.stopListening()
         FriendJournalService.shared.reset()
         MyAvatar.shared.reset()

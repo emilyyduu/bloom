@@ -125,6 +125,7 @@ struct ContentView: View {
             router.markReady()
             friendService.startListening()
             ActivityStore.shared.startListening()
+            BlockService.shared.startListening()
             await NotificationScheduler.shared.refreshReminders(context: context)
             await StreakSyncService.shared.sync(context: context)
             await restoreAndSyncNotes()

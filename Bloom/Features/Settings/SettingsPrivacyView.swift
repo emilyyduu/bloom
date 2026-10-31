@@ -120,6 +120,7 @@ struct SettingsPrivacyView: View {
         Form {
             sharingSection
             permissionsSection
+            blockedSection
             dataSection
         }
         .scrollContentBackground(.hidden)
@@ -187,6 +188,19 @@ struct SettingsPrivacyView: View {
             SectionHeader("Sharing")
         } footer: {
             Text(Self.sharingSummary)
+        }
+    }
+
+    // MARK: - Blocked people
+
+    private var blockedSection: some View {
+        Section {
+            NavigationLink {
+                BlockedPeopleView()
+            } label: {
+                Label("Blocked people", systemImage: "hand.raised.slash")
+            }
+            .frame(minHeight: 44)
         }
     }
 
