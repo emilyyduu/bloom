@@ -40,6 +40,7 @@ struct PhoneVerificationView: View {
             Section {
                 TextField("123456", text: $code)
                     .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
             } header: {
                 SectionHeader("Enter the 6 digit code we sent to \(shownNumber)")
             }

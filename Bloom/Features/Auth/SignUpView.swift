@@ -15,6 +15,12 @@ struct SignUpView: View {
     @State private var errorMessage: String?
     @State private var verificationID: String?
     @State private var hasAgreed = false
+    @FocusState private var focusedField: Field?
+
+    // The order Return moves through the fields on this form.
+    private enum Field {
+        case displayName, username, phone, email, password
+    }
 
     // Only shown once something is typed, like the username error, so
     // an untouched form isn't covered in red.
@@ -48,6 +54,9 @@ struct SignUpView: View {
                     TextField("Display name", text: $displayName)
                         .textContentType(.name)
                         .textInputAutocapitalization(.words)
+                        .focused($focusedField, equals: .displayName)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = .username }
                         .accessibilityIdentifier("signUp.displayName")
                     if let displayNameValidationError {
                         AuthErrorText(message: displayNameValidationError)
@@ -61,7 +70,12 @@ struct SignUpView: View {
 
                 Section {
                     TextField("Username", text: $username)
+                        .textContentType(.username)
                         .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .focused($focusedField, equals: .username)
+                        .submitLabel(.next)
+                        .onSubmit { focusedField = method == .phone ? .phone : .email }
                         .accessibilityIdentifier("signUp.username")
                     if let usernameValidationError {
                         AuthErrorText(message: usernameValidationError)
@@ -78,6 +92,8 @@ struct SignUpView: View {
                     Section {
                         TextField("+61 4xx xxx xxx", text: $phoneNumber)
                             .keyboardType(.phonePad)
+                            .textContentType(.telephoneNumber)
+                            .focused($focusedField, equals: .phone)
                             .accessibilityIdentifier("signUp.phone")
                     } header: {
                         SectionHeader("Phone number")
@@ -88,9 +104,18 @@ struct SignUpView: View {
                     Section {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
+                            .textContentType(.emailAddress)
                             .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .focused($focusedField, equals: .email)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .password }
                             .accessibilityIdentifier("signUp.email")
                         SecureField("Password", text: $password)
+                            .textContentType(.newPassword)
+                            .focused($focusedField, equals: .password)
+                            .submitLabel(.go)
+                            .onSubmit { submitIfReady() }
                             .accessibilityIdentifier("signUp.password")
                     } header: {
                         SectionHeader("Email and password")
@@ -136,6 +161,13 @@ struct SignUpView: View {
                 )
             }
         }
+    }
+
+    // Return on the last field does what the toolbar button does, but only
+    // when that button would be enabled.
+    private func submitIfReady() {
+        guard !isSubmitting, isUsernameValid, DisplayNameValidator.isValid(displayName) else { return }
+        submit()
     }
 
     private func submit() {

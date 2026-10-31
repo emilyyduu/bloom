@@ -12,6 +12,12 @@ struct LogInView: View {
     @State private var isSubmitting = false
     @State private var errorMessage: String?
     @State private var verificationID: String?
+    @FocusState private var focusedField: Field?
+
+    // The order Return moves through the fields on this form.
+    private enum Field {
+        case phone, email, password
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,6 +34,8 @@ struct LogInView: View {
                     Section {
                         TextField("+61 4xx xxx xxx", text: $phoneNumber)
                             .keyboardType(.phonePad)
+                            .textContentType(.telephoneNumber)
+                            .focused($focusedField, equals: .phone)
                             .accessibilityIdentifier("logIn.phone")
                     } header: {
                         SectionHeader("Phone number")
@@ -38,9 +46,18 @@ struct LogInView: View {
                     Section {
                         TextField("Email", text: $email)
                             .keyboardType(.emailAddress)
+                            .textContentType(.username)
                             .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .focused($focusedField, equals: .email)
+                            .submitLabel(.next)
+                            .onSubmit { focusedField = .password }
                             .accessibilityIdentifier("logIn.email")
                         SecureField("Password", text: $password)
+                            .textContentType(.password)
+                            .focused($focusedField, equals: .password)
+                            .submitLabel(.go)
+                            .onSubmit { if !isSubmitting && !isInputEmpty { submit() } }
                             .accessibilityIdentifier("logIn.password")
                     } header: {
                         SectionHeader("Email and password")
