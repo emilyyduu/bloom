@@ -99,6 +99,17 @@ final class AuthService: ObservableObject {
         try await Auth.auth().signIn(withEmail: email, password: password)
     }
 
+    // Sends Firebase's password reset email. An address with no account is
+    // treated as success, so this can't be used to find out who has one.
+    func sendPasswordReset(email: String) async throws {
+        let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            try await Auth.auth().sendPasswordReset(withEmail: email)
+        } catch let error as NSError where error.code == AuthErrorCode.userNotFound.rawValue {
+            return
+        }
+    }
+
     func signOut() throws {
         try Auth.auth().signOut()
     }
@@ -125,6 +136,24 @@ final class AuthService: ObservableObject {
         ]
 
         try await Firestore.firestore().collection("users").document(uid).setData(data, merge: true)
+    }
+
+    // Runs right after an account is created. Saves the profile, once more
+    // if the first try fails. If it still can't be saved the new account is
+    // deleted again, so nobody is left signed in without a profile that
+    // friends could never find, and the person can simply try again.
+    func completeSignUp(displayName: String, username: String) async throws {
+        do {
+            do {
+                try await createUserProfile(displayName: displayName, username: username)
+            } catch {
+                try await createUserProfile(displayName: displayName, username: username)
+            }
+        } catch {
+            try? await Auth.auth().currentUser?.delete()
+            try? Auth.auth().signOut()
+            throw error
+        }
     }
 
     // Earlier builds stored the verified phone number on the profile so

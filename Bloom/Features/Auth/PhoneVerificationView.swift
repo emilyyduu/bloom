@@ -82,7 +82,7 @@ struct PhoneVerificationView: View {
         performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
             try await AuthService.shared.confirmPhoneCode(verificationID: verificationID, code: code)
             if isNewAccount {
-                try await AuthService.shared.createUserProfile(displayName: displayName, username: username)
+                try await AuthService.shared.completeSignUp(displayName: displayName, username: username)
             }
         }
     }

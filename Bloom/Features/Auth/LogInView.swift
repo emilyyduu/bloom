@@ -11,6 +11,7 @@ struct LogInView: View {
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    @State private var noticeMessage: String?
     @State private var verificationID: String?
     @FocusState private var focusedField: Field?
 
@@ -59,6 +60,11 @@ struct LogInView: View {
                             .submitLabel(.go)
                             .onSubmit { if !isSubmitting && !isInputEmpty { submit() } }
                             .accessibilityIdentifier("logIn.password")
+                        Button("Forgot password?") { resetPassword() }
+                            .disabled(isSubmitting || email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .frame(minHeight: 44, alignment: .leading)
+                            .accessibilityHint("Sends a reset link to the email above")
+                            .accessibilityIdentifier("logIn.forgotPassword")
                     } header: {
                         SectionHeader("Email and password")
                     } footer: {
@@ -68,6 +74,13 @@ struct LogInView: View {
 
                 AuthErrorText(message: errorMessage)
                     .accessibilityIdentifier("logIn.error")
+
+                if let noticeMessage {
+                    Text(noticeMessage)
+                        .textStyle(.caption)
+                        .foregroundStyle(Theme.Colors.textSecondary)
+                        .accessibilityIdentifier("logIn.notice")
+                }
             }
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
@@ -108,7 +121,18 @@ struct LogInView: View {
         }
     }
 
+    // Asks Firebase to email a reset link. The notice reads the same
+    // whether or not an account exists for the address.
+    private func resetPassword() {
+        noticeMessage = nil
+        performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
+            try await AuthService.shared.sendPasswordReset(email: email)
+            noticeMessage = "If an account uses that email, a link to reset the password is on its way."
+        }
+    }
+
     private func submit() {
+        noticeMessage = nil
         performSubmission(isSubmitting: $isSubmitting, errorMessage: $errorMessage) {
             switch method {
             case .phone:
