@@ -49,6 +49,8 @@ private struct BloomRootView: View {
             }
         }
         .preferredColorScheme((AppAppearance(rawValue: appearanceRawValue) ?? .system).colorScheme)
+        // Nav bar buttons, links and toggles use the system blue unless a tint is set.
+        .tint(Theme.Colors.greenText)
         // Anything that isn't bloom://add/{uid} is ignored. A valid
         // link waits in the coordinator until the signed-in app can
         // show it, so signing in first doesn't lose it.
