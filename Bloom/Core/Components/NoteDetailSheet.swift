@@ -518,13 +518,12 @@ private struct CommentsSection: View {
 
             FormErrorText(message: errorMessage)
         }
-        .confirmationDialog(
+        .alert(
             "Delete this comment?",
             isPresented: Binding(
                 get: { commentToDelete != nil },
                 set: { if !$0 { commentToDelete = nil } }
-            ),
-            titleVisibility: .visible
+            )
         ) {
             Button("Delete", role: .destructive) {
                 if let comment = commentToDelete { delete(comment) }

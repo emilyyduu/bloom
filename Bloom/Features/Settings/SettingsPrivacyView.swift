@@ -141,20 +141,18 @@ struct SettingsPrivacyView: View {
         } message: {
             Text(Self.sharingSummary)
         }
-        .confirmationDialog(
+        .alert(
             "Share all \(postedNotes.count) note\(postedNotes.count == 1 ? "" : "s")?",
-            isPresented: $isShowingShareAllConfirmation,
-            titleVisibility: .visible
+            isPresented: $isShowingShareAllConfirmation
         ) {
             Button("Share All") { bulkSetSharing(true) }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("\(Self.sharingSummary) Older notes stay hidden from them unless you pin them.")
         }
-        .confirmationDialog(
+        .alert(
             "Stop sharing \(sharedNotes.count) note\(sharedNotes.count == 1 ? "" : "s")?",
-            isPresented: $isShowingStopSharingAllConfirmation,
-            titleVisibility: .visible
+            isPresented: $isShowingStopSharingAllConfirmation
         ) {
             Button("Stop Sharing", role: .destructive) { bulkSetSharing(false) }
             Button("Cancel", role: .cancel) {}

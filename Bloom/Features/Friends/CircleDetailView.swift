@@ -125,10 +125,9 @@ struct CircleDetailView: View {
         .sheet(isPresented: $isShowingRename) {
             RenameCircleSheet(circle: circle)
         }
-        .confirmationDialog(
+        .alert(
             "Delete the circle \(circle.name)? Your friends stay friends.",
-            isPresented: $isShowingDelete,
-            titleVisibility: .visible
+            isPresented: $isShowingDelete
         ) {
             Button("Delete", role: .destructive) { delete(circle) }
             Button("Cancel", role: .cancel) {}

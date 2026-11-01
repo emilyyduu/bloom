@@ -116,16 +116,16 @@ struct MediaLogEntryDetailView: View {
             .sheet(item: $noteToView) { note in
                 NoteDetailSheet(note: note)
             }
-            .confirmationDialog(
+            .alert(
                 "Delete this entry?",
-                isPresented: $isShowingDeleteConfirmation,
-                titleVisibility: .visible
+                isPresented: $isShowingDeleteConfirmation
             ) {
                 Button("Delete", role: .destructive) {
                     entry.deleteCompletely(in: context)
                     try? context.save()
                     dismiss()
                 }
+                Button("Cancel", role: .cancel) {}
             }
         }
     }

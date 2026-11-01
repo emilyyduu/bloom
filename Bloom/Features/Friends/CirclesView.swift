@@ -108,10 +108,9 @@ struct CirclesView: View {
         } message: {
             Text("Delete one to make a new one.")
         }
-        .confirmationDialog(
+        .alert(
             "Delete the circle \(circleToDelete?.name ?? "")? Your friends stay friends.",
-            isPresented: Binding(get: { circleToDelete != nil }, set: { if !$0 { circleToDelete = nil } }),
-            titleVisibility: .visible
+            isPresented: Binding(get: { circleToDelete != nil }, set: { if !$0 { circleToDelete = nil } })
         ) {
             Button("Delete", role: .destructive) {
                 if let circle = circleToDelete { delete(circle) }
