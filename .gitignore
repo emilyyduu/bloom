@@ -13,3 +13,13 @@ GoogleService-Info.plist
 
 # Local build secrets
 Config/Secrets.xcconfig
+
+# Firebase hosting cache
+.firebase/
+
+# Local tooling and secrets
+.claude/
+.env
+*.p8
+node_modules/
+*-debug.log

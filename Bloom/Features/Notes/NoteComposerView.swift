@@ -230,7 +230,7 @@ struct NoteComposerView: View {
             .task(id: selectedPhotoItem) {
                 guard let selectedPhotoItem else { return }
                 guard let data = try? await selectedPhotoItem.loadTransferable(type: Data.self) else {
-                    cameraNotice = .couldntUsePhoto
+                    cameraNotice = .couldntLoadPhoto
                     self.selectedPhotoItem = nil
                     return
                 }

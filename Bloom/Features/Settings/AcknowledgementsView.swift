@@ -26,6 +26,13 @@ struct AcknowledgementsView: View {
                     Text("Open source licenses")
                 }
                 .accessibilityHint("Shows the full Firebase iOS SDK license")
+
+                NavigationLink {
+                    FontLicenseDetailView()
+                } label: {
+                    Text("DM Sans font license")
+                }
+                .accessibilityHint("Shows the full SIL Open Font License text")
             } header: {
                 AboutSectionHeader("Licenses", systemImage: "doc.text")
             } footer: {
@@ -102,6 +109,27 @@ struct LicenseDetailView: View {
                 .padding(Theme.Spacing.lg)
         }
         .navigationTitle("Firebase iOS SDK License")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// The DM Sans licence (SIL Open Font License 1.1), read from DMSans-OFL.txt
+// in the app bundle so it travels with the font and works offline.
+struct FontLicenseDetailView: View {
+    private static let text: String? = {
+        guard let url = Bundle.main.url(forResource: "DMSans-OFL", withExtension: "txt") else { return nil }
+        return try? String(contentsOf: url, encoding: .utf8)
+    }()
+
+    var body: some View {
+        ScrollView {
+            Text(Self.text ?? "Licence text unavailable")
+                .textStyle(.caption).monospaced()
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Theme.Spacing.lg)
+        }
+        .navigationTitle("DM Sans License")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

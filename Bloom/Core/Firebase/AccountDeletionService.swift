@@ -14,7 +14,8 @@ import FirebaseFirestore
 //                            notes, and the feed items I wrote for friends
 //   friendships              every request, accepted or not, involving me
 //   my notes                 each with its comments and reactions
-//   my other collections     photos, voice memos, avatar, circles, library, feed
+//   my other collections     photos, voice memos, avatar, circles, library, feed,
+//                            blocked people
 //   streaks/{uid}, usernames/{my username} and users/{uid}
 // Then the Firebase user, the account's store file, voice memo and photo
 // files, covers, saved settings and cached pictures on this device.
@@ -80,7 +81,7 @@ final class AccountDeletionService {
             try await commitDeletes(of: page.documents.map(\.reference))
         }
 
-        for name in ["photos", "audio", "avatar", "circles", "library", "activity"] {
+        for name in ["photos", "audio", "avatar", "circles", "library", "activity", "blocks"] {
             try await delete(userReference.collection(name))
         }
         try await db.collection("streaks").document(uid).delete()

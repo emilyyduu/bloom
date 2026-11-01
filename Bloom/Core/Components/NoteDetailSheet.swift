@@ -287,6 +287,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var listener = NoteCommentsListener()
     @StateObject private var reactions = NoteReactionsListener()
     @StateObject private var draft = CommentDraft()
@@ -385,7 +386,7 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
             .task {
                 guard focusComments || scrollToComments, commentsEnabled else { return }
                 try? await Task.sleep(for: .milliseconds(350))
-                withAnimation { proxy.scrollTo("comments", anchor: .top) }
+                withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo("comments", anchor: .top) }
                 if focusComments { isInputFocused = true }
             }
         }

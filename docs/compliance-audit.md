@@ -1,3 +1,5 @@
+Historical. Written before the fixes were made. Not a description of the current app.
+
 # Bloom compliance audit
 
 Audited on 2026-10-31 against branch `dev` (commit 92ed0f8). Read only: no app file was changed.

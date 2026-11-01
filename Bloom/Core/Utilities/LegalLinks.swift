@@ -1,8 +1,8 @@
 import Foundation
 
-// Where the published Terms of Use and Privacy Policy live. These are
-// placeholder addresses: replace both once the documents are hosted, this is
-// the only place they are written down. Sign up and About read them from here.
+// Where the published Terms of Use and Privacy Policy live: the pages hosted
+// from the site folder on Firebase Hosting. This is the only place the
+// addresses are written down. Sign up and About read them from here.
 enum LegalLinks {
     static let terms = "https://bloom-726b7.web.app/terms"
     static let privacyPolicy = "https://bloom-726b7.web.app/privacy"

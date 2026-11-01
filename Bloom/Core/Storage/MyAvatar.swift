@@ -52,7 +52,7 @@ final class MyAvatar: ObservableObject {
     func choosePhoto(_ item: PhotosPickerItem) async {
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
-            errorMessage = "That photo couldn't be opened. Try a different one."
+            errorMessage = "Couldn't load that photo. Try another."
             return
         }
         await setPhoto(image)

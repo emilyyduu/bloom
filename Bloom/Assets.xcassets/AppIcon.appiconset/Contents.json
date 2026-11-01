@@ -1,7 +1,7 @@
 {
   "images" : [
     {
-      "filename" : "Bloom Logo.png",
+      "filename" : "BloomLogo 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -13,7 +13,7 @@
           "value" : "dark"
         }
       ],
-      "filename" : "Bloom Logo Dark.png",
+      "filename" : "BloomLogoDark 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"

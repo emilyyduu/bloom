@@ -36,12 +36,12 @@ To sort or filter, use the filter bar in the console, for example `createdAt` de
    - **Remove the content:** delete the comment document, or the note document (and its photo and audio documents).
    - **Remove the person:** in the console, **Authentication**, **Users**, find them by uid, and choose **Disable account**. They cannot sign in again. A session they already have can last up to an hour. Then delete their `users/{uid}` profile document (and `users/{uid}/avatar/current` if the picture is the problem), so friends no longer see them.
 3. Record what you did on the report document itself. In the console add the fields `status` (`open`, `actioned` or `no action`), `action` (a short sentence) and `reviewedAt` (timestamp). The app cannot see or change reports, so these are only for you.
-4. If the content is illegal (for example it endangers a child) do not just delete it. Keep a copy of the report, and take advice about reporting it. In Australia the eSafety Commissioner takes reports at esafety.gov.au. [PLACEHOLDER: confirm with a lawyer.]
+4. If the content is illegal (for example it endangers a child) do not just delete it. Keep a copy of the report, and take advice about reporting it. In Australia the eSafety Commissioner takes reports at esafety.gov.au. Legal advice: Not applicable for the unit submission.
 
 ## Limits to know about
 
 - There is no email or push alert when a report arrives. Checking the **reports** collection is the only way to see them.
 - A reporter or reported person is never told about the outcome by the app. If you want to reply to a reporter, you have their uid, not their email. Look the uid up in Authentication.
 - Blocking is private. The blocked person is not told. It removes any friendship, so they can no longer read the blocker's notes, and the rules stop them sending a new friend request.
-- Reports hold personal information (uids, a preview of what was written). Delete resolved reports after a set time and say how long in the privacy policy. [PLACEHOLDER: choose a retention period, ask a lawyer.]
-- The contact address shown to users is eduu0005@student.monash.edu. Use an address you will still have once you graduate. [PLACEHOLDER]
+- Reports hold personal information (uids, a preview of what was written). Reports are read in the Firebase console and handled within 3 days where possible. They are kept after an account is deleted, for as long as they are needed and not for a fixed period, as the privacy policy says.
+- The contact address shown to users is eduu0005@student.monash.edu. It is a student address that will expire, so use an address you will still have once you graduate.

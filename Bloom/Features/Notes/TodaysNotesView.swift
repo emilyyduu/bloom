@@ -29,6 +29,7 @@ private final class CommentDraftStore: ObservableObject {
 struct TodaysNotesView: View {
     @Query(Note.todaysNotesDescriptor()) private var todaysNotes: [Note]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedID: UUID?
     @State private var isShowingComposer = false
     @StateObject private var draftStore = CommentDraftStore()
@@ -128,13 +129,13 @@ struct TodaysNotesView: View {
             draftStore.keepOnly(newIDs)
             if let added = newIDs.last, newIDs.count > oldIDs.count, !oldIDs.contains(added) {
                 // A new note jumps to it.
-                withAnimation { selectedID = added }
+                withAnimation(reduceMotion ? nil : .default) { selectedID = added }
             } else if let selectedID, !newIDs.contains(selectedID) {
                 // The card showing was deleted: the one that took its place,
                 // or the one before it when it was the last.
                 let oldIndex = oldIDs.firstIndex(of: selectedID) ?? newIDs.count
                 let neighbour = newIDs.indices.contains(oldIndex) ? newIDs[oldIndex] : newIDs.last
-                withAnimation { self.selectedID = neighbour }
+                withAnimation(reduceMotion ? nil : .default) { self.selectedID = neighbour }
             }
             // Otherwise other notes changed, and the selection stays.
         }
@@ -170,7 +171,7 @@ struct TodaysNotesView: View {
         let isEnabled = target.map { ids.indices.contains($0) } ?? false
         return Button {
             guard let target, ids.indices.contains(target) else { return }
-            withAnimation { selectedID = ids[target] }
+            withAnimation(reduceMotion ? nil : .default) { selectedID = ids[target] }
         } label: {
             Image(systemName: systemImage)
                 .frame(minWidth: 44, minHeight: 44)

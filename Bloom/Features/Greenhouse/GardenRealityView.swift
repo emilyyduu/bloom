@@ -80,6 +80,7 @@ struct GardenRealityView: View {
     var selectionName: String = "All friends"
     var isInteractive: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var coordinator = GardenSceneCoordinator()
 
     var body: some View {
@@ -107,7 +108,7 @@ struct GardenRealityView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeOut(duration: 0.25), value: coordinator.focusedPlantID)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: coordinator.focusedPlantID)
         .accessibilityElement(children: isInteractive ? .contain : .ignore)
         .accessibilityLabel(accessibilitySummary)
     }

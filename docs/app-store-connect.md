@@ -10,12 +10,12 @@ Answers for the App Store Connect forms, written from the app as it stands on th
 | Primary category | Lifestyle (Productivity is also reasonable) |
 | Price | Free, no in-app purchases |
 | Availability | Australia only (App Store Connect, Pricing and Availability) |
-| Privacy Policy URL | [PLACEHOLDER: the hosted URL, same as `LegalLinks.privacyPolicy` in the app] |
-| Support URL | [PLACEHOLDER: a web page that shows your support email. Required] |
-| Terms of Use | [PLACEHOLDER: the hosted URL. Add it to the description or use a custom EULA] |
-| Copyright | [PLACEHOLDER: 2026 Emily Du] |
+| Privacy Policy URL | https://bloom-726b7.web.app/privacy (same as `LegalLinks.privacyPolicy` in the app) |
+| Support URL | Not applicable for the unit submission. The support email is eduu0005@student.monash.edu, a student address that will expire |
+| Terms of Use | https://bloom-726b7.web.app/terms (same as `LegalLinks.terms` in the app) |
+| Copyright | 2026 Emily Du |
 | Sign in required | Yes. Give the demo accounts from `docs/app-review-notes.md` |
-| Contact for review | [PLACEHOLDER: name, phone, email] |
+| Contact for review | Emily Du, eduu0005@student.monash.edu (a student address that will expire). Phone: Not applicable for the unit submission |
 
 Content rights: answer **Yes**, the app shows third party content (movie and TV data and posters from TMDB) and say you have the rights under TMDB's terms. UNSURE: re-read TMDB's terms for commercial use and image caching before answering.
 
@@ -72,14 +72,14 @@ Expected result: Apple will likely compute **13+** or higher because of user gen
 3. External testing needs **Beta App Review**. Fill in:
    - Beta App Description: Bloom is a shared journaling app. Write notes, share them with friends, grow a garden.
    - What to test: sign up with an email, add a friend (use the second tester), share a note, comment, then try Report, Block and Delete account.
-   - Feedback email: [PLACEHOLDER]
+   - Feedback email: eduu0005@student.monash.edu
    - Test account and notes: reuse `docs/app-review-notes.md`.
 4. Before the first external build, deploy the Firestore rules and indexes (README, "Firestore rules"). Without the indexes, Delete account fails.
 5. Testers in Australia can use their own phone for SMS sign in. Others should use email.
 
 ## 5. Before pressing Submit for Review
 
-- Replace the two example.com addresses in `Bloom/Core/Utilities/LegalLinks.swift` with the hosted Terms and Privacy URLs, and publish `docs/legal/*` as web pages.
-- Remove every [PLACEHOLDER] from the legal pages. A lawyer should read them first.
+- `Bloom/Core/Utilities/LegalLinks.swift` already points at the hosted Terms and Privacy pages (the `site` folder). Check both URLs open, and that `site/` still matches `docs/legal/*`.
+- The legal pages have no placeholders. They have not been reviewed by a lawyer.
 - Screenshots and description must not claim anything the app does not do. Do not call the app "private" without saying backups are stored with Google and are not end to end encrypted.
 - Rotate the TMDB key, since the old one is in git history.

@@ -58,9 +58,9 @@ The app is complete for the unit submission. Everything listed below is built an
 ## How privacy works
 
 - Notes, drafts and photos are saved locally in SwiftData first
-- A backup of each note is kept at `users/{uid}/notes`. The intent is that only its owner can read it unless the note is marked shared, but that depends on the Firestore rules, which are set in the Firebase console
+- A backup of each note is kept at `users/{uid}/notes`. The intent is that only its owner can read it unless the note is marked shared, and the Firestore rules in `firestore.rules` enforce this. They are tested in `rules-tests/` (see Firestore rules below)
 - A shared note can be read by your accepted friends, who can then comment, reply and react
-- In the app, friends see only the notes you shared today and your pinned notes. The Firestore rules still allow an accepted friend to read any note you shared, so the "today only" limit is enforced by the app, not the database
+- In the app, friends see only the notes you shared today and your pinned notes. The Firestore rules still allow an accepted friend to read a note you shared in the last 30 hours, or any shared note you pinned, so the exact "today only" limit is enforced by the app, not the database
 
 ## Tech stack
 
@@ -92,13 +92,18 @@ Dependencies are added with Swift Package Manager: the Firebase iOS SDK 12.19.2 
 1. Clone this repository and open `Bloom.xcodeproj` in Xcode. Swift Package Manager downloads Firebase on first open.
 2. Create a project at [console.firebase.google.com](https://console.firebase.google.com) and add an iOS app with the bundle identifier `Monash.Bloom` (or change it in the target and use your own).
 3. Under Authentication, Sign-in method, enable **Phone** and **Email/Password**. Create a Firestore database.
-4. Download `GoogleService-Info.plist` and add it to the Bloom target. **Do not commit this file.** It is listed in `.gitignore`.
-5. In Firestore, publish security rules for the collections below. The rules are set in the Firebase console and are not stored in this repository.
-6. Create the composite index on `notes` (`sharedWithFriends` ascending, `createdAt` descending). If it is missing, the Xcode console prints a link that creates it.
-7. Get a free API key from [themoviedb.org](https://www.themoviedb.org) and put it in `Bloom/Info.plist` as the `TMDBAPIKey` string.
-8. Choose an iPhone simulator and run. The camera and microphone usage descriptions are already set in the target's build settings, and the `bloom` URL scheme is registered in `Info.plist`.
+4. Add `GoogleService-Info.plist` to the `Bloom` folder (next to `Info.plist`) and to the Bloom target. It is provided with the submission. **The app cannot start without it**: `FirebaseApp.configure()` fails at launch. **Do not commit this file.** It is listed in `.gitignore`.
+5. Deploy the Firestore rules and indexes in `firestore.rules` and `firestore.indexes.json` (see Firestore rules below).
+6. Get a free API key from [themoviedb.org](https://www.themoviedb.org). Copy `Config/Secrets.example.xcconfig` to `Config/Secrets.xcconfig` and set `TMDB_API_KEY` in it. That file is gitignored, and `Info.plist` reads the key from it. Without a key the app still builds and runs, but movie and show search shows "Movie search is not available in this build."
+7. Choose an iPhone simulator and run. The camera and microphone usage descriptions are already set in the target's build settings.
 
-Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentication, Sign-in method, Phone, Phone numbers for testing). Email sign-up works everywhere, so use it on simulators. To test friends, run two simulators signed in as different accounts. The simulator has no camera, so Take photo shows a message there.
+**Phone sign in setup**
+- In the Firebase console, under Authentication, Settings, SMS region policy, allow the countries you will sign in from (for example Australia).
+- Firebase is configured in `NotificationAppDelegate.application(_:didFinishLaunchingWithOptions:)`, not in `BloomApp`. Firebase attaches to the app delegate, so it has to be configured there.
+- `Info.plist` registers two URL schemes: `bloom` (profile links) and Firebase's encoded app ID scheme, which phone sign in needs for its reCAPTCHA fallback. If you use your own Firebase project, replace the encoded scheme with the one for your `GOOGLE_APP_ID`.
+- On the Simulator, add Firebase test numbers (Authentication, Sign-in method, Phone, Phone numbers for testing). The app turns off app verification for the Simulator only, so those numbers work without reCAPTCHA. Real SMS needs a device.
+
+Email sign-up works everywhere, so use it on simulators. To test friends, run two simulators signed in as different accounts. The simulator has no camera, so Take photo shows a message there.
 
 ## Firestore data
 
@@ -114,6 +119,9 @@ Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentic
 | `users/{uid}/library/{entryId}` | A private backup of a Library entry: TMDB id, type, title, year, poster path (not the image), rating, review, logged date and the id of its note. Only its owner can read it |
 | `users/{uid}/circles/{circleId}` | A private circle: its name and up to 10 member ids |
 | `users/{uid}/activity/{id}` | Items in a person's notification list |
+| `users/{uid}/blocks/{blockedUID}` | A person this user has blocked, with the time. Only its owner can read it |
+| `usernames/{name}` | A username reservation: the lowercase name is the id and it holds the owner's uid and a date. It keeps usernames unique |
+| `reports/{id}` | A report about a note, comment or person. Create-only: the app cannot read, change or delete reports, and they are read in the Firebase console |
 | `friendships/{from_to}` | A friend request and its status |
 | `streaks/{uid}` | A person's current streak and last post date, read by friends for the garden |
 | `sharedNotes/{id}` | Retired. The app no longer reads or writes it. Delete the collection in the Firebase console |
@@ -122,7 +130,7 @@ Phone sign-up on a simulator needs reCAPTCHA or Firebase test numbers (Authentic
 
 The rules are in `firestore.rules`, with `firebase.json` and `firestore.indexes.json` beside it. The emulator tests are in `rules-tests/`.
 
-Run the rule tests (needs Node and Java; the first run downloads the Firestore emulator):
+The rules are tested in `rules-tests/` with the Firestore emulator (needs Node and Java; the first run downloads the emulator). `npm test` runs 87 tests: 86 pass and 1 is marked todo.
 
 ```
 cd rules-tests
@@ -130,11 +138,10 @@ npm install
 npm test
 ```
 
-Deploy the rules and the index after the tests pass (log in once with `npx firebase login`, run from the repo root):
+Deploy the rules and indexes from the repo root after the tests pass (log in once with `npx firebase-tools login`):
 
 ```
-cd rules-tests
-npx firebase deploy --only firestore:rules,firestore:indexes --config ../firebase.json --project bloom-726b7
+npx firebase-tools deploy --only firestore:rules,firestore:indexes --project <your project id>
 ```
 
 What the rules enforce for friends: an accepted friend can read a shared note only if it is pinned or was created in the last 30 hours, and the same goes for its photo, voice memo, comments and reactions. The app narrows this to the viewer's calendar day, which a rule cannot know. Phone numbers are no longer stored in Firestore. One test is marked todo: any signed in user can still list `users`, because username search needs it.
@@ -142,7 +149,8 @@ What the rules enforce for friends: an accepted friend can read a shared note on
 ## Running the tests
 
 - Press **Cmd+U** to run everything
-- **BloomTests** has 120 test functions in 12 Swift Testing suites, many of them parameterised. They cover streaks, reminder planning, plant growth states, phone numbers, usernames, journal grouping, movie and show reviews, TMDB parsing (with a stubbed network), comment threading, reactions, and journals, notes and pins in an in memory SwiftData store. They use a fixed UTC calendar, so they don't depend on the device's clock or time zone
+- Xcode lists 134 tests (120 unit and 14 UI). A full run reports 216 cases, because the parameterised unit tests expand to 202 cases, plus the 14 UI tests
+- **BloomTests** has 120 test functions in 11 Swift Testing suites, 202 cases with parameters. They cover streaks, reminder planning, plant growth states, phone numbers, usernames, journal grouping, movie and show reviews, TMDB parsing (with a stubbed network), comment threading, reactions, and journals, notes and pins in an in memory SwiftData store. They use a fixed UTC calendar, so they don't depend on the device's clock or time zone
 - **BloomUITests** has 14 XCTest UI tests on the signed-out screens: Welcome, About, Sign Up, Log In and rotation. They find controls by accessibility identifier and attach screenshots to the test report
 - Before running the UI tests, turn off Connect Hardware Keyboard in the Simulator (I/O, Keyboard), or typing fails
 - Nothing in the automated tests signs in or uses the network. Sharing, friends and notifications were tested by hand with two simulators
@@ -153,6 +161,8 @@ What the rules enforce for friends: an accepted friend can read a shared note on
 Bloom/
 ├── Bloom/                       # The app
 │   ├── App/                     # BloomApp, ContentView (the tab bar), PreviewContainer
+│   ├── Fonts/                   # DM Sans (four weights) and its licence, DMSans-OFL.txt
+│   ├── PrivacyInfo.xcprivacy    # Privacy manifest
 │   ├── Core/                    # Used by two or more features
 │   │   ├── Components/          # Shared views: avatars, note detail, timeline rows, reactions
 │   │   ├── Firebase/            # Auth, friends, note backup, photo and audio stores, activity
@@ -166,6 +176,11 @@ Bloom/
 │       └── Friends/  Greenhouse/  Notifications/  Profile/  Settings/
 ├── BloomTests/                  # Unit tests
 ├── BloomUITests/                # UI tests
+├── Config/                      # Bloom.xcconfig and Secrets.example.xcconfig (TMDB key)
+├── docs/                        # Legal drafts, App Review notes, moderation guide, audit history
+├── site/                        # The hosted Privacy Policy and Terms pages (Firebase Hosting)
+├── rules-tests/                 # Firestore rules emulator tests (npm test)
+├── firestore.rules, firestore.indexes.json, firebase.json
 └── Bloom.xcodeproj
 ```
 
@@ -178,7 +193,6 @@ If only one feature uses a file, it goes in that feature. If two or more use it,
 - **Journal covers stay on the device.** They are not backed up, and friends never see them
 - **Library entries are backed up, but posters are not.** An entry is saved privately at `users/{uid}/library` with its TMDB poster path, and a restore downloads the poster from TMDB again. Entries logged before backup existed have no poster path, so after a restore they show without a poster
 - **The "today only" view is enforced by the app.** The database rules would still let a modified app read older shared notes
-- **Usernames are not unique**, which is why the share link uses the account id
 - **A note is shared with all your friends, not with one circle.** Circles only choose who you see, not who can read a note
 - **UI tests only cover the signed-out screens**, and the unit tests cover logic, not views or Firebase
 
@@ -186,9 +200,8 @@ If only one feature uses a file, it goes in that feature. If two or more use it,
 
 - Push notifications through APNs, Firebase Cloud Messaging and Cloud Functions
 - Cloud Storage for photos, voice memos and avatars
-- Unique usernames, and database rules that enforce the today-only limit
+- Database rules that enforce the exact today-only limit
 - Showing a note to one circle only
-- Reporting and blocking users, which the App Store requires for apps with user content
 
 ## Acknowledgements
 

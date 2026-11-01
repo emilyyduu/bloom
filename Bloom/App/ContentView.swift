@@ -8,6 +8,7 @@ struct ContentView: View {
         case home, journal, add, greenhouse, profile
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab: Tab = .home
     @State private var tabBeforeAdd: Tab = .home
     @State private var isShowingComposer = false
@@ -123,7 +124,7 @@ struct ContentView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
         // The app icon badge follows requests waiting plus unread activity.
         .onChange(of: friendService.pendingIncoming.count + activity.unreadCount) { _, count in
             NotificationBadge.shared.update(unread: count)

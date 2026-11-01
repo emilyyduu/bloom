@@ -10,6 +10,7 @@ struct CameraNotice: Equatable {
     var canOpenSettings = false
 
     static let couldntUsePhoto = CameraNotice(message: "Couldn\u{2019}t use that photo. Try again.")
+    static let couldntLoadPhoto = CameraNotice(message: "Couldn\u{2019}t load that photo. Try another.")
 }
 
 // Everything checked before the camera is presented. Never asks for

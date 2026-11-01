@@ -9,10 +9,6 @@ struct BloomApp: App {
     @StateObject private var authService = AuthService.shared
     @AppStorage("appearance") private var appearanceRawValue = AppAppearance.system.rawValue
 
-//    init() {
-//        FirebaseApp.configure()
-//    }
-
     var body: some Scene {
         WindowGroup {
             Group {

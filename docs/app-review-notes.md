@@ -1,6 +1,6 @@
 # App Review notes (paste into App Store Connect, "App Review Information")
 
-This file is the text to give Apple's reviewers. Fill in every [PLACEHOLDER] before submitting. Nothing here has credentials in it on purpose: create the two demo accounts yourself (steps below) and paste their details into App Store Connect, not into this repo.
+This file is the text to give Apple's reviewers. Nothing here has credentials in it on purpose: the two demo accounts are set up with the steps below, and their details are supplied separately in the submission notes, never in this repo.
 
 ## Before you submit: set up the demo accounts
 
@@ -15,7 +15,7 @@ Reviewers cannot receive SMS codes, so give them email and password accounts. Us
 7. Sign in as each account once on a real device to check Home, Greenhouse and Notifications all look right.
 8. Keep both accounts signed out when you submit. Do not delete them while the review is open.
 
-Keep the credentials: [PLACEHOLDER: account A email and password], [PLACEHOLDER: account B email and password].
+Keep the credentials out of the repo. They are supplied separately in the submission notes.
 
 ## Text for the "Notes" box
 
@@ -23,15 +23,14 @@ Bloom is a journaling app for people aged 16 and over. You write short notes thr
 
 SIGN IN
 Bloom offers sign in by phone number (an SMS code) or by email and password. Because you cannot receive SMS, please use the email demo accounts:
-- Account A: [PLACEHOLDER: email] / [PLACEHOLDER: password]
-- Account B: [PLACEHOLDER: email] / [PLACEHOLDER: password]
+- Account A and Account B: two email accounts, with the email and password for each supplied separately in the submission notes.
 They are already friends, so Home, Notifications, the Greenhouse and friend profiles have content. Sign out is in Profile tab, Settings.
 
 USER GENERATED CONTENT (guideline 1.2)
 - Users can see only people they have accepted as friends, plus a username search that shows a display name, username and picture.
 - Report: on any friend's note (the ... menu at the top right of the note), on any comment by someone else (the ... button on the comment), and on any profile (the ... menu on a friend's profile). Choose a reason, add details if wanted, and Send.
 - Block: from the same menus. Blocking ends the friendship, stops that person sending requests and hides what they write. Manage blocked people in Profile tab, Settings, Privacy, Blocked people.
-- Reports are reviewed by the developer through the Firebase console, and the developer acts on them (removes content or disables the account). Contact: [PLACEHOLDER: support email] (also in Settings, About, Contact the developer).
+- Reports are read in the Firebase console and handled within 3 days where possible, and the developer acts on them (removes content or disables the account). Reports are kept after an account is deleted for as long as needed. Contact: eduu0005@student.monash.edu, a student address that will expire (also in Settings, About, Contact the developer).
 - Terms of Use and Privacy Policy links are on the sign up screen and in Settings, About. Users must tick that they are 16 or older and agree before signing up.
 
 ACCOUNT DELETION (guideline 5.1.1(v))
@@ -53,4 +52,4 @@ NOTES ON BEHAVIOUR
 - The daily reminder is a local notification the user turns on in Settings.
 - The Greenhouse tab shows a 3D garden (RealityKit). It needs at least one friend to show other plants.
 
-Contact for review questions: [PLACEHOLDER: name, phone number and email for App Store Connect].
+Contact for review questions: Emily Du, eduu0005@student.monash.edu (a student address that will expire). Phone: Not applicable for the unit submission.
