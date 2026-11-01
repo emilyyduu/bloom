@@ -196,19 +196,25 @@ struct HomeView: View {
         Button {
             isShowingNotifications = true
         } label: {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "bell")
-                if unseenCount > 0 {
-                    Text(unseenCount > 9 ? "9+" : "\(unseenCount)")
-                        .textStyle(.label)
-                        .foregroundStyle(Theme.Colors.textOnColor)
-                        .padding(.horizontal, Theme.Spacing.xs)
-                        .background(Theme.Palette.red, in: Capsule())
-                        .offset(x: Theme.Spacing.sm, y: -Theme.Spacing.xs)
-                }
-            }
+            Image(systemName: "bell")
         }
         .buttonStyle(.bloomCircle)
+        // The badge sits on the circle's corner, outside the button label, so
+        // large text sizes can't push it over the bell. The circle is a fixed
+        // 44pt, so the badge text is capped rather than allowed to grow with it.
+        .overlay(alignment: .topTrailing) {
+            if unseenCount > 0 {
+                Text(unseenCount > 9 ? "9+" : "\(unseenCount)")
+                    .textStyle(.label)
+                    .dynamicTypeSize(...DynamicTypeSize.large)
+                    .lineLimit(1)
+                    .foregroundStyle(Theme.Colors.textOnColor)
+                    .padding(.horizontal, Theme.Spacing.xs)
+                    .background(Theme.Palette.red, in: Capsule())
+                    .offset(x: Theme.Spacing.xs, y: -Theme.Spacing.xs)
+                    .allowsHitTesting(false)
+            }
+        }
         .accessibilityLabel("Notifications")
         .accessibilityValue(unseenCount > 0 ? "\(unseenCount) new" : "")
     }

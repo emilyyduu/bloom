@@ -484,7 +484,7 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
     var body: some View {
         let items = model.index.items(on: day)
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 header(count: items.count)
 
                 if items.isEmpty {
@@ -503,7 +503,8 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
                     }
                 }
             }
-            .padding(Theme.Spacing.lg)
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.bottom, Theme.Spacing.lg)
             .frame(maxWidth: 700, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
@@ -530,15 +531,9 @@ struct JournalDayScreen<Item: JournalItem, Card: View>: View {
 
             Spacer()
 
-            VStack(spacing: 2) {
-                Text(JournalFormat.dayHeader(day.date(calendar: model.index.calendar)))
-                    .textStyle(.subheading)
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-                Text(JournalFormat.noteCount(count))
-                    .textStyle(.callout)
-                    .foregroundStyle(Theme.Colors.textSecondary)
-            }
+            Text(JournalFormat.noteCount(count))
+                .textStyle(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
 
             Spacer()
 
