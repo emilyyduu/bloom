@@ -33,7 +33,7 @@ final class StubURLProtocol: URLProtocol {
 struct TMDBServiceTests {
     // A /search/multi answer with two movies, a TV show, a person, an
     // unknown type, and entries missing the field their type needs.
-    static let sample = """
+    nonisolated static let sample = """
     {
       "page": 1,
       "results": [

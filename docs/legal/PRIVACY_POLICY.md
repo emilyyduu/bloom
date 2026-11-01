@@ -14,7 +14,7 @@ Contact: eduu0005@student.monash.edu.
 - Bloom does not use analytics or advertising trackers and does not track you across other apps or websites.
 - Bloom does not read your contacts. Your phone number, if you use one, stays with the sign in service and is not shown to other people.
 - Your notes are stored on your device first and backed up to your account in our database. They are shared with friends only when you choose.
-- You can delete your account, and everything we hold about it, inside the app.
+- You can delete your account inside the app. That erases your profile, notes and the other things listed below. A few things can remain, and this policy says which.
 
 ## Minimum age
 You must be at least 16 to use Bloom, and you confirm this when you sign up. We do not knowingly collect data from anyone younger. If you think a younger person has an account, contact us and we will delete it.
@@ -66,7 +66,7 @@ Blocking removes any friendship between you and the other person, stops them sen
 ## Keeping and deleting your data
 Your data stays until you delete it or delete your account. Deleting a note removes it from your device and from our database, along with its photo, voice memo and comments. Deleting a movie or show from your Library removes it from your device and from our database.
 To delete your account, open Settings, then Delete account. You sign in again to confirm. Bloom then erases from our database your profile, username reservation, picture, notes, photos, voice memos, circles, blocked people, Library, notification feed, streak, friendships, your comments and reactions on friends' notes, and the notification items you sent to friends. It deletes your sign in, and it removes your data from your device. If a step cannot finish you stay signed in and can try again.
-Limits: a copy may remain in Google's backups and logs for a limited time after you delete something. We don't control how long. Anything you posted that a friend has already seen, copied or screenshotted is outside our control. Reactions you made on friends' notes before November 1, 2026 may remain until the note is deleted.
+Limits: a copy may remain in Google’s backups and logs for a limited time after you delete something. We don’t control how long. Anything you posted that a friend has already seen, copied or screenshotted is outside our control. Reactions you made on friends’ notes before November 1, 2026 may remain until the note is deleted. A report you made about another person or their content is kept after you delete your account, because it is about someone else and may be needed to act on it. If someone blocked you, their own block list keeps your account ID until they delete it or delete their account.
 
 ## Your choices and rights
 You can edit your profile, delete notes, stop sharing, remove or block friends, and turn off permissions in iOS Settings. You can ask us to access or correct your data at the email above. Contact us first and we will try to sort out any problem.

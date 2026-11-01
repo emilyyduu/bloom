@@ -10,15 +10,24 @@ import FirebaseCore
 // not exist yet while BloomApp.init runs.
 @MainActor
 final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    // False when GoogleService-Info.plist isn't in the app bundle. Firebase
+    // can't be configured then, so nothing may touch Auth or Firestore and
+    // BloomApp shows SetupRequiredView instead.
+    static var hasFirebaseConfiguration: Bool {
+        Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil
+    }
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        FirebaseApp.configure()
-        #if targetEnvironment(simulator)
-        // Lets Firebase's fictional test phone numbers work on the Simulator.
-        Auth.auth().settings?.isAppVerificationDisabledForTesting = true
-        #endif
+        if Self.hasFirebaseConfiguration {
+            FirebaseApp.configure()
+            #if targetEnvironment(simulator)
+            // Lets Firebase's fictional test phone numbers work on the Simulator.
+            Auth.auth().settings?.isAppVerificationDisabledForTesting = true
+            #endif
+        }
         UNUserNotificationCenter.current().delegate = self
         return true
     }
@@ -33,6 +42,10 @@ final class NotificationAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         // The result doesn't matter here. Asking Firebase is what answers its check.
+        guard Self.hasFirebaseConfiguration else {
+            completionHandler(.noData)
+            return
+        }
         _ = Auth.auth().canHandleNotification(notification)
         completionHandler(.noData)
     }
