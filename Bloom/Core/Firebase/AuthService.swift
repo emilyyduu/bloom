@@ -40,6 +40,14 @@ final class AuthService: ObservableObject {
     private var handle: AuthStateDidChangeListenerHandle?
 
     private init() {
+        // Firebase has already restored the saved account by now, so start with
+        // the real answer instead of "signed out". Without this, the Welcome
+        // screen shows for a moment at every launch, until the listener's first
+        // callback arrives.
+        let savedUser = Auth.auth().currentUser
+        uid = savedUser?.uid
+        isSignedIn = savedUser != nil
+
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             guard let self else { return }
             // Covers a sign out that didn't come from Settings (for
@@ -55,7 +63,7 @@ final class AuthService: ObservableObject {
             }
         }
     }
-
+    
     // Clears everything held in memory about the account that was
     // signed in, so the next account starts clean. Safe to call twice.
     // Local notes need no clearing here, each account has its own store.
