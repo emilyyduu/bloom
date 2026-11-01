@@ -21,8 +21,8 @@ struct FriendTodayView: View {
     var body: some View {
         content
             .background(Theme.Colors.background)
-            .navigationTitle("")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.large)
             .onAppear { startListening() }
             .onDisappear { listener.stop() }
             .onChange(of: scenePhase) { _, newPhase in
@@ -46,14 +46,16 @@ struct FriendTodayView: View {
         case .loading:
             VStack(spacing: 0) {
                 header
-                    .padding(Theme.Spacing.screenEdge)
+                    .padding(.horizontal, Theme.Spacing.screenEdge)
+                    .padding(.bottom, Theme.Spacing.screenEdge)
                 ProgressView("Loading notes")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         case .permissionDenied:
             VStack(spacing: 0) {
                 header
-                    .padding(Theme.Spacing.screenEdge)
+                    .padding(.horizontal, Theme.Spacing.screenEdge)
+                    .padding(.bottom, Theme.Spacing.screenEdge)
                 ContentUnavailableView(
                     "You can\u{2019}t see this friend\u{2019}s notes",
                     systemImage: "lock",
@@ -64,7 +66,8 @@ struct FriendTodayView: View {
         case .failed, .missingIndex:
             VStack(spacing: 0) {
                 header
-                    .padding(Theme.Spacing.screenEdge)
+                    .padding(.horizontal, Theme.Spacing.screenEdge)
+                    .padding(.bottom, Theme.Spacing.screenEdge)
                 ContentUnavailableView {
                     Label("Couldn\u{2019}t load notes", systemImage: "exclamationmark.triangle")
                 } description: {
@@ -78,15 +81,18 @@ struct FriendTodayView: View {
                 .frame(maxHeight: .infinity)
             }
         case .loaded where listener.notes.isEmpty:
+            // Header at the top like the list below, with the message
+            // centred in the space that's left.
             VStack(spacing: 0) {
                 header
-                    .padding(Theme.Spacing.screenEdge)
+                    .padding(.horizontal, Theme.Spacing.screenEdge)
+                    .padding(.bottom, Theme.Spacing.screenEdge)
                 ContentUnavailableView(
                     "Nothing shared today",
                     systemImage: "tray",
                     description: Text("\(friend.shownName) hasn\u{2019}t shared a note today.")
                 )
-                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         case .loaded:
             ScrollView {
@@ -106,7 +112,6 @@ struct FriendTodayView: View {
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.screenEdge)
-                .padding(.top, Theme.Spacing.sm)
                 .padding(.bottom, Theme.Spacing.xl)
                 .frame(maxWidth: 700, alignment: .leading)
                 .frame(maxWidth: .infinity)
@@ -114,20 +119,12 @@ struct FriendTodayView: View {
         }
     }
 
-    // "Alex's notes" with the day under it, for the day the listener is on.
+    // The day the listener is on, under the "Alex's notes" nav title.
     private var header: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
-            Text(title)
-                .textStyle(.title)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .accessibilityAddTraits(.isHeader)
-            Text(Self.dayFormatter.string(from: listener.day.start))
-                .textStyle(.callout)
-                .foregroundStyle(Theme.Colors.textSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
+        Text(Self.dayFormatter.string(from: listener.day.start))
+            .textStyle(.callout)
+            .foregroundStyle(Theme.Colors.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // "Thursday 29 October", in the viewer's language and order.

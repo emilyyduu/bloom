@@ -75,6 +75,9 @@ struct FriendProfileView: View {
     @State private var isShowingNewCircle = false
     @State private var alertMessage: String?
     @State private var moderation: ModerationRequest?
+    @State private var isConfirmingRemove = false
+    @State private var removeErrorMessage: String?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollView {
@@ -97,7 +100,7 @@ struct FriendProfileView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Theme.Colors.background)
-        .navigationTitle(friend.shownName)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             if let uid = friend.id { listener.start(friendUID: uid) }
@@ -109,6 +112,9 @@ struct FriendProfileView: View {
                     Menu {
                         Button("Report \(friend.shownName)", systemImage: "flag") {
                             moderation = .report(.user(uid: uid, name: friend.shownName))
+                        }
+                        Button("Remove \(friend.shownName)", systemImage: "person.badge.minus", role: .destructive) {
+                            isConfirmingRemove = true
                         }
                         Button("Block \(friend.shownName)", systemImage: "hand.raised", role: .destructive) {
                             moderation = .block(uid: uid, name: friend.shownName)
@@ -122,6 +128,20 @@ struct FriendProfileView: View {
             }
         }
         .moderation($moderation)
+        .alert("Remove \(friend.shownName)?", isPresented: $isConfirmingRemove) {
+            Button("Remove", role: .destructive) { removeFriend() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You will stop being friends and won\u{2019}t see each other\u{2019}s notes. They are not told. You can add each other again later.")
+        }
+        .alert(
+            "Couldn\u{2019}t remove friend",
+            isPresented: Binding(get: { removeErrorMessage != nil }, set: { if !$0 { removeErrorMessage = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(removeErrorMessage ?? "")
+        }
         .sheet(isPresented: $isShowingNewCircle) {
             NewCircleSheet(preselected: friend.id.map { [$0] } ?? [])
         }
@@ -134,6 +154,18 @@ struct FriendProfileView: View {
             Text(alertMessage ?? "")
         }
         .task { circleStore.startListening() }
+    }
+
+    private func removeFriend() {
+        guard let uid = friend.id else { return }
+        Task {
+            do {
+                try await FriendService.shared.removeFriend(uid: uid)
+                dismiss()
+            } catch {
+                removeErrorMessage = "Check your connection and try again."
+            }
+        }
     }
 
     // MARK: Circles

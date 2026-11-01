@@ -131,6 +131,26 @@ final class FriendService: ObservableObject {
         try await db.collection("friendships").document(id).delete()
     }
 
+    // Ends an accepted friendship without blocking. Deletes the friendship
+    // document in whichever direction it was made, in one batch. They can
+    // still send a new request later, unlike after a block.
+    func removeFriend(uid: String) async throws {
+        guard let myUID = Auth.auth().currentUser?.uid, uid != myUID else { return }
+
+        var references: [DocumentReference] = []
+        for (from, to) in [(myUID, uid), (uid, myUID)] {
+            let snapshot = try await db.collection("friendships")
+                .whereField("fromUID", isEqualTo: from)
+                .whereField("toUID", isEqualTo: to)
+                .getDocuments(source: .server)
+            references += snapshot.documents.map(\.reference)
+        }
+
+        let batch = db.batch()
+        for reference in references { batch.deleteDocument(reference) }
+        try await batch.commit()
+    }
+
     // How the signed-in user relates to another account, used by
     // AddFriendView so a search result shows the right action (Add,
     // Requested, Accept or Friends) instead of letting a duplicate
