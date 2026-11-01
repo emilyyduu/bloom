@@ -141,30 +141,27 @@ private struct NoteActionDialogs: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .confirmationDialog(
+            .alert(
                 "Share with friends?",
-                isPresented: $controller.isShowingShareConfirmation,
-                titleVisibility: .visible
+                isPresented: $controller.isShowingShareConfirmation
             ) {
                 Button("Share with friends") { controller.confirmShare() }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Friends see the notes you share from today and your pinned notes. They can comment on this note.")
             }
-            .confirmationDialog(
+            .alert(
                 "Stop sharing?",
-                isPresented: $controller.isShowingStopSharingConfirmation,
-                titleVisibility: .visible
+                isPresented: $controller.isShowingStopSharingConfirmation
             ) {
                 Button("Stop sharing", role: .destructive) { controller.confirmStopSharing() }
                 Button("Cancel", role: .cancel) {}
             } message: {
                 Text("Friends will no longer see this note. Its comments stay hidden until you share it again.")
             }
-            .confirmationDialog(
+            .alert(
                 "Delete this note?",
-                isPresented: $controller.isShowingDeleteConfirmation,
-                titleVisibility: .visible
+                isPresented: $controller.isShowingDeleteConfirmation
             ) {
                 Button("Delete", role: .destructive) { controller.confirmDelete() }
                 Button("Cancel", role: .cancel) {}

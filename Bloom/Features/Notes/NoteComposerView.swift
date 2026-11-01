@@ -261,10 +261,9 @@ struct NoteComposerView: View {
                 VoiceMemoSheet { handleRecorded($0) }
             }
             .interactiveDismissDisabled(hasUnsavedChanges)
-            .confirmationDialog(
+            .alert(
                 "Discard changes?",
-                isPresented: $isShowingDiscardConfirmation,
-                titleVisibility: .visible
+                isPresented: $isShowingDiscardConfirmation
             ) {
                 Button("Discard", role: .destructive) {
                     discardSessionAudio()
@@ -272,18 +271,16 @@ struct NoteComposerView: View {
                 }
                 Button("Keep Editing", role: .cancel) {}
             }
-            .confirmationDialog(
+            .alert(
                 "Delete this draft?",
-                isPresented: $isShowingDeleteConfirmation,
-                titleVisibility: .visible
+                isPresented: $isShowingDeleteConfirmation
             ) {
                 Button("Delete", role: .destructive) { deleteDraft() }
                 Button("Cancel", role: .cancel) {}
             }
-            .confirmationDialog(
+            .alert(
                 "Save this note as a draft first?",
-                isPresented: $isShowingSaveDraftFirstDialog,
-                titleVisibility: .visible
+                isPresented: $isShowingSaveDraftFirstDialog
             ) {
                 Button("Save Draft") {
                     persistCurrentNote(asDraft: true)

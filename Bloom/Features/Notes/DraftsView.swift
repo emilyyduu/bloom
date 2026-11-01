@@ -93,15 +93,14 @@ struct DraftsView: View {
             .sheet(item: $draftToEdit) { draft in
                 NoteComposerView(draft: draft)
             }
-            .confirmationDialog(
+            .alert(
                 "Delete this draft?",
                 isPresented: Binding(
                     get: { draftPendingDeletion != nil },
                     set: { isPresented in
                         if !isPresented { draftPendingDeletion = nil }
                     }
-                ),
-                titleVisibility: .visible
+                )
             ) {
                 Button("Delete", role: .destructive) {
                     if let draftPendingDeletion { delete(draftPendingDeletion) }

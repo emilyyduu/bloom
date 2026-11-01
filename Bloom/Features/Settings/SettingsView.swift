@@ -86,10 +86,9 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.Colors.background)
         .navigationTitle("Settings")
-        .confirmationDialog(
+        .alert(
             "Sign out of Bloom?",
-            isPresented: $isShowingSignOutConfirmation,
-            titleVisibility: .visible
+            isPresented: $isShowingSignOutConfirmation
         ) {
             Button("Sign Out", role: .destructive) { signOut() }
             Button("Cancel", role: .cancel) {}

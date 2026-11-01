@@ -99,10 +99,9 @@ struct DeleteAccountView: View {
         .navigationBarTitleDisplayMode(.inline)
         .interactiveDismissDisabled(isSubmitting)
         .navigationBarBackButtonHidden(isSubmitting)
-        .confirmationDialog(
+        .alert(
             "Delete your account permanently?",
-            isPresented: $isShowingConfirmation,
-            titleVisibility: .visible
+            isPresented: $isShowingConfirmation
         ) {
             Button("Delete Account", role: .destructive) { deleteAccount() }
             Button("Cancel", role: .cancel) {}

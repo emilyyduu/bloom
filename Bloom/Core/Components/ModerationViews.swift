@@ -41,10 +41,9 @@ private struct ModerationModifier: ViewModifier {
             .sheet(item: reportTarget) { target in
                 ReportSheet(target: target)
             }
-            .confirmationDialog(
+            .alert(
                 "Block \(blockName ?? "this person")?",
-                isPresented: Binding(get: { blockName != nil }, set: { if !$0 { request = nil } }),
-                titleVisibility: .visible
+                isPresented: Binding(get: { blockName != nil }, set: { if !$0 { request = nil } })
             ) {
                 Button("Block", role: .destructive) { block() }
                 Button("Cancel", role: .cancel) { request = nil }
