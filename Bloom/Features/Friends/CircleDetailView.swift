@@ -107,9 +107,11 @@ struct CircleDetailView: View {
         .background(Theme.Colors.background)
         .overlay {
             if members.isEmpty {
-                ContentUnavailableView {
-                    Label("Add people to this circle", systemImage: "person.2")
-                } actions: {
+                EmptyStateView(
+                    title: "No one in this circle yet",
+                    message: "Choose friends to add to it.",
+                    systemImage: "person.2"
+                ) {
                     Button("Add people") { isShowingAddPeople = true }
                         .buttonStyle(.bloomPrimary)
                 }

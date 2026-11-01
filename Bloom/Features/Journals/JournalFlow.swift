@@ -74,10 +74,10 @@ struct JournalYearsScreen<Item: JournalItem, Card: View>: View {
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
             if model.index.isEmpty {
-                ContentUnavailableView(
-                    "No journals yet",
-                    systemImage: "book.closed",
-                    description: Text("Your journals will appear here once you\u{2019}ve logged a few notes.")
+                EmptyStateView(
+                    title: "No journals yet",
+                    message: "Your journals will appear here once you\u{2019}ve logged a few notes.",
+                    systemImage: "book.closed"
                 )
             }
         }

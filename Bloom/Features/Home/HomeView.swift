@@ -219,6 +219,7 @@ struct HomeView: View {
         } label: {
             Text("Streaks: \(currentStreak) day\(currentStreak == 1 ? "" : "s")")
                 .textStyle(.callout)
+                .fontWeight(.semibold)
                 .foregroundStyle(Theme.Colors.textSecondary)
         }
         .buttonStyle(.plain)
@@ -246,8 +247,8 @@ struct HomeView: View {
 
     private var emptyTimelineState: some View {
         VStack(spacing: Theme.Spacing.md) {
-            Text("No notes yet today")
-                .textStyle(.subheading)
+            Text("What’s happening?")
+                .textStyle(.callout)
                 .foregroundStyle(Theme.Colors.textSecondary)
             Button("Add Note") {
                 isShowingComposer = true

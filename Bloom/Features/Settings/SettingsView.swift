@@ -39,21 +39,6 @@ struct SettingsView: View {
                     SettingsRowLabel("Edit profile", subtitle: "Name, username and photo", systemImage: "person.crop.circle")
                 }
                 .disabled(isProfileLoading)
-
-                Button(role: .destructive) {
-                    isShowingSignOutConfirmation = true
-                } label: {
-                    SettingsRowLabel("Sign out", systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
-                }
-                .foregroundStyle(Theme.Colors.error)
-
-                NavigationLink {
-                    DeleteAccountView()
-                } label: {
-                    SettingsRowLabel("Delete account", subtitle: "Erase your account and data", systemImage: "trash", tint: Theme.Colors.error)
-                }
-
-                FormErrorText(message: errorMessage)
             } header: {
                 SectionHeader("Account")
             }
@@ -79,6 +64,23 @@ struct SettingsView: View {
                 } label: {
                     SettingsRowLabel("About", subtitle: AppInfo.versionLine, systemImage: "info.circle")
                 }
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    isShowingSignOutConfirmation = true
+                } label: {
+                    SettingsRowLabel("Sign out", systemImage: "rectangle.portrait.and.arrow.right", tint: .red)
+                }
+                .foregroundStyle(Theme.Colors.error)
+
+                NavigationLink {
+                    DeleteAccountView()
+                } label: {
+                    SettingsRowLabel("Delete account", subtitle: "Erase your account and data", systemImage: "trash", tint: Theme.Colors.error)
+                }
+
+                FormErrorText(message: errorMessage)
             }
         }
         .scrollContentBackground(.hidden)

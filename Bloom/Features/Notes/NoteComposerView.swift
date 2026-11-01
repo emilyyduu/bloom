@@ -93,6 +93,10 @@ struct NoteComposerView: View {
     }
 
     // A voice memo alone is enough to save or post, text is optional.
+    private var composerTitle: String {
+        isEditingPosted ? "Edit Note" : (isEditingDraft ? "Edit Draft" : "New Note")
+    }
+
     private var canSave: Bool {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return hasText || audioDraft != nil
@@ -200,11 +204,20 @@ struct NoteComposerView: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
-            .navigationTitle(isEditingPosted ? "Edit Note" : (isEditingDraft ? "Edit Draft" : "New Note"))
+            .navigationTitle(composerTitle)
+            .navigationBarTitleDisplayMode(.inline)
             // Pinned above the keyboard, and above the home indicator
             // when the keyboard is down.
             .safeAreaInset(edge: .bottom, spacing: 0) { toolsBar }
             .toolbar {
+                // The navigation title can't take the heading typeface, so the
+                // visible title is drawn here and .navigationTitle stays for
+                // accessibility and the back label.
+                ToolbarItem(placement: .principal) {
+                    Text(composerTitle)
+                        .textStyle(.heading)
+                        .accessibilityAddTraits(.isHeader)
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { handleCancel() }
                 }

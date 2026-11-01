@@ -14,6 +14,14 @@ struct CirclesView: View {
 
     private var friends: [FirestoreUser] { friendService.friends }
 
+    private func addCircle() {
+        if CircleLimits.canAdd(current: circleStore.circles.count, limit: CircleLimits.maxCircles) {
+            isShowingNewCircle = true
+        } else {
+            isShowingCircleLimit = true
+        }
+    }
+
     var body: some View {
         List {
             Section {
@@ -45,10 +53,25 @@ struct CirclesView: View {
                     .accessibilityAction(named: "Rename") { circleToRename = circle }
                     .accessibilityAction(named: "Delete") { circleToDelete = circle }
                 }
-            } header: {
-                SectionHeader("Circles")
             } footer: {
                 Text("Only you can see your circles.")
+            }
+
+            if circleStore.circles.isEmpty && circleStore.state == .loaded {
+                Section {
+                    EmptyStateView(
+                        title: "Add more circles",
+                        message: "Group friends you want to see together.",
+                        systemImage: "circle.grid.2x2"
+                    ) {
+                        Button("New circle") { addCircle() }
+                            .buttonStyle(.bloomPrimary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.xxl)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
             }
 
             if let message = circleStore.errorMessage {
@@ -67,11 +90,7 @@ struct CirclesView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    if CircleLimits.canAdd(current: circleStore.circles.count, limit: CircleLimits.maxCircles) {
-                        isShowingNewCircle = true
-                    } else {
-                        isShowingCircleLimit = true
-                    }
+                    addCircle()
                 } label: {
                     Image(systemName: "plus")
                 }

@@ -39,18 +39,16 @@ struct FriendsView: View {
                         }
                     }
                 }
-            } header: {
-                SectionHeader("Friends")
             }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.Colors.background)
         .overlay {
             if friendService.friends.isEmpty && friendService.pendingIncoming.isEmpty {
-                ContentUnavailableView(
-                    "No friends yet",
-                    systemImage: "person.2",
-                    description: Text("Add someone to start sharing notes.")
+                EmptyStateView(
+                    title: "No friends yet",
+                    message: "Add someone to start sharing notes.",
+                    systemImage: "person.2"
                 )
             }
         }

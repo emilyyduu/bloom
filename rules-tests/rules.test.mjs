@@ -639,12 +639,14 @@ describe('unique usernames', () => {
       await assertFails(deleteDoc(reservationDoc(as('erin'), 'nobody_here')));
     });
 
-    test('a signed in user can look up one name but not list them', async () => {
+    test('anyone can look up one name but nobody can list them', async () => {
       await seedReservation('erin_1', 'erin');
       await assertSucceeds(getDoc(reservationDoc(as(DAVE), 'erin_1')));
       await assertSucceeds(getDoc(reservationDoc(as(DAVE), 'free_name')));
-      await assertFails(getDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1')));
+      await assertSucceeds(getDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1')));
+      await assertSucceeds(getDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'free_name')));
       await assertFails(getDocs(collection(as(DAVE), 'usernames')));
+      await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(), 'usernames')));
     });
   });
 

@@ -13,6 +13,9 @@ struct SignUpView: View {
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var errorMessage: String?
+    // Set by the live lookup. Stays false when the lookup can't be made, and
+    // sign up then still catches a taken name when the profile is saved.
+    @State private var isUsernameTaken = false
     @State private var verificationID: String?
     @State private var hasAgreed = false
     @FocusState private var focusedField: Field?
@@ -33,7 +36,8 @@ struct SignUpView: View {
     private var usernameValidationError: String? {
         let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        return UsernameValidator.errorMessage(for: trimmed)
+        if let message = UsernameValidator.errorMessage(for: trimmed) { return message }
+        return isUsernameTaken ? UsernameError.taken.errorDescription : nil
     }
 
     private var isUsernameValid: Bool {
@@ -147,10 +151,13 @@ struct SignUpView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(method == .phone ? "Send Code" : "Sign Up") { submit() }
-                        .disabled(isSubmitting || !isUsernameValid || !DisplayNameValidator.isValid(displayName))
+                        .disabled(isSubmitting || !isUsernameValid || isUsernameTaken || !DisplayNameValidator.isValid(displayName))
                         .accessibilityIdentifier("signUp.submit")
                 }
             }
+            // Looks the name up shortly after typing stops. A new keystroke
+            // cancels the wait and the lookup in flight.
+            .task(id: username) { await checkUsernameAvailability() }
             .navigationDestination(item: $verificationID) { id in
                 PhoneVerificationView(
                     verificationID: id,
@@ -163,10 +170,21 @@ struct SignUpView: View {
         }
     }
 
+    private func checkUsernameAvailability() async {
+        isUsernameTaken = false
+        let trimmed = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard UsernameValidator.isValid(trimmed) else { return }
+        try? await Task.sleep(for: .milliseconds(500))
+        guard !Task.isCancelled else { return }
+        guard let available = try? await UsernameService.isAvailable(trimmed.lowercased()),
+              !Task.isCancelled else { return }
+        isUsernameTaken = !available
+    }
+
     // Return on the last field does what the toolbar button does, but only
     // when that button would be enabled.
     private func submitIfReady() {
-        guard !isSubmitting, isUsernameValid, DisplayNameValidator.isValid(displayName) else { return }
+        guard !isSubmitting, isUsernameValid, !isUsernameTaken, DisplayNameValidator.isValid(displayName) else { return }
         submit()
     }
 
@@ -180,8 +198,12 @@ struct SignUpView: View {
             case .phone:
                 verificationID = try await AuthService.shared.startPhoneVerification(phoneNumber: phoneNumber)
             case .email:
-                try await AuthService.shared.signUpWithEmail(email: email, password: password)
-                try await AuthService.shared.completeSignUp(displayName: displayName, username: username)
+                try await AuthService.shared.signUpWithEmail(
+                    email: email,
+                    password: password,
+                    displayName: displayName,
+                    username: username
+                )
             }
         }
     }

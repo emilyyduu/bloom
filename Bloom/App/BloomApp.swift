@@ -16,10 +16,10 @@ struct BloomApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                // While a phone log in is being checked the main app waits and
+                // While a log in or a new profile is being checked the main app waits and
                 // WelcomeView stays mounted, so the verify screen keeps its
                 // state and can show an error if the check fails.
-                if let uid = authService.uid, !authService.isCheckingLogin {
+                if let uid = authService.uid, !authService.isHoldingMainApp {
                     // One store file per account. The id makes SwiftUI
                     // rebuild the whole signed-in UI when the account
                     // changes, so every @Query and the environment
@@ -30,7 +30,7 @@ struct BloomApp: App {
                 }
             }
             .overlay {
-                if authService.isCheckingLogin {
+                if authService.isHoldingMainApp {
                     CheckingAccountView()
                 }
             }

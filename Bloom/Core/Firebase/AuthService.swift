@@ -25,6 +25,14 @@ final class AuthService: ObservableObject {
     // root view uses this to hold back the main app until the check ends.
     @Published private(set) var isCheckingLogin = false
 
+    // True from the moment a new account is created until its profile (and
+    // username reservation) is saved. Like isCheckingLogin, it keeps the main
+    // app back so a taken username can be shown on the sign up screen.
+    @Published private(set) var isCompletingSignUp = false
+
+    // Either check is running, so the signed-in app must wait.
+    var isHoldingMainApp: Bool { isCheckingLogin || isCompletingSignUp }
+
     // Set at sign in when an older account's username is already reserved by
     // someone else. ContentView shows a one time message, then clears it.
     @Published var needsNewUsername = false
@@ -191,6 +199,25 @@ final class AuthService: ObservableObject {
 
     func signUpWithEmail(email: String, password: String) async throws {
         try await Auth.auth().createUser(withEmail: email, password: password)
+    }
+
+    // Creates the account and its profile as one step. The main app stays
+    // back until the profile is saved, so UsernameError.taken reaches the
+    // form instead of being lost when the account is removed again.
+    func signUpWithEmail(email: String, password: String, displayName: String, username: String) async throws {
+        isCompletingSignUp = true
+        defer { isCompletingSignUp = false }
+        try await signUpWithEmail(email: email, password: password)
+        try await completeSignUp(displayName: displayName, username: username)
+    }
+
+    // The phone version: confirms the code, then saves the profile, with the
+    // main app held back in between.
+    func confirmPhoneSignUp(verificationID: String, code: String, displayName: String, username: String) async throws {
+        isCompletingSignUp = true
+        defer { isCompletingSignUp = false }
+        try await confirmPhoneCode(verificationID: verificationID, code: code)
+        try await completeSignUp(displayName: displayName, username: username)
     }
 
     func signInWithEmail(email: String, password: String) async throws {

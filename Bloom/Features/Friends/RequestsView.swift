@@ -32,6 +32,7 @@ struct RequestsView: View {
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.bottom, Theme.Spacing.sm)
         }
+        .background(Theme.Colors.background)
         .navigationTitle("Requests")
         .navigationBarTitleDisplayMode(.inline)
     }
@@ -57,11 +58,12 @@ struct RequestsView: View {
     private var incomingList: some View {
         Group {
             if friendService.pendingIncoming.isEmpty {
-                ContentUnavailableView(
-                    "No Incoming Requests",
-                    systemImage: "person.crop.circle.badge.questionmark",
-                    description: Text("Requests other people send you will show up here.")
+                EmptyStateView(
+                    title: "No incoming requests",
+                    message: "Requests other people send you will show up here.",
+                    systemImage: "person.crop.circle.badge.questionmark"
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(friendService.pendingIncoming) { request in
                     IncomingRequestRow(
@@ -82,11 +84,12 @@ struct RequestsView: View {
     private var outgoingList: some View {
         Group {
             if friendService.pendingOutgoing.isEmpty {
-                ContentUnavailableView(
-                    "No Outgoing Requests",
-                    systemImage: "paperplane",
-                    description: Text("Requests you send will show up here until they're accepted.")
+                EmptyStateView(
+                    title: "No outgoing requests",
+                    message: "Requests you send will show up here until they\u{2019}re accepted.",
+                    systemImage: "paperplane"
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List(friendService.pendingOutgoing) { request in
                     OutgoingRequestRow(

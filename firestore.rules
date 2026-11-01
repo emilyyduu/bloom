@@ -413,12 +413,14 @@ service cloud.firestore {
       }
     }
 
-    // Username reservations: usernames/{usernameLower}. Anyone signed in can
-    // look up one name (get, never list) to see whether it is free. A name can
+    // Username reservations: usernames/{usernameLower}. Anyone, signed in or
+    // not, can look up one name (get, never list) so Sign Up can say a name
+    // is taken before an account exists. The document only holds a uid and a
+    // date. A name can
     // be claimed only while nobody holds it, as yourself, and is never
     // updated. Only the holder can release it.
     match /usernames/{name} {
-      allow get: if signedIn();
+      allow get: if true;
 
       allow create: if signedIn()
         && !exists(/databases/$(database)/documents/usernames/$(name))

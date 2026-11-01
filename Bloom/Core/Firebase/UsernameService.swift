@@ -29,6 +29,11 @@ enum UsernameService {
         return snapshot.exists ? snapshot.get("uid") as? String : nil
     }
 
+    // True when nobody holds the name. Works before sign in, for Sign Up.
+    static func isAvailable(_ lower: String) async throws -> Bool {
+        try await owner(of: lower) == nil
+    }
+
     // Adds the claim for `lower` to the batch. Throws .taken when someone
     // else holds it. A reservation I already hold needs no write.
     static func claim(_ lower: String, uid: String, in batch: WriteBatch) async throws {

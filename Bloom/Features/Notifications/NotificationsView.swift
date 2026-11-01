@@ -84,10 +84,10 @@ struct NotificationsView: View {
                 if activity.isLoading && isEmpty && activity.errorMessage == nil {
                     ProgressView("Loading")
                 } else if isEmpty && activity.errorMessage == nil {
-                    ContentUnavailableView(
-                        "Nothing new",
-                        systemImage: "bell",
-                        description: Text("Friend requests and activity will show up here.")
+                    EmptyStateView(
+                        title: "Nothing new",
+                        message: "Friend requests and activity will show up here.",
+                        systemImage: "bell"
                     )
                 }
             }
