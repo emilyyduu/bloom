@@ -373,16 +373,15 @@ private struct NoteDetailScaffold<NoteBody: View, Menu: View>: View {
                         focusInput: { isInputFocused = true }
                     )
                     .id("comments")
+                    // Part of the scrolling content, not pinned to the bottom.
+                    if commentsEnabled {
+                        CommentInputBar(listener: listener, draft: draft, isFocused: $isInputFocused, isEmbedded: true)
+                    }
                 }
                 .padding(Theme.Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .scrollDismissesKeyboard(.interactively)
-            .safeAreaInset(edge: .bottom) {
-                if commentsEnabled {
-                    CommentInputBar(listener: listener, draft: draft, isFocused: $isInputFocused)
-                }
-            }
             .task {
                 guard focusComments || scrollToComments, commentsEnabled else { return }
                 try? await Task.sleep(for: .milliseconds(350))

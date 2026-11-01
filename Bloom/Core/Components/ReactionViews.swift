@@ -8,6 +8,10 @@ struct ReactionsSection: View {
     @ObservedObject var listener: NoteReactionsListener
     // On a Today's Notes card the heading is left out to save height.
     var isCompact = false
+    // When set, the host presents the reactors sheet itself. A card that
+    // already presents other sheets does that, as a sheet from inside the
+    // card didn't open.
+    var onShowReactors: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isShowingReactors = false
@@ -54,7 +58,9 @@ struct ReactionsSection: View {
                 }
 
                 if !listener.reactions.isEmpty {
-                    Button("See who reacted") { isShowingReactors = true }
+                    Button("See who reacted") {
+                        if let onShowReactors { onShowReactors() } else { isShowingReactors = true }
+                    }
                         .textStyle(.callout)
                         .frame(minHeight: 44)
                 }
@@ -122,7 +128,7 @@ private struct ReactionButton: View {
 
 // Who reacted and with what, newest first. Reads the same live listener
 // as the row, so it stays current while open.
-private struct ReactorsSheet: View {
+struct ReactorsSheet: View {
     @ObservedObject var listener: NoteReactionsListener
 
     @Environment(\.dismiss) private var dismiss

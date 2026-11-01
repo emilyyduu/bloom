@@ -33,11 +33,13 @@ struct DraftsView: View {
         NavigationStack {
             Group {
                 if drafts.isEmpty {
-                    ContentUnavailableView(
-                        "No drafts",
-                        systemImage: "doc.text",
-                        description: Text("Notes you save as drafts show up here.")
+                    EmptyStateView(
+                        title: "No drafts",
+                        message: "Notes you save as drafts show up here.",
+                        systemImage: "doc.text"
                     )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Theme.Colors.background)
                 } else {
                     List {
                         ForEach(drafts) { draft in
@@ -80,7 +82,6 @@ struct DraftsView: View {
                     }
                     .scrollContentBackground(.hidden)
                     .background(Theme.Colors.background)
-                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Drafts")

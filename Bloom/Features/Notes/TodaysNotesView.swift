@@ -32,6 +32,8 @@ struct TodaysNotesView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedID: UUID?
     @State private var isShowingComposer = false
+    @State private var detail: NoteDetailRequest?
+    @State private var reactorsListener: NoteReactionsListener?
     @StateObject private var draftStore = CommentDraftStore()
 
     private static let cardWidthFraction: CGFloat = 0.9
@@ -59,6 +61,13 @@ struct TodaysNotesView: View {
         }
         .sheet(isPresented: $isShowingComposer) {
             NoteComposerView()
+        }
+        .sheet(item: $detail) { NoteDetailSheet(request: $0) }
+        .sheet(isPresented: Binding(
+            get: { reactorsListener != nil },
+            set: { if !$0 { reactorsListener = nil } }
+        )) {
+            if let reactorsListener { ReactorsSheet(listener: reactorsListener) }
         }
     }
 
@@ -101,7 +110,9 @@ struct TodaysNotesView: View {
                             TodaysNoteCard(
                                 note: note,
                                 isSelected: note.id == currentID,
-                                draft: draftStore.draft(for: note.id)
+                                draft: draftStore.draft(for: note.id),
+                                onOpenDetail: { detail = $0 },
+                                onShowReactors: { reactorsListener = $0 }
                             )
                             // The space between the side margins, which is
                             // about 90 percent of the width, so the next
@@ -193,6 +204,10 @@ private struct TodaysNoteCard: View {
     let note: Note
     let isSelected: Bool
     @ObservedObject var draft: CommentDraft
+    // The carousel presents the detail and reactors sheets, so they don't
+    // depend on a card inside a lazy scroll view staying put.
+    let onOpenDetail: (NoteDetailRequest) -> Void
+    let onShowReactors: (NoteReactionsListener) -> Void
 
     @Environment(\.modelContext) private var context
     @Environment(\.verticalSizeClass) private var verticalSizeClass
@@ -206,14 +221,21 @@ private struct TodaysNoteCard: View {
     @ObservedObject private var blocks = BlockService.shared
     @ObservedObject private var reactionCounts = ReactionCounts.shared
     @FocusState private var isInputFocused: Bool
-    @State private var detail: NoteDetailRequest?
     // Below this card height (a small iPhone) only the latest comment shows.
     @ScaledMetric(relativeTo: .body) private var tightHeight: CGFloat = 520
 
-    init(note: Note, isSelected: Bool, draft: CommentDraft) {
+    init(
+        note: Note,
+        isSelected: Bool,
+        draft: CommentDraft,
+        onOpenDetail: @escaping (NoteDetailRequest) -> Void,
+        onShowReactors: @escaping (NoteReactionsListener) -> Void
+    ) {
         self.note = note
         self.isSelected = isSelected
         self.draft = draft
+        self.onOpenDetail = onOpenDetail
+        self.onShowReactors = onShowReactors
         _actions = StateObject(wrappedValue: NoteActionController(note: note))
         _quick = StateObject(wrappedValue: NoteQuickAttach(note: note))
     }
@@ -239,7 +261,6 @@ private struct TodaysNoteCard: View {
             .accessibilityElement(children: .contain)
             .noteActionDialogs(actions)
             .quickAttachPresentations(quick)
-            .sheet(item: $detail) { NoteDetailSheet(request: $0) }
             .onAppear { actions.context = context }
             // Comments and reactions are live only for the selected card,
             // the others show lazily loaded counts.
@@ -323,7 +344,7 @@ private struct TodaysNoteCard: View {
                         if !isShared {
                             onlyYouBlock
                         } else if isSelected {
-                            ReactionsSection(listener: reactions, isCompact: true)
+                            ReactionsSection(listener: reactions, isCompact: true, onShowReactors: { onShowReactors(reactions) })
                             commentsHeader
                             commentsList(limit: nil)
                         } else {
@@ -426,8 +447,8 @@ private struct TodaysNoteCard: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { detail = .mine(note) }
-        .accessibilityAction(named: Text("Open note details")) { detail = .mine(note) }
+        .onTapGesture { onOpenDetail(.mine(note)) }
+        .accessibilityAction(named: Text("Open note details")) { onOpenDetail(.mine(note)) }
     }
 
     // MARK: Footer
@@ -445,10 +466,12 @@ private struct TodaysNoteCard: View {
                 onlyYouBlock
             } else if isSelected {
                 if !isInputFocused {
-                    ReactionsSection(listener: reactions, isCompact: true)
+                    ReactionsSection(listener: reactions, isCompact: true, onShowReactors: { onShowReactors(reactions) })
                 }
                 commentsHeader
-                commentsList(limit: isTight ? 1 : 2)
+                // Just the latest comment, so the note keeps the room.
+                // "View all comments" opens the rest.
+                commentsList(limit: 1)
                 inputBar
             } else {
                 countsBlock
@@ -513,7 +536,7 @@ private struct TodaysNoteCard: View {
 
     private var viewAllButton: some View {
         Button("View all comments") {
-            detail = .mine(note, scrollToComments: true)
+            onOpenDetail(.mine(note, scrollToComments: true))
         }
         .textStyle(.callout)
         .frame(minHeight: 44)
