@@ -1,0 +1,79 @@
+import SwiftUI
+
+// The people list: incoming requests, my friends and Add Friend.
+struct FriendsView: View {
+    @StateObject private var friendService = FriendService.shared
+    @State private var isShowingAddFriend = false
+
+    var body: some View {
+        List {
+            Section {
+                NavigationLink {
+                    RequestsView()
+                } label: {
+                    HStack {
+                        Label("Requests", systemImage: "person.crop.circle.badge.clock")
+                        Spacer()
+                        if !friendService.pendingIncoming.isEmpty {
+                            Text("\(friendService.pendingIncoming.count)")
+                                .foregroundStyle(Theme.Colors.textSecondary)
+                        }
+                    }
+                }
+            }
+
+            Section {
+                ForEach(friendService.friends) { friend in
+                    NavigationLink {
+                        FriendProfileView(friend: friend)
+                    } label: {
+                        HStack(spacing: Theme.Spacing.md) {
+                            AvatarView(user: friend, size: 40)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(friend.shownName)
+                                Text("@\(friend.username)")
+                                    .textStyle(.callout)
+                                    .foregroundStyle(Theme.Colors.textSecondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Theme.Colors.background)
+        .overlay {
+            if friendService.friends.isEmpty && friendService.pendingIncoming.isEmpty {
+                EmptyStateView(
+                    title: "No friends yet",
+                    message: "Add someone to start sharing notes.",
+                    systemImage: "person.2"
+                )
+            }
+        }
+        .navigationTitle("Friends")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    isShowingAddFriend = true
+                } label: {
+                    Image(systemName: "person.badge.plus")
+                }
+                .accessibilityLabel("Add friend")
+            }
+        }
+        .sheet(isPresented: $isShowingAddFriend) {
+            AddFriendView()
+        }
+        .task {
+            friendService.startListening()
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        FriendsView()
+    }
+}

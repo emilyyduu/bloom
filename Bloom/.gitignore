@@ -5,3 +5,17 @@
 //  Created by Emily Du on 25/9/2026.
 //
 
+# Claude
+CLAUDE.md
+
+# Firebase config
+GoogleService-Info.plist
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+build/
+
+# macOS
+.DS_Store

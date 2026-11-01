@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>Monash.Bloom</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bloom</string>
+				<string>app-1-296924217761-ios-c9d7d438f1b41a243f8be0</string>
+			</array>
+		</dict>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>TMDBAPIKey</key>
+	<string>$(TMDB_API_KEY)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>DMSans_18pt-SemiBold.ttf</string>
+		<string>DMSans_18pt-Regular.ttf</string>
+		<string>DMSans_18pt-Medium.ttf</string>
+		<string>DMSans_18pt-Bold.ttf</string>
+	</array>
+</dict>
+</plist>
