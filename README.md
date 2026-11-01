@@ -6,9 +6,15 @@ Bloom is a journaling app for iOS, private unless you choose to share. Through t
 
 Built for FIT3178 (iOS App Development) at Monash University by Emily Du (student ID 34942238).
 
-## Status
+## Testing Details
 
-The app is complete for the unit submission. Everything listed below is built and in the repository. Anything that isn't built is listed under [Known limitations](#known-limitations).
+Login Details
+Use the **Email** option on the Log In screen with either account.
+
+| User | Email | Password |
+|---|---|---|
+| User 1 | test@example.com | password |
+| User 2 | emily@example.com | password |
 
 ## Features
 

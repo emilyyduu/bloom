@@ -629,10 +629,20 @@ describe('unique usernames', () => {
 
     test('only the owner can delete it', async () => {
       await seedReservation('erin_1', 'erin');
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(userDoc(ctx.firestore(), 'erin'), profile());
+      });
       await assertFails(deleteDoc(reservationDoc(as(DAVE), 'erin_1')));
       await assertFails(deleteDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1')));
       await assertSucceeds(deleteDoc(reservationDoc(as('erin'), 'erin_1')));
       await assertSucceeds(setDoc(reservationDoc(as(DAVE), 'erin_1'), reservation(DAVE)));
+    });
+
+    test('a name whose holder has no profile can be cleared by anyone signed in', async () => {
+      await seedReservation('erin_1', 'ghost');
+      await assertFails(deleteDoc(reservationDoc(env.unauthenticatedContext().firestore(), 'erin_1')));
+      await assertSucceeds(deleteDoc(reservationDoc(as(DAVE), 'erin_1')));
+      await assertSucceeds(setDoc(reservationDoc(as('erin'), 'erin_1'), reservation('erin')));
     });
 
     test('deleting a name nobody holds is refused', async () => {

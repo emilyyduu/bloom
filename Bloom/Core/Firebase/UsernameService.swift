@@ -35,13 +35,30 @@ enum UsernameService {
     }
 
     // Adds the claim for `lower` to the batch. Throws .taken when someone
-    // else holds it. A reservation I already hold needs no write.
+    // else holds it. A reservation I already hold needs no write. One left
+    // behind by an account with no profile is cleared first, so it can't
+    // keep a name locked forever.
     static func claim(_ lower: String, uid: String, in batch: WriteBatch) async throws {
-        guard let holder = try await owner(of: lower) else {
-            batch.setData(["uid": uid, "createdAt": Date()], forDocument: reference(for: lower))
-            return
+        if let holder = try await owner(of: lower) {
+            if holder == uid { return }
+            guard try await isOrphaned(lower, heldBy: holder) else { throw UsernameError.taken }
         }
-        if holder != uid { throw UsernameError.taken }
+        batch.setData(["uid": uid, "createdAt": Date()], forDocument: reference(for: lower))
+    }
+
+    // Deletes the reservation when its holder has no profile. The claim's own
+    // batch can't do it, because the rules check that the name is free before
+    // the batch, so this is a separate write. Returns false if the holder is
+    // real or the delete is refused, so the name stays taken.
+    private static func isOrphaned(_ lower: String, heldBy holder: String) async throws -> Bool {
+        let profile = try await db.collection("users").document(holder).getDocument(source: .server)
+        guard !profile.exists else { return false }
+        do {
+            try await reference(for: lower).delete()
+            return true
+        } catch {
+            return false
+        }
     }
 
     // Adds the release of `lower` to the batch, only when I hold it. A name

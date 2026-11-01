@@ -105,7 +105,10 @@ struct TodaysNotesView: View {
 
             GeometryReader { proxy in
                 ScrollView(.horizontal) {
-                    LazyHStack(spacing: Theme.Spacing.sm) {
+                    // A plain HStack: a day has few notes, and a lazy stack
+                    // could lay out the very first card at zero size when
+                    // the carousel replaces the empty state.
+                    HStack(spacing: Theme.Spacing.sm) {
                         ForEach(todaysNotes) { note in
                             TodaysNoteCard(
                                 note: note,
@@ -114,10 +117,14 @@ struct TodaysNotesView: View {
                                 onOpenDetail: { detail = $0 },
                                 onShowReactors: { reactorsListener = $0 }
                             )
-                            // The space between the side margins, which is
-                            // about 90 percent of the width, so the next
-                            // card peeks in, and the full height.
-                            .containerRelativeFrame([.horizontal, .vertical])
+                            // About 90 percent of the width, so the next
+                            // card peeks in, and the full height. Sized
+                            // from the proxy rather than the container,
+                            // so it is never zero on the first layout.
+                            .frame(
+                                width: max(proxy.size.width * Self.cardWidthFraction, 1),
+                                height: max(proxy.size.height, 1)
+                            )
                         }
                     }
                     .scrollTargetLayout()
