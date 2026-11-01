@@ -70,16 +70,20 @@ struct NotificationsView: View {
                         }
                     }
                 }
-
-                Section {
-                    EmptyView()
-                } footer: {
-                    Text("Updates appear while Bloom is open.")
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
             }
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
+            // Pinned to the bottom rather than as a list footer, which
+            // floats mid-screen when the list is empty.
+            .safeAreaInset(edge: .bottom) {
+                Text("Updates appear while Bloom is open.")
+                    .textStyle(.caption)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, Theme.Spacing.screenEdge)
+                    .padding(.vertical, Theme.Spacing.sm)
+            }
             .overlay {
                 if activity.isLoading && isEmpty && activity.errorMessage == nil {
                     ProgressView("Loading")

@@ -254,15 +254,29 @@ struct HomeView: View {
     }
 
     private var emptyTimelineState: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            Text("What’s happening?")
-                .textStyle(.callout)
-                .foregroundStyle(Theme.Colors.textSecondary)
+        // Same placeholder as the Journal's Today's Notes screen.
+        VStack(spacing: Theme.Spacing.lg) {
+            VStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "note.text")
+                    .textStyle(.display)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .accessibilityHidden(true)
+                Text("What’s happening?")
+                    .textStyle(.heading)
+                Text("Notes you add today will appear here.")
+                    .textStyle(.callout)
+                    .foregroundStyle(Theme.Colors.textSecondary)
+            }
+            .multilineTextAlignment(.center)
+            .accessibilityElement(children: .combine)
+
             Button("Add Note") {
                 isShowingComposer = true
             }
             .buttonStyle(.bloomPrimary)
         }
+        .padding(.horizontal, Theme.Spacing.screenEdge)
+        .frame(maxWidth: 400)
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.xxl)
     }

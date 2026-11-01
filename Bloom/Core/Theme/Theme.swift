@@ -233,6 +233,14 @@ enum Theme {
         appearance.configureWithDefaultBackground()
         appearance.titleTextAttributes = [.font: font]
 
+        // Large titles (Friends, Circles, Settings) use the title style.
+        let largeStyle = TextStyle.title
+        let largeBase = UIFont(name: Typeface.name(for: largeStyle.weight), size: largeStyle.size)
+            ?? UIFont.systemFont(ofSize: largeStyle.size, weight: .bold)
+        appearance.largeTitleTextAttributes = [
+            .font: UIFontMetrics(forTextStyle: .title1).scaledFont(for: largeBase)
+        ]
+
         let bar = UINavigationBar.appearance()
         bar.standardAppearance = appearance
         bar.compactAppearance = appearance

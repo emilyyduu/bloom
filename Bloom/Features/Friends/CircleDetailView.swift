@@ -47,6 +47,16 @@ struct CircleDetailView: View {
 
         List {
             Section {
+                if members.isEmpty {
+                    EmptyStateView(
+                        title: "No one in this circle yet",
+                        message: "Choose friends to add to it.",
+                        systemImage: "person.2"
+                    )
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
                 ForEach(members) { member in
                     NavigationLink {
                         FriendProfileView(friend: member)
@@ -69,8 +79,10 @@ struct CircleDetailView: View {
                     .accessibilityAction(named: "Remove from circle") { remove(member, from: circle) }
                 }
             } header: {
-                Text("\(members.count) of \(CircleLimits.maxMembers)")
-                    .accessibilityAddTraits(.isHeader)
+                if !members.isEmpty {
+                    Text("\(members.count) of \(CircleLimits.maxMembers)")
+                        .accessibilityAddTraits(.isHeader)
+                }
             }
 
             Section {
@@ -105,20 +117,6 @@ struct CircleDetailView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Theme.Colors.background)
-        .overlay {
-            if members.isEmpty {
-                EmptyStateView(
-                    title: "No one in this circle yet",
-                    message: "Choose friends to add to it.",
-                    systemImage: "person.2"
-                ) {
-                    Button("Add people") { isShowingAddPeople = true }
-                        .buttonStyle(.bloomPrimary)
-                }
-                // Sits above the list's action rows without covering them.
-                .padding(.bottom, 220)
-            }
-        }
         .sheet(isPresented: $isShowingAddPeople) {
             AddPeopleSheet(circle: circle)
         }

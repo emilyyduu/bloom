@@ -53,25 +53,6 @@ struct CirclesView: View {
                     .accessibilityAction(named: "Rename") { circleToRename = circle }
                     .accessibilityAction(named: "Delete") { circleToDelete = circle }
                 }
-            } footer: {
-                Text("Only you can see your circles.")
-            }
-
-            if circleStore.circles.isEmpty && circleStore.state == .loaded {
-                Section {
-                    EmptyStateView(
-                        title: "Add more circles",
-                        message: "Group friends you want to see together.",
-                        systemImage: "circle.grid.2x2"
-                    ) {
-                        Button("New circle") { addCircle() }
-                            .buttonStyle(.bloomPrimary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.xxl)
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                }
             }
 
             if let message = circleStore.errorMessage {
@@ -86,6 +67,31 @@ struct CirclesView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Theme.Colors.background)
+        // Centred in the screen, like the empty state in Notifications.
+        .overlay {
+            if circleStore.circles.isEmpty && circleStore.state == .loaded {
+                EmptyStateView(
+                    title: "Add more circles",
+                    message: "Group friends you want to see together.",
+                    systemImage: "circle.grid.2x2"
+                ) {
+                    Button("New circle") { addCircle() }
+                        .buttonStyle(.bloomPrimary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        // Pinned to the bottom rather than as a list footer, which
+        // floats mid-screen when there are no circles.
+        .safeAreaInset(edge: .bottom) {
+            Text("Only you can see your circles.")
+                .textStyle(.caption)
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Theme.Spacing.screenEdge)
+                .padding(.vertical, Theme.Spacing.sm)
+        }
         .navigationTitle("Circles")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

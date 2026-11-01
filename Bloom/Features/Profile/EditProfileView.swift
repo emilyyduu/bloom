@@ -110,6 +110,7 @@ struct EditProfileView: View {
         .scrollContentBackground(.hidden)
         .background(Theme.Colors.background)
         .navigationTitle("Edit Profile")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 if isSaving {

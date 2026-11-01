@@ -5,9 +5,11 @@ import SwiftUI
 struct AddFriendView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var friendService = FriendService.shared
+    @ObservedObject private var blockService = BlockService.shared
 
     @State private var query = ""
     @State private var results: [FirestoreUser] = []
+    @State private var hasSearched = false
     @State private var isSearching = false
     @State private var errorMessage: String?
     @State private var requestErrorMessage: String?
@@ -40,6 +42,8 @@ struct AddFriendView: View {
                             systemImage: "exclamationmark.triangle",
                             description: Text(errorMessage)
                         )
+                    } else if hasSearched, results.isEmpty {
+                        ContentUnavailableView.search(text: query)
                     }
                 }
 
@@ -66,6 +70,16 @@ struct AddFriendView: View {
 
     @ViewBuilder
     private func actionView(for user: FirestoreUser) -> some View {
+        if blockService.isBlocked(user.id) {
+            Button("Unblock") { unblock(user) }
+                .buttonStyle(.bordered)
+        } else {
+            relationshipAction(for: user)
+        }
+    }
+
+    @ViewBuilder
+    private func relationshipAction(for user: FirestoreUser) -> some View {
         switch relationship(for: user) {
         case .friends:
             Text("Friends")
@@ -94,11 +108,24 @@ struct AddFriendView: View {
         Task {
             do {
                 results = try await friendService.searchByUsername(query)
-                    .filter { !BlockService.shared.isBlocked($0.id) }
+                hasSearched = true
             } catch {
                 errorMessage = "Check your connection and try again."
             }
             isSearching = false
+        }
+    }
+
+    // Unblocking doesn't restore the friendship, the button turns into Add.
+    private func unblock(_ user: FirestoreUser) {
+        guard let id = user.id else { return }
+        requestErrorMessage = nil
+        Task {
+            do {
+                try await blockService.unblock(uid: id)
+            } catch {
+                requestErrorMessage = error.localizedDescription
+            }
         }
     }
 
