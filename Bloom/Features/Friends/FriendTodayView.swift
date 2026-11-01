@@ -46,12 +46,14 @@ struct FriendTodayView: View {
         case .loading:
             VStack(spacing: 0) {
                 header
+                    .padding(Theme.Spacing.screenEdge)
                 ProgressView("Loading notes")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         case .permissionDenied:
             VStack(spacing: 0) {
                 header
+                    .padding(Theme.Spacing.screenEdge)
                 ContentUnavailableView(
                     "You can\u{2019}t see this friend\u{2019}s notes",
                     systemImage: "lock",
@@ -62,6 +64,7 @@ struct FriendTodayView: View {
         case .failed, .missingIndex:
             VStack(spacing: 0) {
                 header
+                    .padding(Theme.Spacing.screenEdge)
                 ContentUnavailableView {
                     Label("Couldn\u{2019}t load notes", systemImage: "exclamationmark.triangle")
                 } description: {
@@ -77,6 +80,7 @@ struct FriendTodayView: View {
         case .loaded where listener.notes.isEmpty:
             VStack(spacing: 0) {
                 header
+                    .padding(Theme.Spacing.screenEdge)
                 ContentUnavailableView(
                     "Nothing shared today",
                     systemImage: "tray",
@@ -86,7 +90,7 @@ struct FriendTodayView: View {
             }
         case .loaded:
             ScrollView {
-                VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                     header
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(Array(listener.notes.enumerated()), id: \.element.id) { position, note in
@@ -101,7 +105,9 @@ struct FriendTodayView: View {
                         }
                     }
                 }
-                .padding(Theme.Spacing.lg)
+                .padding(.horizontal, Theme.Spacing.screenEdge)
+                .padding(.top, Theme.Spacing.sm)
+                .padding(.bottom, Theme.Spacing.xl)
                 .frame(maxWidth: 700, alignment: .leading)
                 .frame(maxWidth: .infinity)
             }
@@ -110,17 +116,17 @@ struct FriendTodayView: View {
 
     // "Alex's notes" with the day under it, for the day the listener is on.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(title)
-                .textStyle(.heading)
-                .fontWeight(.bold)
+                .textStyle(.title)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
                 .accessibilityAddTraits(.isHeader)
             Text(Self.dayFormatter.string(from: listener.day.start))
                 .textStyle(.callout)
                 .foregroundStyle(Theme.Colors.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding([.horizontal, .top])
         .accessibilityElement(children: .combine)
     }
 

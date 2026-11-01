@@ -8,14 +8,12 @@ struct ContentView: View {
         case home, journal, add, greenhouse, profile
     }
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedTab: Tab = .home
     @State private var tabBeforeAdd: Tab = .home
     @State private var isShowingComposer = false
     @State private var isShowingDrafts = false
 
     @StateObject private var friendService = FriendService.shared
-    @StateObject private var draftSaveBanner = DraftSaveBanner.shared
     @StateObject private var linkCoordinator = ProfileLinkCoordinator.shared
     @StateObject private var router = ActivityRouter.shared
     @StateObject private var activity = ActivityStore.shared
@@ -34,12 +32,14 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             HomeView(selectedTab: $selectedTab)
+                .draftSavedBannerInset(isShowingDrafts: $isShowingDrafts)
                 .tabItem {
                     Label("Home", systemImage: "house")
                 }
                 .tag(Tab.home)
 
             JournalView()
+                .draftSavedBannerInset(isShowingDrafts: $isShowingDrafts)
                 .tabItem {
                     Label("Journal", systemImage: "book")
                 }
@@ -53,12 +53,14 @@ struct ContentView: View {
                 .tag(Tab.add)
 
             GreenhouseView()
+                .draftSavedBannerInset(isShowingDrafts: $isShowingDrafts)
                 .tabItem {
                     Label("Greenhouse", systemImage: "leaf")
                 }
                 .tag(Tab.greenhouse)
 
             ProfileView()
+                .draftSavedBannerInset(isShowingDrafts: $isShowingDrafts)
                 .tabItem {
                     Label("Profile", systemImage: "person")
                 }
@@ -110,21 +112,6 @@ struct ContentView: View {
         } message: {
             Text("Someone else already has your username. Open Profile, then Edit Profile, to choose a new one.")
         }
-        // Reserves space above the tab bar for the "Saved to Drafts"
-        // banner rather than overlaying it, so the tab bar is never
-        // covered and its taps are never blocked.
-        .safeAreaInset(edge: .bottom) {
-            if draftSaveBanner.isShowing {
-                DraftSavedBanner {
-                    draftSaveBanner.dismiss()
-                    isShowingDrafts = true
-                }
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.bottom, Theme.Spacing.xs)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
         // The app icon badge follows requests waiting plus unread activity.
         .onChange(of: friendService.pendingIncoming.count + activity.unreadCount) { _, count in
             NotificationBadge.shared.update(unread: count)
@@ -169,6 +156,38 @@ struct ContentView: View {
     }
 }
 
+// Reserves space above the tab bar for the "Saved to Drafts" banner
+// rather than overlaying it, so the tab bar is never covered and its
+// taps are never blocked. Applied inside each tab so the inset sits
+// above the tab bar, not beneath it.
+private struct DraftSavedBannerInset: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObservedObject private var draftSaveBanner = DraftSaveBanner.shared
+    @Binding var isShowingDrafts: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom) {
+                if draftSaveBanner.isShowing {
+                    DraftSavedBanner {
+                        draftSaveBanner.dismiss()
+                        isShowingDrafts = true
+                    }
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.xs)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: draftSaveBanner.isShowing)
+    }
+}
+
+private extension View {
+    func draftSavedBannerInset(isShowingDrafts: Binding<Bool>) -> some View {
+        modifier(DraftSavedBannerInset(isShowingDrafts: isShowingDrafts))
+    }
+}
+
 // The transient confirmation shown after "Save as Draft". A View
 // button opens Drafts directly.
 private struct DraftSavedBanner: View {
@@ -182,10 +201,15 @@ private struct DraftSavedBanner: View {
             Button("View", action: onView)
                 .textStyle(.callout)
                 .fontWeight(.semibold)
+                .underline()
         }
+        // The solid action fill (and its matching text colour) stands
+        // out from the page background, unlike the translucent material.
+        .foregroundStyle(Theme.Colors.onActionFill)
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.md)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+        .background(Theme.Colors.actionFill, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
     }
 }
 

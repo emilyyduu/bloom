@@ -210,14 +210,9 @@ struct NoteComposerView: View {
             // when the keyboard is down.
             .safeAreaInset(edge: .bottom, spacing: 0) { toolsBar }
             .toolbar {
-                // The navigation title can't take the heading typeface, so the
-                // visible title is drawn here and .navigationTitle stays for
-                // accessibility and the back label.
-                ToolbarItem(placement: .principal) {
-                    Text(composerTitle)
-                        .textStyle(.heading)
-                        .accessibilityAddTraits(.isHeader)
-                }
+                // The system inline title, since a principal item is only
+                // centred between the buttons, and the wide "Add to Today"
+                // button pushes it off the screen's centre.
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { handleCancel() }
                 }

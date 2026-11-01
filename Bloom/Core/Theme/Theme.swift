@@ -216,6 +216,30 @@ enum Theme {
         }
     }
 
+    // MARK: - Navigation bar
+    // SwiftUI's .navigationTitle can't take a font, so the heading typeface
+    // is applied to the inline title through UIKit. Call once at launch.
+
+    @MainActor
+    static func applyNavigationBarAppearance() {
+        let style = TextStyle.heading
+        let name = Typeface.name(for: style.weight)
+        // Falls back to SF Pro when DM Sans isn't in the bundle.
+        let base = UIFont(name: name, size: style.size)
+            ?? UIFont.systemFont(ofSize: style.size, weight: .semibold)
+        let font = UIFontMetrics(forTextStyle: .title2).scaledFont(for: base)
+
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.titleTextAttributes = [.font: font]
+
+        let bar = UINavigationBar.appearance()
+        bar.standardAppearance = appearance
+        bar.compactAppearance = appearance
+        bar.scrollEdgeAppearance = appearance
+        bar.compactScrollEdgeAppearance = appearance
+    }
+
     // MARK: - Spacing
 
     enum Spacing {

@@ -7,6 +7,10 @@ struct BloomApp: App {
     // Sets the notification delegate and registers the categories at launch.
     @UIApplicationDelegateAdaptor(NotificationAppDelegate.self) private var appDelegate
 
+    init() {
+        Theme.applyNavigationBarAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             // Without GoogleService-Info.plist Firebase is never configured, so the
