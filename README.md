@@ -64,7 +64,7 @@ Use the **Email** option on the Log In screen with either account.
 ## How privacy works
 
 - Notes, drafts and photos are saved locally in SwiftData first
-- A backup of each note is kept at `users/{uid}/notes`. The intent is that only its owner can read it unless the note is marked shared, and the Firestore rules in `firebase/firestore.rules` enforce this. They are tested in `firebase/rules-tests/` (see Firestore rules below)
+- A backup of each note is kept at `users/{uid}/notes`. The intent is that only its owner can read it unless the note is marked shared, and the Firestore rules in `firestore.rules` enforce this. They are tested in `rules-tests/` (see Firestore rules below)
 - A shared note can be read by your accepted friends, who can then comment, reply and react
 - In the app, friends see only the notes you shared today and your pinned notes. The Firestore rules still allow an accepted friend to read a note you shared in the last 30 hours, or any shared note you pinned, so the exact "today only" limit is enforced by the app, not the database
 
@@ -99,7 +99,7 @@ Dependencies are added with Swift Package Manager: the Firebase iOS SDK 12.19.2 
 2. Create a project at [console.firebase.google.com](https://console.firebase.google.com) and add an iOS app with the bundle identifier `Monash.Bloom` (or change it in the target and use your own).
 3. Under Authentication, Sign-in method, enable **Phone** and **Email/Password**. Create a Firestore database.
 4. Add `GoogleService-Info.plist` to the `Bloom` folder (next to `Info.plist`) and to the Bloom target. It is provided with the submission. **The app cannot start without it**: `FirebaseApp.configure()` fails at launch. **Do not commit this file.** It is listed in `.gitignore`.
-5. Deploy the Firestore rules and indexes in `firebase/firestore.rules` and `firebase/firestore.indexes.json` (see Firestore rules below).
+5. Deploy the Firestore rules and indexes in `firestore.rules` and `firestore.indexes.json` (see Firestore rules below).
 6. Get a free API key from [themoviedb.org](https://www.themoviedb.org). Copy `Config/Secrets.example.xcconfig` to `Config/Secrets.xcconfig` and set `TMDB_API_KEY` in it. That file is gitignored, and `Info.plist` reads the key from it. Without a key the app still builds and runs, but movie and show search shows "Movie search is not available in this build."
 7. Choose an iPhone simulator and run. The camera and microphone usage descriptions are already set in the target's build settings.
 
@@ -134,17 +134,17 @@ Email sign-up works everywhere, so use it on simulators. To test friends, run tw
 
 ## Firestore rules
 
-The rules are in `firebase/firestore.rules`, with `firebase.json` and `firestore.indexes.json` beside it. The emulator tests are in `firebase/rules-tests/`.
+The rules are in `firestore.rules`, with `firebase.json` and `firestore.indexes.json` beside it. The emulator tests are in `rules-tests/`.
 
-The rules are tested in `firebase/rules-tests/` with the Firestore emulator (needs Node and Java; the first run downloads the emulator). `npm test` runs 87 tests: 86 pass and 1 is marked todo.
+The rules are tested in `rules-tests/` with the Firestore emulator (needs Node and Java; the first run downloads the emulator). `npm test` runs 87 tests: 86 pass and 1 is marked todo.
 
 ```
-cd firebase/rules-tests
+cd rules-tests
 npm install
 npm test
 ```
 
-Deploy the rules and indexes from the `firebase/` folder after the tests pass (log in once with `npx firebase-tools login`):
+Deploy the rules and indexes from the repo root after the tests pass (log in once with `npx firebase-tools login`):
 
 ```
 npx firebase-tools deploy --only firestore:rules,firestore:indexes --project <your project id>
@@ -167,44 +167,30 @@ What the rules enforce for friends: an accepted friend can read a shared note on
 Bloom/
 ├── Bloom/                       # The app
 │   ├── App/                     # BloomApp, ContentView (the tab bar), PreviewContainer
-│   ├── DesignSystem/            # Theme (colours, light and dark) and Components/ (reusable UI with no feature knowledge)
-│   ├── Models/                  # Note, Journal, MediaLogEntry, circles, growth state
-│   ├── Services/                # Non-UI logic, one folder per domain
-│   │   ├── Auth/                # Sign in, usernames, phone numbers, validators
-│   │   ├── Account/             # Account deletion, per account defaults
-│   │   ├── Avatars/             # Avatar store, cache and the current user's avatar
-│   │   ├── Notes/               # Note backup, comments, reactions, photo and audio stores
-│   │   ├── Friends/             # Friend requests, friends' journals, circles, profile links
-│   │   ├── Media/               # Library backup and the TMDB client
-│   │   ├── Activity/            # Activity feed
-│   │   ├── Safety/              # Blocking and reporting
-│   │   ├── Garden/  Streaks/    # Greenhouse plants, streak calculation and sync
-│   │   ├── Persistence/         # Local SwiftData store management
-│   │   └── Shared/              # Firestore helpers, live state timeouts
-│   ├── Features/                # Screens, one folder per feature
-│   │   ├── Auth/  Home/  Notes/  Journals/  Library/  Friends/
-│   │   ├── Greenhouse/  Profile/  Settings/
-│   │   ├── Safety/              # Report sheet, blocked people
-│   │   └── Notifications/       # Views/ (screens) and System/ (delegate, scheduling, routing)
 │   ├── Fonts/                   # DM Sans (four weights) and its licence, DMSans-OFL.txt
-│   └── PrivacyInfo.xcprivacy    # Privacy manifest
+│   ├── PrivacyInfo.xcprivacy    # Privacy manifest
+│   ├── Core/                    # Used by two or more features
+│   │   ├── Components/          # Shared views: avatars, note detail, timeline rows, reactions
+│   │   ├── Firebase/            # Auth, friends, note backup, photo and audio stores, activity
+│   │   ├── Models/              # Note, Journal, MediaLogEntry, circles, growth state
+│   │   ├── Storage/             # Per account stores, account settings, image caches
+│   │   ├── Streaks/             # Streak calculation and sync
+│   │   ├── Theme/               # Colours, with light and dark values
+│   │   └── Utilities/           # Validators, reminders, notification plumbing, TMDB client
+│   └── Features/                # Used by one feature only
+│       ├── Auth/  Home/  Notes/  Journals/  Library/
+│       └── Friends/  Greenhouse/  Notifications/  Profile/  Settings/
 ├── BloomTests/                  # Unit tests
 ├── BloomUITests/                # UI tests
 ├── Config/                      # Bloom.xcconfig and Secrets.example.xcconfig (TMDB key)
 ├── docs/                        # Legal drafts, App Review notes, moderation guide, audit history
 ├── site/                        # The hosted Privacy Policy and Terms pages (Firebase Hosting)
-├── firebase/                    # firestore.rules, firestore.indexes.json, firebase.json, .firebaserc, rules-tests/
+├── rules-tests/                 # Firestore rules emulator tests (npm test)
+├── firestore.rules, firestore.indexes.json, firebase.json
 └── Bloom.xcodeproj
 ```
 
-Where new files go:
-
-- A view used by one feature goes in `Features/<Feature>/`, even if other features present it
-- Reusable UI with no feature knowledge goes in `DesignSystem/Components/`
-- Logic that talks to Firebase, the network or storage goes in `Services/<Domain>/`
-- SwiftData and Firestore model types go in `Models/`
-- Notification code, views and plumbing, stays in `Features/Notifications/`
-- Backend files (rules, indexes, rules tests) go in `firebase/`
+If only one feature uses a file, it goes in that feature. If two or more use it, it goes in `Core`.
 
 ## Known limitations
 

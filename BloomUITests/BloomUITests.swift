@@ -13,6 +13,9 @@ final class BloomUITests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
+        // These tests start on Welcome, so the app ignores any account that
+        // is still signed in on the simulator (it isn't signed out).
+        app.launchArguments += ["-UITestingSignedOut"]
         app.launch()
     }
 

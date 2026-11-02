@@ -33,7 +33,7 @@ private struct BloomRootView: View {
             // While a log in or a new profile is being checked the main app waits and
             // WelcomeView stays mounted, so the verify screen keeps its
             // state and can show an error if the check fails.
-            if let uid = authService.uid, !authService.isHoldingMainApp {
+            if let uid = authService.uid, !authService.isHoldingMainApp, !Self.showsWelcomeForUITests {
                 // One store file per account. The id makes SwiftUI
                 // rebuild the whole signed-in UI when the account
                 // changes, so every @Query and the environment
@@ -60,6 +60,16 @@ private struct BloomRootView: View {
             if Auth.auth().canHandle(url) { return }
             ProfileLinkCoordinator.shared.handle(url)
         }
+    }
+
+    // The UI tests start on Welcome even when the simulator still has a
+    // signed-in account. Debug builds only; the account is not signed out.
+    private static var showsWelcomeForUITests: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-UITestingSignedOut")
+        #else
+        false
+        #endif
     }
 
     @ViewBuilder
