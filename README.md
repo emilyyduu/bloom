@@ -16,6 +16,12 @@ Use the **Email** option on the Log In screen with either account.
 | User 1 | test@example.com | password |
 | User 2 | emily@example.com | password |
 
+Use the **Phone** option on the Log In screen.
+
+| Phone Number | Code |
+| --- | --- |
+|  +61400000001|  111111|
+
 ## Features
 
 **Notes**
